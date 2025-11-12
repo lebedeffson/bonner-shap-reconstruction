@@ -1,0 +1,113 @@
+2025/11/12 09:43:33 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: OriginalPSO(epoch=25, pop_size=40, c1=2.05, c2=2.05, w=0.4)
+2025/11/12 09:45:09 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 1, Current best: 0.012433947794393059, Global best: 0.012433947794393059, Runtime: 48.45095 seconds
+2025/11/12 09:45:57 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 2, Current best: 0.012418831332104736, Global best: 0.012418831332104736, Runtime: 47.92458 seconds
+2025/11/12 09:46:46 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 3, Current best: 0.012378341141422064, Global best: 0.012378341141422064, Runtime: 48.18377 seconds
+2025/11/12 09:47:34 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 4, Current best: 0.012378341141422064, Global best: 0.012378341141422064, Runtime: 47.98229 seconds
+2025/11/12 09:48:23 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 5, Current best: 0.012378341141422064, Global best: 0.012378341141422064, Runtime: 48.99683 seconds
+2025/11/12 09:49:12 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 6, Current best: 0.012378341141422064, Global best: 0.012378341141422064, Runtime: 49.01949 seconds
+2025/11/12 09:50:00 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 7, Current best: 0.012336074242407928, Global best: 0.012336074242407928, Runtime: 48.75363 seconds
+2025/11/12 09:50:50 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 8, Current best: 0.012336074242407928, Global best: 0.012336074242407928, Runtime: 49.80051 seconds
+2025/11/12 09:51:40 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 9, Current best: 0.012336074242407928, Global best: 0.012336074242407928, Runtime: 49.77236 seconds
+2025/11/12 09:52:30 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 10, Current best: 0.01232814169900668, Global best: 0.01232814169900668, Runtime: 49.98940 seconds
+2025/11/12 09:53:19 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 11, Current best: 0.01232814169900668, Global best: 0.01232814169900668, Runtime: 49.29589 seconds
+2025/11/12 09:54:09 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 12, Current best: 0.01232814169900668, Global best: 0.01232814169900668, Runtime: 49.84700 seconds
+2025/11/12 09:54:59 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 13, Current best: 0.01232814169900668, Global best: 0.01232814169900668, Runtime: 50.26782 seconds
+2025/11/12 09:55:49 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 14, Current best: 0.01232814169900668, Global best: 0.01232814169900668, Runtime: 49.51533 seconds
+2025/11/12 09:56:39 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 15, Current best: 0.012203403905311754, Global best: 0.012203403905311754, Runtime: 49.93683 seconds
+2025/11/12 09:57:29 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 16, Current best: 0.012175932357178428, Global best: 0.012175932357178428, Runtime: 49.75089 seconds
+2025/11/12 09:58:19 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 17, Current best: 0.012175932357178428, Global best: 0.012175932357178428, Runtime: 50.45372 seconds
+2025/11/12 09:59:09 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 18, Current best: 0.012175932357178428, Global best: 0.012175932357178428, Runtime: 50.15444 seconds
+2025/11/12 09:59:59 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 19, Current best: 0.012175932357178428, Global best: 0.012175932357178428, Runtime: 49.79759 seconds
+2025/11/12 10:00:49 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 20, Current best: 0.012149928990047777, Global best: 0.012149928990047777, Runtime: 49.88583 seconds
+2025/11/12 10:01:39 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 21, Current best: 0.011951187630544913, Global best: 0.011951187630544913, Runtime: 50.20884 seconds
+2025/11/12 10:02:29 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 22, Current best: 0.011951187630544913, Global best: 0.011951187630544913, Runtime: 49.99356 seconds
+2025/11/12 10:03:14 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 23, Current best: 0.011951187630544913, Global best: 0.011951187630544913, Runtime: 45.11714 seconds
+2025/11/12 10:03:57 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 24, Current best: 0.01193820090096146, Global best: 0.01193820090096146, Runtime: 42.62899 seconds
+2025/11/12 10:04:42 PM, INFO, mealpy.swarm_based.PSO.OriginalPSO: >>>Problem: P, Epoch: 25, Current best: 0.01193820090096146, Global best: 0.01193820090096146, Runtime: 44.80644 seconds
+================================================================================
+🤖 ОБУЧЕНИЕ ANFIS МОДЕЛИ (train.py)
+================================================================================
+
+⚙️  Конфигурация: configs/config_improved.yaml
+
+📂 Загрузка обучающих данных...
+📂 Загрузка данных из /home/lebedeffson/PycharmProjects/ОИЯИ-ШАБД/normalized_linear_data_with_q_500K.csv...
+✅ Загружено 500713 образцов, 70 столбцов
+
+🔄 Смешивание с реальными данными...
+📂 Загрузка данных из /home/lebedeffson/PycharmProjects/ОИЯИ-ШАБД/normalized_data_with_q_375.csv...
+✅ Загружено 375 образцов, 70 столбцов
+   ▶️ Использовано 500338 сгенерированных и 375 реальных спектров
+📊 Признаки: 10 (Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10)
+📊 Целевые переменные: 60 бинов спектра
+✅ Применена нормализация на SUM
+   Средний SUM: 1.0000, Мин: 1.0000, Макс: 1.0000
+
+🔀 Разделение данных...
+✅ Данные разделены:
+   Train: 375534 образцов
+   Test: 125179 образцов
+
+📂 Загрузка реальных данных для SHAP обучения и тестирования...
+📂 Загрузка данных из /home/lebedeffson/PycharmProjects/ОИЯИ-ШАБД/normalized_data_with_q_375.csv...
+✅ Загружено 375 образцов, 70 столбцов
+📊 Признаки: 10 (Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10)
+📊 Целевые переменные: 60 бинов спектра
+✅ Применена нормализация на SUM
+   Средний SUM: 1.0000, Мин: 1.0000, Макс: 1.0000
+✅ Валидационные данные: 375 образцов
+   ▶️ SHAP обучение: 300 реальных образцов
+   ▶️ Валидация (для подбора гиперпараметров): 75 реальных образцов
+   ▶️ Финальное тестирование: 375 реальных образцов (ВСЕ данные)
+
+🛠️  Обучение базовой ANFIS модели на синтетических данных...
+
+🟢 Обучение Vanilla ANFIS (Регрессия)...
+   Размер train: 375534 образцов
+   Размер test: 75 образцов
+⚠️  Обнаружено NaN/Inf в целевых данных y: NaN=283, Inf=0. Выполняю очистку.
+   Начало обучения...
+
+✅ Vanilla ANFIS обучен успешно!
+   📊 MSE: 0.040973
+   📊 RMSE: 0.202418
+   🎯 MAE: 0.058429
+   📈 R² (variance-weighted): 0.370219
+   📈 R² (mean across outputs): 0.000841
+   ⏱️  Время обучения: 1269.47 сек
+
+   🔍 Важность признаков:
+      Q1: 15.0665
+      Q2: 21.8445
+      Q3: 26.5454
+      Q4: 26.8634
+      Q5: 30.1997
+      Q6: 20.9601
+      Q7: 15.7872
+      Q8: 18.5497
+      Q9: 16.8349
+      Q10: 18.4351
+
+🧭 Запуск SHAP-регуляризации на реальных данных...
+🟠 Начинаю обучение ANFIS с SHAP-регуляризацией (регрессия)...
+   Эпох: 35, Батч: 32, LR: 0.002, Gamma: 0.5
+   Эпоха 5/35: Total: 0.031247, Main: 0.028072, SHAP: 0.006351
+   Эпоха 10/35: Total: 0.026473, Main: 0.023482, SHAP: 0.005983
+   Эпоха 15/35: Total: 0.024129, Main: 0.021051, SHAP: 0.006156
+   Эпоха 20/35: Total: 0.023038, Main: 0.020090, SHAP: 0.005895
+   Эпоха 25/35: Total: 0.020543, Main: 0.017496, SHAP: 0.006094
+   Эпоха 30/35: Total: 0.019167, Main: 0.016164, SHAP: 0.006006
+   Эпоха 35/35: Total: 0.018728, Main: 0.015647, SHAP: 0.006162
+✅ Обучение завершено за 3.76 сек
+
+🧪 Финальное тестирование на ВСЕХ реальных данных...
+
+🔄 Денормализация предсказаний...
+
+💾 Сохранение модели: /home/lebedeffson/PycharmProjects/ОИЯИ-ШАБД/results/anfis_model_state_20251112_220446_improved_v1.pt
+📄 Сводка обучения сохранена: /home/lebedeffson/PycharmProjects/ОИЯИ-ШАБД/results/training_summary_20251112_220446_improved_v1.json
+
+📊 Генерация графиков...
+✅ Графики успешно сгенерированы
+
+✅ Обучение завершено. Модель и метрики сохранены.
