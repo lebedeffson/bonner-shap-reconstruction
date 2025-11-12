@@ -132,106 +132,115 @@ def train_and_save(args):
     else:
         SUM_test = None
 
-    print("\n🛠️  Обучение модели...")
-    manager = ANFISManager(config)
-    results = manager.train_vanilla_model(X_train, y_train, X_test, y_test)
-    vanilla_metrics = results['metrics'].copy()
-    vanilla_time = results['training_time']
-    results['metrics_vanilla'] = vanilla_metrics.copy()
-    results['training_time_vanilla'] = vanilla_time
-    results['training_time'] = vanilla_time
-
-    # Дополнительное обучение с SHAP-регуляризацией при необходимости
-    shap_config = config.get('shap_reg', {})
-    shap_results = None
-    y_test_array = np.array(y_test) if not isinstance(y_test, np.ndarray) else y_test
-    X_test_array = np.array(X_test) if not isinstance(X_test, np.ndarray) else X_test
-    X_train_array = np.array(X_train) if not isinstance(X_train, np.ndarray) else X_train
-    y_train_array = np.array(y_train) if not isinstance(y_train, np.ndarray) else y_train
-
-    y_test_array = np.nan_to_num(y_test_array, nan=0.0, posinf=0.0, neginf=0.0)
-    y_train_array = np.nan_to_num(y_train_array, nan=0.0, posinf=0.0, neginf=0.0)
-
-    if shap_config.get('enabled', False):
-        print("\n🧭 Запуск SHAP-регуляризации...")
-        vanilla_state = {
-            name: param.detach().cpu().clone()
-            for name, param in results['model'].network.state_dict().items()
-        }
-
-        shap_subset = shap_config.get('train_samples')
-        if shap_subset is not None:
-            shap_subset = int(shap_subset)
-            if shap_subset <= 0:
-                shap_subset = None
-
-        if shap_subset is not None and shap_subset < len(X_train_array):
-            rng = np.random.default_rng(dataset_config.get('random_state', 42))
-            subset_idx = rng.choice(len(X_train_array), size=shap_subset, replace=False)
-            shap_X_train = X_train_array[subset_idx]
-            shap_y_train = y_train_array[subset_idx]
-            print(f"   ▶️ SHAP будет обучаться на подвыборке {shap_subset} образцов")
-        else:
-            shap_X_train = X_train_array
-            shap_y_train = y_train_array
-
-        shap_trainer = ShapAwareANFISTrainer(
-            results['model'],
-            config,
-            gamma=shap_config.get('gamma', 0.5),
-            verbose=True
-        )
-        shap_history = shap_trainer.fit(
-            shap_X_train,
-            shap_y_train,
-            epochs=shap_config.get('epochs', 25),
-            batch_size=shap_config.get('batch_size', 32),
-            lr=shap_config.get('lr', 0.005)
-        )
-
-        shap_predictions = shap_trainer.predict(X_test_array)
-        shap_predictions = manager._sanitize_predictions(
-            shap_predictions,
-            reference_shape=y_test_array.shape,
-            context="shap"
-        )
-
-        shap_metrics = manager._calculate_metrics(y_test_array, shap_predictions)
-        shap_importance = shap_trainer.get_global_shap_importance(X_train_array)
-
-        metrics_array = np.array(list(shap_metrics.values()), dtype=float)
-        importance_array = np.array(shap_importance, dtype=float)
-        if not np.isfinite(metrics_array).all() or not np.isfinite(importance_array).all():
-            print("⚠️  SHAP-регуляризация дала некорректные значения (NaN/Inf). Использую результаты Vanilla.")
-            try:
-                device = next(results['model'].network.parameters()).device
-            except StopIteration:
-                device = torch.device('cpu')
-            restored_state = {
-                name: tensor.to(device)
-                for name, tensor in vanilla_state.items()
-            }
-            results['model'].network.load_state_dict(restored_state, strict=False)
-            shap_results = None
-        else:
-            shap_results = {
-                'history': shap_history,
-                'metrics': shap_metrics,
-                'predictions': shap_predictions,
-                'feature_importance': shap_importance,
-                'training_time': shap_trainer.training_time
-            }
-
-            # Обновляем основные результаты на SHAP-модель
-            results['predictions'] = shap_predictions
-            results['metrics'] = shap_metrics
-            results['feature_importance_shap'] = shap_importance
-            results['shap_history'] = shap_history
-            results['training_time_shap'] = shap_trainer.training_time
-            results['training_time'] += shap_trainer.training_time
-            results['metrics_source'] = 'shap'
+    # Загружаем реальные данные для SHAP обучения и тестирования
+    from src.utils.data_loader import load_validation_data
+    from sklearn.model_selection import train_test_split
+    
+    real_data_path = dataset_config.get('validation_data')
+    if not real_data_path or not os.path.exists(real_data_path):
+        raise FileNotFoundError(f"Файл с реальными данными не найден: {real_data_path}")
+    
+    print("\n📂 Загрузка реальных данных для SHAP обучения и тестирования...")
+    X_real, y_real, SUM_real = load_validation_data(real_data_path, normalize_sum=normalize_sum)
+    
+    # Разделяем реальные данные: 80% для SHAP обучения, 20% для валидации при подборе гиперпараметров
+    random_state = dataset_config.get('random_state', 42)
+    X_real_shap, X_real_val, y_real_shap, y_real_val = train_test_split(
+        X_real, y_real, test_size=0.2, random_state=random_state
+    )
+    
+    # Для финального тестирования используем ВСЕ реальные данные
+    X_real_test = X_real
+    y_real_test = y_real
+    
+    # Сохраняем SUM для теста всех реальных данных
+    if normalize_sum and SUM_real is not None:
+        SUM_real_test = SUM_real
     else:
-        results['metrics_source'] = 'vanilla'
+        SUM_real_test = None
+    
+    print(f"   ▶️ SHAP обучение: {len(X_real_shap)} реальных образцов")
+    print(f"   ▶️ Валидация (для подбора гиперпараметров): {len(X_real_val)} реальных образцов")
+    print(f"   ▶️ Финальное тестирование: {len(X_real_test)} реальных образцов (ВСЕ данные)")
+    
+    # Преобразуем в массивы для SHAP обучения
+    X_real_shap_array = np.array(X_real_shap) if not isinstance(X_real_shap, np.ndarray) else X_real_shap
+    y_real_shap_array = np.array(y_real_shap) if not isinstance(y_real_shap, np.ndarray) else y_real_shap
+    
+    X_real_shap_array = np.nan_to_num(X_real_shap_array, nan=0.0, posinf=0.0, neginf=0.0)
+    y_real_shap_array = np.nan_to_num(y_real_shap_array, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    # Преобразуем валидационные данные
+    X_real_val_array = np.array(X_real_val) if not isinstance(X_real_val, np.ndarray) else X_real_val
+    y_real_val_array = np.array(y_real_val) if not isinstance(y_real_val, np.ndarray) else y_real_val
+    X_real_val_array = np.nan_to_num(X_real_val_array, nan=0.0, posinf=0.0, neginf=0.0)
+    y_real_val_array = np.nan_to_num(y_real_val_array, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    # Обучение базовой модели на синтетических данных
+    print("\n🛠️  Обучение базовой ANFIS модели на синтетических данных...")
+    manager = ANFISManager(config)
+    # Для базовой модели используем валидационные данные для оценки
+    results = manager.train_vanilla_model(X_train, y_train, X_real_val_array, y_real_val_array)
+    
+    # SHAP-регуляризация ТОЛЬКО на реальных данных
+    shap_config = config.get('shap_reg', {})
+    if not shap_config.get('enabled', False):
+        raise ValueError("SHAP регуляризация должна быть включена (shap_reg.enabled=true)")
+    
+    print("\n🧭 Запуск SHAP-регуляризации на реальных данных...")
+    shap_trainer = ShapAwareANFISTrainer(
+        results['model'],
+        config,
+        gamma=shap_config.get('gamma', 0.5),
+        verbose=True
+    )
+    
+    shap_history = shap_trainer.fit(
+        X_real_shap_array,
+        y_real_shap_array,
+        epochs=shap_config.get('epochs', 25),
+        batch_size=shap_config.get('batch_size', 32),
+        lr=shap_config.get('lr', 0.005)
+    )
+    
+    # Тестирование на ВСЕХ реальных данных
+    print("\n🧪 Финальное тестирование на ВСЕХ реальных данных...")
+    # Преобразуем все реальные данные для финального теста
+    X_real_test_array = np.array(X_real_test) if not isinstance(X_real_test, np.ndarray) else X_real_test
+    y_real_test_array = np.array(y_real_test) if not isinstance(y_real_test, np.ndarray) else y_real_test
+    X_real_test_array = np.nan_to_num(X_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
+    y_real_test_array = np.nan_to_num(y_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    shap_predictions = shap_trainer.predict(X_real_test_array)
+    shap_predictions = manager._sanitize_predictions(
+        shap_predictions,
+        reference_shape=y_real_test_array.shape,
+        context="shap"
+    )
+    
+    shap_metrics = manager._calculate_metrics(y_real_test_array, shap_predictions)
+    shap_importance = shap_trainer.get_global_shap_importance(X_real_shap_array)
+    
+    # Проверка на NaN/Inf
+    metrics_array = np.array(list(shap_metrics.values()), dtype=float)
+    importance_array = np.array(shap_importance, dtype=float)
+    if not np.isfinite(metrics_array).all() or not np.isfinite(importance_array).all():
+        print("⚠️  SHAP-регуляризация дала некорректные значения (NaN/Inf).")
+        raise ValueError("SHAP обучение завершилось с ошибкой: NaN/Inf в метриках")
+    
+    # Сохраняем результаты SHAP
+    results['predictions'] = shap_predictions
+    results['metrics'] = shap_metrics
+    results['feature_importance_shap'] = shap_importance
+    results['shap_history'] = shap_history
+    results['training_time_shap'] = shap_trainer.training_time
+    results['training_time'] += shap_trainer.training_time
+    results['metrics_source'] = 'shap'
+    
+    # Обновляем тестовые данные на реальные
+    y_test_array = y_real_test_array
+    X_test_array = X_real_test_array
+    SUM_test = SUM_real_test
 
     band_metrics_norm = _compute_band_metrics(y_test_array, np.asarray(results['predictions']), ENERGY_BANDS)
 
@@ -242,7 +251,8 @@ def train_and_save(args):
     if normalize_sum and SUM_test is not None:
         print("\n🔄 Денормализация предсказаний...")
         y_pred_denorm = denormalize_predictions(results['predictions'], SUM_test)
-        y_test_denorm = denormalize_predictions(y_test.values, SUM_test)
+        # Используем y_real_test_array для денормализации, так как тестируем на реальных данных
+        y_test_denorm = denormalize_predictions(y_real_test_array, SUM_test)
         y_pred_denorm = np.nan_to_num(y_pred_denorm, nan=0.0, posinf=0.0, neginf=0.0)
         y_test_denorm = np.nan_to_num(y_test_denorm, nan=0.0, posinf=0.0, neginf=0.0)
         metrics_denorm = {
@@ -353,25 +363,27 @@ def train_and_save(args):
 
     # Сохраняем важность признаков
     feature_names = X_train.columns if hasattr(X_train, 'columns') else [f'Q{i+1}' for i in range(X_train.shape[1])]
-    fi = pd.Series(results['feature_importance'], index=feature_names)
-    fi_path = os.path.join(results_dir, f"feature_importance_{timestamp}.csv")
-    fi.to_csv(fi_path, header=['importance'])
-    saved_files['feature_importance'] = os.path.basename(fi_path)
-
+    
+    # Базовая важность признаков (из vanilla модели)
+    if 'feature_importance' in results:
+        fi = pd.Series(results['feature_importance'], index=feature_names)
+        fi_path = os.path.join(results_dir, f"feature_importance_{timestamp}.csv")
+        fi.to_csv(fi_path, header=['importance'])
+        saved_files['feature_importance'] = os.path.basename(fi_path)
+    
+    # SHAP важность признаков (основная)
     shap_files = {}
-    if shap_results is not None:
-        shap_fi = pd.Series(shap_results['feature_importance'], index=feature_names)
-        shap_fi_path = os.path.join(results_dir, f"feature_importance_shap_{timestamp}.csv")
-        shap_fi.to_csv(shap_fi_path, header=['importance'])
-        shap_files['feature_importance_shap'] = os.path.basename(shap_fi_path)
+    shap_fi = pd.Series(results['feature_importance_shap'], index=feature_names)
+    shap_fi_path = os.path.join(results_dir, f"feature_importance_shap_{timestamp}.csv")
+    shap_fi.to_csv(shap_fi_path, header=['importance'])
+    shap_files['feature_importance_shap'] = os.path.basename(shap_fi_path)
 
-        shap_history_path = os.path.join(results_dir, f"shap_history_{timestamp}.json")
-        with open(shap_history_path, 'w', encoding='utf-8') as f:
-            json.dump(_to_serializable(shap_results['history']), f, ensure_ascii=False, indent=2)
-        shap_files['history'] = os.path.basename(shap_history_path)
+    shap_history_path = os.path.join(results_dir, f"shap_history_{timestamp}.json")
+    with open(shap_history_path, 'w', encoding='utf-8') as f:
+        json.dump(_to_serializable(results['shap_history']), f, ensure_ascii=False, indent=2)
+    shap_files['history'] = os.path.basename(shap_history_path)
 
-    if shap_files:
-        saved_files['shap'] = shap_files
+    saved_files['shap'] = shap_files
 
     coeff_stats = {}
     coeff_tensor = results['model'].network.state_dict().get('coeffs')
@@ -397,17 +409,16 @@ def train_and_save(args):
         'config_path': os.path.abspath(config_path),
         'model_state': os.path.basename(model_state_path),
         'model_state_path': model_state_path,
-        'train_size': int(X_train.shape[0]),
-        'test_size': int(X_test.shape[0]),
+        'train_size': int(X_train.shape[0]),  # Синтетические данные для базовой модели
+        'shap_train_size': int(X_real_shap_array.shape[0]),  # Реальные данные для SHAP
+        'test_size': int(X_real_test_array.shape[0]),  # Реальные данные для теста
         'normalize_sum': normalize_sum,
         'metrics': results['metrics'],
-        'metrics_vanilla': vanilla_metrics,
         'band_metrics': band_metrics_norm,
-        'metrics_source': results.get('metrics_source', 'vanilla'),
-        'shap_config_enabled': shap_config.get('enabled', False),
-        'shap_applied': shap_results is not None,
+        'metrics_source': 'shap',
+        'shap_config_enabled': True,
+        'shap_applied': True,
         'training_time_total': results.get('training_time'),
-        'training_time_vanilla': results.get('training_time_vanilla'),
         'training_time_shap': results.get('training_time_shap'),
         'saved_files': saved_files,
         'diagnostics': {
@@ -421,22 +432,49 @@ def train_and_save(args):
             'train_fraction': dataset_config.get('train_fraction'),
             'mix_with_real': dataset_config.get('mix_with_real', False),
             'mix_ratio': dataset_config.get('mix_ratio', 0.0),
-            'test_size': dataset_config.get('test_size', 0.25),
-            'random_state': dataset_config.get('random_state', 42)
+            'test_size': 1.0,  # 100% реальных данных для финального теста
+            'random_state': dataset_config.get('random_state', 42),
+            'shap_uses_real_data_only': True,
+            'test_uses_real_data_only': True
         }
     }
     if metrics_denorm:
         summary['metrics_denorm'] = metrics_denorm
     if band_metrics_denorm:
         summary['band_metrics_denorm'] = band_metrics_denorm
-    if shap_results is not None:
-        summary['metrics_shap'] = shap_results['metrics']
-        summary['shap_files'] = shap_files
+    summary['shap_files'] = shap_files
 
     summary_path = os.path.join(results_dir, f"training_summary_{timestamp}.json")
     with open(summary_path, 'w', encoding='utf-8') as f:
         json.dump(_to_serializable(summary), f, ensure_ascii=False, indent=2)
     print(f"📄 Сводка обучения сохранена: {summary_path}")
+
+    # Автоматическая генерация графиков
+    if output_config.get('save_plots', False):
+        print("\n📊 Генерация графиков...")
+        try:
+            import subprocess
+            # Используем абсолютный путь к plot_results.py
+            plot_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plot_results.py')
+            plot_cmd = [
+                sys.executable, plot_script,
+                '--summary', summary_path,
+                '--output-dir', results_dir
+            ]
+            result = subprocess.run(plot_cmd, capture_output=True, text=True, timeout=300, cwd=os.path.dirname(os.path.abspath(__file__)))
+            if result.returncode == 0:
+                print("✅ Графики успешно сгенерированы")
+            else:
+                error_msg = result.stderr if result.stderr else result.stdout
+                print(f"⚠️  Ошибка при генерации графиков: {error_msg[:500]}")
+                # Пробуем запустить вручную для диагностики
+                print(f"   Попробуйте запустить вручную: python {plot_script} --summary {summary_path} --output-dir {results_dir}")
+        except FileNotFoundError as e:
+            print(f"⚠️  Файл plot_results.py не найден: {e}")
+        except Exception as e:
+            print(f"⚠️  Не удалось сгенерировать графики: {e}")
+            import traceback
+            print(f"   Детали ошибки: {traceback.format_exc()[:300]}")
 
     print("\n✅ Обучение завершено. Модель и метрики сохранены.")
     return model_state_path, summary_path

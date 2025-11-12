@@ -87,6 +87,10 @@ class ANFISManager:
         Логирование и устранение NaN/Inf в параметрах модели.
         Возвращает статистику по очищенным параметрам.
         """
+        if not hasattr(model, 'network') or model.network is None:
+            print("⚠️  Модель не имеет атрибута network. Пропускаю очистку.")
+            return {}
+        
         state_dict = model.network.state_dict()
         cleaned = {}
         report = {}
@@ -124,7 +128,22 @@ class ANFISManager:
                     'total_nonfinite': total,
                     'examples': examples
                 }
-                array = np.nan_to_num(array, nan=0.0, posinf=0.0, neginf=0.0)
+                
+                # Более умная замена NaN: используем медиану вместо нуля для коэффициентов
+                if name == 'coeffs' and nan_count > 0:
+                    # Для коэффициентов используем медиану ненулевых значений
+                    finite_values = array[np.isfinite(array)]
+                    if len(finite_values) > 0:
+                        replacement_value = np.median(finite_values[finite_values != 0])
+                        if not np.isfinite(replacement_value) or replacement_value == 0:
+                            replacement_value = 0.001  # Малое значение по умолчанию
+                    else:
+                        replacement_value = 0.001
+                    array = np.where(np.isnan(array), replacement_value, array)
+                    array = np.where(np.isinf(array), np.sign(array) * replacement_value, array)
+                else:
+                    # Для других параметров используем стандартную замену
+                    array = np.nan_to_num(array, nan=0.0, posinf=0.0, neginf=0.0)
 
             cleaned_tensor = torch.from_numpy(array).to(tensor.device).type(tensor.dtype)
             cleaned[name] = cleaned_tensor
@@ -139,11 +158,17 @@ class ANFISManager:
                 total = stats.get('total_nonfinite', nan + posinf + neginf)
                 print(f"   - {name}: NaN={nan}, +Inf={posinf}, -Inf={neginf}, shape={shape}, total={total}")
                 examples = stats.get('examples', [])
-                if examples:
+                if examples and len(examples) <= 5:  # Показываем только если немного примеров
                     print("      Примеры позиций с некорректными значениями:")
                     for ex in examples:
                         print(f"         index={ex['index']} value={ex['value']}")
-            model.network.load_state_dict(cleaned, strict=False)
+            
+            try:
+                model.network.load_state_dict(cleaned, strict=False)
+                print("✅ Состояние модели успешно очищено и обновлено")
+            except Exception as e:
+                print(f"⚠️  Ошибка при загрузке очищенного состояния: {e}")
+                print("   Модель может работать некорректно. Рекомендуется переобучение.")
 
         return report
 
@@ -170,6 +195,29 @@ class ANFISManager:
         X_train_array = np.array(X_train) if not isinstance(X_train, np.ndarray) else X_train
         y_train_array = np.array(y_train) if not isinstance(y_train, np.ndarray) else y_train
 
+        # Проверка и очистка входных данных от NaN/Inf
+        if not np.isfinite(X_train_array).all():
+            nan_count_x = int(np.isnan(X_train_array).sum())
+            inf_count_x = int(np.isinf(X_train_array).sum())
+            print(f"⚠️  Обнаружено NaN/Inf во входных данных X: NaN={nan_count_x}, Inf={inf_count_x}. Выполняю очистку.")
+            X_train_array = np.nan_to_num(X_train_array, nan=0.0, posinf=0.0, neginf=0.0)
+        
+        if not np.isfinite(y_train_array).all():
+            nan_count_y = int(np.isnan(y_train_array).sum())
+            inf_count_y = int(np.isinf(y_train_array).sum())
+            print(f"⚠️  Обнаружено NaN/Inf в целевых данных y: NaN={nan_count_y}, Inf={inf_count_y}. Выполняю очистку.")
+            y_train_array = np.nan_to_num(y_train_array, nan=0.0, posinf=0.0, neginf=0.0)
+
+        # Проверка на пустые или нулевые данные
+        if X_train_array.size == 0 or y_train_array.size == 0:
+            raise ValueError("Пустые данные для обучения!")
+        
+        if np.all(X_train_array == 0):
+            raise ValueError("Все входные данные равны нулю!")
+        
+        if np.all(y_train_array == 0):
+            raise ValueError("Все целевые данные равны нулю!")
+
         # Создание и инициализация модели
         model = self.create_model(
             verbose=True,
@@ -178,10 +226,38 @@ class ANFISManager:
         )
         
         print(f"   Начало обучения...")
-        model.fit(X_train_array, y_train_array)
+        try:
+            model.fit(X_train_array, y_train_array)
+        except Exception as e:
+            print(f"❌ Ошибка при обучении модели: {e}")
+            # Проверяем состояние модели перед повторной попыткой
+            if hasattr(model, 'network') and model.network is not None:
+                print("   Попытка очистки состояния модели и повторного обучения...")
+                # Очищаем состояние перед повторной попыткой
+                state_dict = model.network.state_dict()
+                cleaned_state = {}
+                for name, tensor in state_dict.items():
+                    if isinstance(tensor, torch.Tensor):
+                        array = tensor.detach().cpu().numpy()
+                        array = np.nan_to_num(array, nan=0.0, posinf=0.0, neginf=0.0)
+                        cleaned_state[name] = torch.from_numpy(array).to(tensor.device).type(tensor.dtype)
+                    else:
+                        cleaned_state[name] = tensor
+                model.network.load_state_dict(cleaned_state, strict=False)
+            raise
 
         # Проверяем и чистим состояние модели сразу после обучения
+        # Делаем это ДО получения предсказаний, чтобы избежать NaN в предсказаниях
         nonfinite_report = self._log_and_clean_state(model)
+        
+        # Дополнительная проверка: если слишком много NaN, предупреждаем
+        total_params = sum(p.numel() for p in model.network.parameters())
+        total_nonfinite = sum(stats.get('total_nonfinite', 0) for stats in nonfinite_report.values())
+        if total_nonfinite > 0:
+            nan_ratio = total_nonfinite / total_params if total_params > 0 else 0
+            if nan_ratio > 0.05:  # Более 5% параметров содержат NaN
+                print(f"⚠️  ВНИМАНИЕ: Обнаружено {total_nonfinite} некорректных параметров из {total_params} ({nan_ratio*100:.2f}%)")
+                print(f"   Рекомендуется увеличить reg_lambda или уменьшить сложность модели")
         
         training_time = time.time() - start_time
 
@@ -190,6 +266,9 @@ class ANFISManager:
         y_pred = model.predict(X_test_array)
         y_test_array = np.array(y_test) if not isinstance(y_test, np.ndarray) else y_test
         y_pred = self._sanitize_predictions(y_pred, reference_shape=y_test_array.shape, context="vanilla")
+        
+        # Обрезаем отрицательные значения (спектры не могут быть отрицательными)
+        y_pred = np.clip(y_pred, a_min=0.0, a_max=None)
         
         metrics = self._calculate_metrics(y_test_array, y_pred)
 

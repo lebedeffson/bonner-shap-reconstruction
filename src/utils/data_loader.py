@@ -26,17 +26,9 @@ def load_data(data_path, drop_index=True):
     
     try:
         data = pd.read_csv(data_path)
-
-    
     except FileNotFoundError as e:
-
-    
         raise FileNotFoundError(f"Файл не найден: {e}")
-
-    
     except Exception as e:
-
-    
         raise Exception(f"Ошибка при чтении CSV файла: {e}")
     data.dropna(inplace=True)
     

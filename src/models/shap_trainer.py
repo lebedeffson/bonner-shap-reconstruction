@@ -34,6 +34,7 @@ class ShapAwareANFISTrainer:
         self.training_time = 0
         shap_config = config.get('shap_reg', {})
         self.grad_clip = float(shap_config.get('grad_clip', 5.0))
+        self.negative_penalty = float(shap_config.get('negative_penalty', 0.1))
 
     def fit(self, X_train, y_train, epochs=25, batch_size=32, lr=0.005):
         """
@@ -85,17 +86,40 @@ class ShapAwareANFISTrainer:
 
         for epoch in range(epochs):
             epoch_losses = {'total': [], 'main': [], 'shap': []}
+            skipped_batches = 0
 
             for batch_X, batch_y in data_loader:
-                batch_X = torch.nan_to_num(batch_X)
-                batch_y = torch.nan_to_num(batch_y)
+                # Очистка входных данных
+                batch_X = torch.nan_to_num(batch_X, nan=0.0, posinf=0.0, neginf=0.0)
+                batch_y = torch.nan_to_num(batch_y, nan=0.0, posinf=0.0, neginf=0.0)
+                
+                # Проверка на пустые батчи
+                if batch_X.numel() == 0 or batch_y.numel() == 0:
+                    skipped_batches += 1
+                    continue
 
                 optimizer.zero_grad()
 
                 # Прямой проход
                 self.model.train()
-                predictions = self.model(batch_X)
-                predictions = torch.nan_to_num(predictions)
+                try:
+                    predictions = self.model(batch_X)
+                except Exception as e:
+                    print(f"⚠️  Ошибка при прямом проходе в эпохе {epoch+1}: {e}")
+                    skipped_batches += 1
+                    continue
+                
+                # Очистка предсказаний от NaN/Inf
+                predictions = torch.nan_to_num(predictions, nan=0.0, posinf=0.0, neginf=0.0)
+                
+                # Обрезаем отрицательные значения после предсказания (для стабильности)
+                predictions = torch.clamp(predictions, min=0.0)
+                
+                # Проверка на валидность предсказаний
+                if not torch.isfinite(predictions).all():
+                    print(f"⚠️  Предсказания содержат NaN/Inf в эпохе {epoch+1}. Пропускаю батч.")
+                    skipped_batches += 1
+                    continue
                 
                 # Для мультирегрессии predictions может быть (batch, 60)
                 # batch_y тоже (batch, 60)
@@ -106,6 +130,13 @@ class ShapAwareANFISTrainer:
                     batch_y = batch_y[..., :min_dim]
                 
                 main_loss = loss_function(predictions, batch_y)
+                
+                # Штраф за отрицательные предсказания
+                if self.negative_penalty > 0:
+                    negative_mask = predictions < 0
+                    if negative_mask.any():
+                        negative_penalty = torch.mean(torch.clamp(-predictions, min=0.0) ** 2)
+                        main_loss = main_loss + self.negative_penalty * negative_penalty
 
                 # SHAP регуляризация
                 shap_importance = self._calculate_shap_approximation(batch_X, baseline_values)
@@ -137,13 +168,36 @@ class ShapAwareANFISTrainer:
 
                 # Обратное распространение
                 if not torch.isfinite(total_loss):
-                    print("⚠️  SHAP: total_loss содержит NaN/Inf. Пропускаю батч.")
+                    print(f"⚠️  SHAP: total_loss содержит NaN/Inf в эпохе {epoch+1}. Пропускаю батч.")
+                    skipped_batches += 1
                     continue
 
-                total_loss.backward()
-                if self.grad_clip and self.grad_clip > 0:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.grad_clip)
-                optimizer.step()
+                try:
+                    total_loss.backward()
+                    
+                    # Проверка градиентов на NaN/Inf перед обновлением
+                    has_nan_grad = False
+                    for param in self.model.parameters():
+                        if param.grad is not None:
+                            if not torch.isfinite(param.grad).all():
+                                has_nan_grad = True
+                                break
+                    
+                    if has_nan_grad:
+                        print(f"⚠️  Обнаружены NaN/Inf в градиентах в эпохе {epoch+1}. Пропускаю обновление.")
+                        optimizer.zero_grad()  # Очищаем градиенты
+                        skipped_batches += 1
+                        continue
+                    
+                    if self.grad_clip and self.grad_clip > 0:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.grad_clip)
+                    
+                    optimizer.step()
+                except Exception as e:
+                    print(f"⚠️  Ошибка при обратном распространении в эпохе {epoch+1}: {e}")
+                    optimizer.zero_grad()  # Очищаем градиенты при ошибке
+                    skipped_batches += 1
+                    continue
 
                 # Сохранение потерь
                 epoch_losses['total'].append(float(total_loss.item()))
@@ -158,10 +212,14 @@ class ShapAwareANFISTrainer:
 
             # Прогресс
             if self.verbose and (epoch + 1) % 5 == 0:
+                skipped_info = f", Пропущено батчей: {skipped_batches}" if skipped_batches > 0 else ""
                 print(f"   Эпоха {epoch + 1}/{epochs}: "
                       f"Total: {history['total_loss'][-1]:.6f}, "
                       f"Main: {history['main_loss'][-1]:.6f}, "
-                      f"SHAP: {history['shap_loss'][-1]:.6f}")
+                      f"SHAP: {history['shap_loss'][-1]:.6f}{skipped_info}")
+            
+            if skipped_batches > 0:
+                print(f"   ⚠️  В эпохе {epoch + 1} пропущено {skipped_batches} батчей из-за ошибок")
 
         self.training_time = time.time() - start_time
         if self.verbose:
@@ -177,13 +235,16 @@ class ShapAwareANFISTrainer:
             X_test: Тестовые признаки
             
         Returns:
-            np.array: Предсказания
+            np.array: Предсказания (обрезаны до неотрицательных значений)
         """
         self.model.eval()
         with torch.no_grad():
             X_test_array = np.array(X_test) if not isinstance(X_test, np.ndarray) else X_test
             X_tensor = torch.tensor(X_test_array, dtype=torch.float32)
-            predictions = self.model(X_tensor).cpu().numpy()
+            predictions = self.model(X_tensor)
+            # Обрезаем отрицательные значения (спектры не могут быть отрицательными)
+            predictions = torch.clamp(predictions, min=0.0)
+            predictions = predictions.cpu().numpy()
             return predictions
 
     def get_global_shap_importance(self, X_sample):

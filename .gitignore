@@ -34,14 +34,18 @@ ENV/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
+# Разрешаем ноутбуки в корне проекта (если нужны)
+# *.ipynb
 
-# Results
-results/
+# Results - разрешаем всю папку results в git
+# results/  # Раскомментировано - results/ добавляется в git
 *.png
 *.pdf
 *.csv
 !normalized_*.csv
+!results/**/*.png
+!results/**/*.pdf
+!results/**/*.csv
 # Исключаем тяжёлый тренировочный набор (доступен отдельно)
 normalized_linear_data_with_q_500K.csv
 

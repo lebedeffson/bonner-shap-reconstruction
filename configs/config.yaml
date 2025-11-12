@@ -3,29 +3,30 @@ dataset:
   validation_data: normalized_data_with_q_375.csv
   normalize_sum: true
   mix_with_real: true
-  mix_ratio: 0.002  # доля реальных данных (0.2%)
+  mix_ratio: 0.01 
   test_size: 0.25
   random_state: 42
 model:
-  num_rules: 7
+  num_rules: 10
   mf_class: Gaussian
   vanishing_strategy: blend
   optim: OriginalPSO
-  reg_lambda: 0.3
+  reg_lambda: 0.2
   seed: 42
   n_workers: 4
   optim_params:
-    epoch: 15
-    pop_size: 30
+    epoch: 25
+    pop_size: 40 
     verbose: false
 shap_reg:
   enabled: true
-  gamma: 0.5
-  epochs: 25
+  gamma: 0.5 
+  epochs: 35 
   batch_size: 32
-  lr: 0.003
+  lr: 0.002 
   train_samples: 60000
   grad_clip: 1.0
+  negative_penalty: 0.1  # Штраф за отрицательные предсказания
 output:
   results_dir: results
   save_model: true
@@ -33,3 +34,4 @@ output:
   save_plots: true
   save_samples: true
   sample_size: 5
+
