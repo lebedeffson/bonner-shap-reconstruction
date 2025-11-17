@@ -16,7 +16,8 @@ import torch
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.models.anfis_manager import ANFISManager
-from src.models.shap_trainer import ShapAwareANFISTrainer
+from src.models.shap_trainer_improved import ShapAwareANFISTrainerImproved as ShapAwareANFISTrainer
+from src.models.shap_integrated_trainer import ShapIntegratedANFISTrainer
 from src.utils.config_loader import load_config
 from src.utils.data_loader import (
     load_training_dataset,
@@ -110,28 +111,12 @@ def train_and_save(args):
         dataset_config['train_fraction'] = args.train_fraction
         print(f"   ➤ Переопределён dataset.train_fraction = {args.train_fraction}")
 
-    print("\n📂 Загрузка обучающих данных...")
-    data = load_training_dataset(dataset_config)
-
-    X, y, SUM_train = prepare_features_targets(data, normalize_sum=normalize_sum)
-
-    print("\n🔀 Разделение данных...")
-    X_train, X_test, y_train, y_test = split_data(
-        X, y,
-        test_size=dataset_config.get('test_size', 0.25),
-        random_state=dataset_config.get('random_state', 42)
-    )
-
-    # Сохраняем SUM для теста, если нужно
-    if normalize_sum and SUM_train is not None:
-        if hasattr(X_train, 'index'):
-            SUM_test = SUM_train.loc[X_test.index].values if hasattr(SUM_train, 'loc') else SUM_train[X_test.index]
-        else:
-            n_train = len(X_train)
-            SUM_test = SUM_train[n_train:]
-    else:
-        SUM_test = None
-
+    # Проверяем режим обучения ДО загрузки данных
+    shap_config = config.get('shap_reg', {})
+    integrated_training = shap_config.get('integrated_training', False)
+    # Для интегрированного режима по умолчанию используем full_fast, иначе real_only
+    training_mode = shap_config.get('training_mode', 'full_fast' if integrated_training else 'real_only')
+    
     # Загружаем реальные данные для SHAP обучения и тестирования
     from src.utils.data_loader import load_validation_data
     from sklearn.model_selection import train_test_split
@@ -140,8 +125,54 @@ def train_and_save(args):
     if not real_data_path or not os.path.exists(real_data_path):
         raise FileNotFoundError(f"Файл с реальными данными не найден: {real_data_path}")
     
-    print("\n📂 Загрузка реальных данных для SHAP обучения и тестирования...")
+    print("\n📂 Загрузка реальных данных...")
     X_real, y_real, SUM_real = load_validation_data(real_data_path, normalize_sum=normalize_sum)
+    
+    # Если режим real_only и интегрированное обучение - используем только реальные данные
+    if training_mode == 'real_only' and integrated_training:
+        print("   ▶️ Режим real_only: используем только реальные данные для обучения")
+        # Используем реальные данные как тренировочные
+        X_train = X_real
+        y_train = y_real
+        SUM_train = SUM_real
+        X_test = X_real  # Для совместимости, но не используется
+        y_test = y_real
+        SUM_test = SUM_real
+    else:
+        # Стандартный режим: загружаем синтетические данные
+        print("\n📂 Загрузка обучающих данных...")
+        try:
+            data = load_training_dataset(dataset_config)
+            X, y, SUM_train = prepare_features_targets(data, normalize_sum=normalize_sum)
+            
+            print("\n🔀 Разделение данных...")
+            X_train, X_test, y_train, y_test = split_data(
+                X, y,
+                test_size=dataset_config.get('test_size', 0.25),
+                random_state=dataset_config.get('random_state', 42)
+            )
+            
+            # Сохраняем SUM для теста, если нужно
+            if normalize_sum and SUM_train is not None:
+                if hasattr(X_train, 'index'):
+                    SUM_test = SUM_train.loc[X_test.index].values if hasattr(SUM_train, 'loc') else SUM_train[X_test.index]
+                else:
+                    n_train = len(X_train)
+                    SUM_test = SUM_train[n_train:]
+            else:
+                SUM_test = None
+        except FileNotFoundError as e:
+            # Если синтетические данные не найдены, но режим не real_only - ошибка
+            if training_mode != 'real_only':
+                raise FileNotFoundError(f"Синтетические данные не найдены, но режим {training_mode} требует их. Ошибка: {e}")
+            # Иначе используем только реальные данные
+            print(f"   ⚠️  Синтетические данные не найдены, используем только реальные данные")
+            X_train = X_real
+            y_train = y_real
+            SUM_train = SUM_real
+            X_test = X_real
+            y_test = y_real
+            SUM_test = SUM_real
     
     # Разделяем реальные данные: 80% для SHAP обучения, 20% для валидации при подборе гиперпараметров
     random_state = dataset_config.get('random_state', 42)
@@ -176,32 +207,157 @@ def train_and_save(args):
     X_real_val_array = np.nan_to_num(X_real_val_array, nan=0.0, posinf=0.0, neginf=0.0)
     y_real_val_array = np.nan_to_num(y_real_val_array, nan=0.0, posinf=0.0, neginf=0.0)
     
-    # Обучение базовой модели на синтетических данных
-    print("\n🛠️  Обучение базовой ANFIS модели на синтетических данных...")
-    manager = ANFISManager(config)
-    # Для базовой модели используем валидационные данные для оценки
-    results = manager.train_vanilla_model(X_train, y_train, X_real_val_array, y_real_val_array)
+    # Преобразуем тренировочные данные в массивы
+    X_train_array = np.array(X_train) if not isinstance(X_train, np.ndarray) else X_train
+    y_train_array = np.array(y_train) if not isinstance(y_train, np.ndarray) else y_train
+    X_train_array = np.nan_to_num(X_train_array, nan=0.0, posinf=0.0, neginf=0.0)
+    y_train_array = np.nan_to_num(y_train_array, nan=0.0, posinf=0.0, neginf=0.0)
     
-    # SHAP-регуляризация ТОЛЬКО на реальных данных
+    # Проверяем режим обучения
     shap_config = config.get('shap_reg', {})
     if not shap_config.get('enabled', False):
         raise ValueError("SHAP регуляризация должна быть включена (shap_reg.enabled=true)")
     
-    print("\n🧭 Запуск SHAP-регуляризации на реальных данных...")
-    shap_trainer = ShapAwareANFISTrainer(
-        results['model'],
-        config,
-        gamma=shap_config.get('gamma', 0.5),
-        verbose=True
-    )
+    integrated_training = shap_config.get('integrated_training', False)
     
-    shap_history = shap_trainer.fit(
-        X_real_shap_array,
-        y_real_shap_array,
-        epochs=shap_config.get('epochs', 25),
-        batch_size=shap_config.get('batch_size', 32),
-        lr=shap_config.get('lr', 0.005)
-    )
+    if integrated_training:
+        # ИНТЕГРИРОВАННОЕ ОБУЧЕНИЕ
+        print("\n🔄 ИНТЕГРИРОВАННОЕ ОБУЧЕНИЕ с SHAP регуляризацией")
+        print("=" * 80)
+        
+        manager = ANFISManager(config)
+        
+        # Создаем модель
+        print("\n📦 Создание ANFIS модели...")
+        model = manager.create_model(
+            verbose=True,
+            input_dim=X_train_array.shape[1],
+            output_dim=y_train_array.shape[1]
+        )
+        
+        # Определяем режим обучения и параметры
+        training_mode = shap_config.get('training_mode', 'full_fast')  # По умолчанию full_fast для лучших результатов
+        print(f"\n📊 Режим обучения: {training_mode}")
+        
+        if training_mode == 'real_only':
+            # Только реальные данные, больше эпох
+            train_config = shap_config.get('real_only', {})
+            # Используем значения из основной секции shap_reg, если указаны, иначе из real_only
+            epochs = shap_config.get('epochs', train_config.get('epochs', 100))
+            batch_size = shap_config.get('batch_size', train_config.get('batch_size', 32))
+            shap_n_samples = shap_config.get('shap_n_samples', train_config.get('shap_n_samples', 100))
+            train_X = X_real_shap_array
+            train_y = y_real_shap_array
+            print(f"   ▶️ Используем {len(train_X)} реальных образцов")
+        elif training_mode == 'full_fast':
+            # Весь датасет, быстрее
+            train_config = shap_config.get('full_fast', {})
+            # Используем значения из основной секции shap_reg, если указаны, иначе из full_fast
+            epochs = shap_config.get('epochs', train_config.get('epochs', 50))
+            batch_size = shap_config.get('batch_size', train_config.get('batch_size', 128))
+            shap_n_samples = shap_config.get('shap_n_samples', train_config.get('shap_n_samples', 100))
+            train_samples = shap_config.get('train_samples', train_config.get('train_samples', None))
+            
+            # Используем синтетические данные для обучения
+            if train_samples and train_samples < len(X_train_array):
+                print(f"   ▶️ Подвыборка: {train_samples} из {len(X_train_array)} синтетических образцов")
+                rng = np.random.default_rng(dataset_config.get('random_state', 42))
+                indices = rng.choice(len(X_train_array), size=train_samples, replace=False)
+                train_X = X_train_array[indices]
+                train_y = y_train_array[indices]
+            else:
+                train_X = X_train_array
+                train_y = y_train_array
+                print(f"   ▶️ Используем все {len(train_X)} синтетических образцов")
+        else:
+            raise ValueError(f"Неизвестный режим обучения: {training_mode}")
+        
+        # Создаем интегрированный тренер
+        print(f"\n🧭 Создание интегрированного SHAP тренера...")
+        print(f"   ▶️ gamma = {shap_config.get('gamma', 0.3)}")
+        print(f"   ▶️ epochs = {epochs}")
+        print(f"   ▶️ batch_size = {batch_size}")
+        print(f"   ▶️ shap_n_samples = {shap_n_samples}")
+        
+        shap_trainer = ShapIntegratedANFISTrainer(
+            model,
+            config,
+            gamma=shap_config.get('gamma', 0.3),
+            verbose=True
+        )
+        
+        # Опциональная PSO инициализация
+        use_pso_init = shap_config.get('use_pso_init', False)
+        if use_pso_init:
+            pso_epochs = shap_config.get('pso_epochs', 5)
+            print(f"\n🔧 PSO инициализация ({pso_epochs} эпох)...")
+            # PSO инициализация выполняется внутри fit_from_scratch если нужно
+        
+        # Интегрированное обучение
+        print(f"\n🚀 Запуск интегрированного обучения...")
+        shap_history = shap_trainer.fit_from_scratch(
+            train_X,
+            train_y,
+            epochs=epochs,
+            batch_size=batch_size,
+            lr=shap_config.get('lr', 0.002),
+            X_val=X_real_val_array,
+            y_val=y_real_val_array
+        )
+        
+        results = {
+            'model': model,
+            'training_time': shap_trainer.training_time,
+            'training_time_shap': shap_trainer.training_time,
+            'shap_history': shap_history
+        }
+        
+    else:
+        # ДВУХЭТАПНОЕ ОБУЧЕНИЕ (старый режим) - как в рабочей версии
+        print("\n🛠️  ДВУХЭТАПНОЕ ОБУЧЕНИЕ")
+        print("=" * 80)
+        
+        print("\n🛠️  Этап 1: Обучение базовой ANFIS модели на синтетических данных...")
+        manager = ANFISManager(config)
+        results = manager.train_vanilla_model(X_train_array, y_train_array, X_real_val_array, y_real_val_array)
+        
+        print("\n🧭 Этап 2: SHAP-регуляризация с улучшенной регуляризацией (4 компонента)...")
+        
+        # Используем подвыборку для SHAP обучения, если указано
+        shap_subset = shap_config.get('train_samples')
+        if shap_subset is not None:
+            shap_subset = int(shap_subset)
+            if shap_subset > 0 and shap_subset < len(X_real_shap_array):
+                rng = np.random.default_rng(dataset_config.get('random_state', 42))
+                subset_idx = rng.choice(len(X_real_shap_array), size=shap_subset, replace=False)
+                shap_X_train = X_real_shap_array[subset_idx]
+                shap_y_train = y_real_shap_array[subset_idx]
+                print(f"   ▶️ SHAP будет обучаться на подвыборке {shap_subset} образцов")
+            else:
+                shap_X_train = X_real_shap_array
+                shap_y_train = y_real_shap_array
+        else:
+            shap_X_train = X_real_shap_array
+            shap_y_train = y_real_shap_array
+        
+        shap_trainer = ShapAwareANFISTrainer(
+            results['model'],
+            config,
+            gamma=shap_config.get('gamma', 0.5),
+            verbose=True
+        )
+        
+        shap_history = shap_trainer.fit(
+            shap_X_train,
+            shap_y_train,
+            epochs=shap_config.get('epochs', 25),
+            batch_size=shap_config.get('batch_size', 32),
+            lr=shap_config.get('lr', 0.003)
+        )
+        
+        results['training_time_shap'] = shap_trainer.training_time
+        results['training_time'] += shap_trainer.training_time
+        results['shap_history'] = shap_history
     
     # Тестирование на ВСЕХ реальных данных
     print("\n🧪 Финальное тестирование на ВСЕХ реальных данных...")
@@ -211,6 +367,7 @@ def train_and_save(args):
     X_real_test_array = np.nan_to_num(X_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
     y_real_test_array = np.nan_to_num(y_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
     
+    # Предсказания и метрики
     shap_predictions = shap_trainer.predict(X_real_test_array)
     shap_predictions = manager._sanitize_predictions(
         shap_predictions,
@@ -219,7 +376,15 @@ def train_and_save(args):
     )
     
     shap_metrics = manager._calculate_metrics(y_real_test_array, shap_predictions)
-    shap_importance = shap_trainer.get_global_shap_importance(X_real_shap_array)
+    
+    # Вычисляем важность признаков на данных для SHAP
+    if integrated_training:
+        # Для интегрированного обучения используем тренировочные данные
+        shap_importance_data = train_X
+    else:
+        shap_importance_data = X_real_shap_array
+    
+    shap_importance = shap_trainer.get_global_shap_importance(shap_importance_data)
     
     # Проверка на NaN/Inf
     metrics_array = np.array(list(shap_metrics.values()), dtype=float)

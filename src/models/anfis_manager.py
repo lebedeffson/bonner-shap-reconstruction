@@ -11,6 +11,7 @@ from sklearn.metrics import (
     r2_score
 )
 from xanfis import BioAnfisRegressor
+from src.utils.logger import get_logger
 
 
 class ANFISManager:
@@ -32,7 +33,8 @@ class ANFISManager:
                 y_pred = y_pred.ravel()
 
         if not np.isfinite(y_pred).all():
-            print(f"⚠️  Предсказания содержат NaN/Inf (контекст: {context}). Выполняю очистку.")
+            logger = get_logger("anfis_shap.anfis_manager")
+            logger.warning(f"Предсказания содержат NaN/Inf (контекст: {context}). Выполняю очистку.")
             y_pred = np.nan_to_num(y_pred, nan=0.0, posinf=0.0, neginf=0.0)
 
         return y_pred
@@ -47,6 +49,7 @@ class ANFISManager:
         self.config = config
         self.model_config = config['model']
         self.task_type = 'regression'  # Всегда регрессия для нашей задачи
+        self.logger = get_logger("anfis_shap.anfis_manager")
 
     def create_model(self, verbose=True, input_dim=None, output_dim=None):
         """
@@ -88,7 +91,8 @@ class ANFISManager:
         Возвращает статистику по очищенным параметрам.
         """
         if not hasattr(model, 'network') or model.network is None:
-            print("⚠️  Модель не имеет атрибута network. Пропускаю очистку.")
+            logger = get_logger("anfis_shap.anfis_manager")
+            logger.warning("Модель не имеет атрибута network. Пропускаю очистку.")
             return {}
         
         state_dict = model.network.state_dict()
@@ -149,26 +153,27 @@ class ANFISManager:
             cleaned[name] = cleaned_tensor
 
         if report:
-            print("⚠️  Выявлены нечисловые параметры после обучения ANFIS. Значения будут очищены:")
+            logger = get_logger("anfis_shap.anfis_manager")
+            logger.warning("Выявлены нечисловые параметры после обучения ANFIS. Значения будут очищены.")
             for name, stats in report.items():
                 nan = stats['nan']
                 posinf = stats['posinf']
                 neginf = stats['neginf']
                 shape = stats['shape']
                 total = stats.get('total_nonfinite', nan + posinf + neginf)
-                print(f"   - {name}: NaN={nan}, +Inf={posinf}, -Inf={neginf}, shape={shape}, total={total}")
+                logger.warning(f"{name}: NaN={nan}, +Inf={posinf}, -Inf={neginf}, shape={shape}, total={total}")
                 examples = stats.get('examples', [])
                 if examples and len(examples) <= 5:  # Показываем только если немного примеров
-                    print("      Примеры позиций с некорректными значениями:")
+                    logger.debug(f"Примеры позиций с некорректными значениями для {name}:")
                     for ex in examples:
-                        print(f"         index={ex['index']} value={ex['value']}")
+                        logger.debug(f"  index={ex['index']} value={ex['value']}")
             
             try:
                 model.network.load_state_dict(cleaned, strict=False)
-                print("✅ Состояние модели успешно очищено и обновлено")
+                logger.info("Состояние модели успешно очищено и обновлено")
             except Exception as e:
-                print(f"⚠️  Ошибка при загрузке очищенного состояния: {e}")
-                print("   Модель может работать некорректно. Рекомендуется переобучение.")
+                logger.error(f"Ошибка при загрузке очищенного состояния: {e}")
+                logger.warning("Модель может работать некорректно. Рекомендуется переобучение.")
 
         return report
 
@@ -185,9 +190,9 @@ class ANFISManager:
         Returns:
             dict: Результаты обучения
         """
-        print(f"\n🟢 Обучение Vanilla ANFIS (Регрессия)...")
-        print(f"   Размер train: {X_train.shape[0]} образцов")
-        print(f"   Размер test: {X_test.shape[0]} образцов")
+        self.logger.info("Обучение Vanilla ANFIS (Регрессия)...")
+        self.logger.info(f"Размер train: {X_train.shape[0]} образцов")
+        self.logger.info(f"Размер test: {X_test.shape[0]} образцов")
         
         start_time = time.time()
 
@@ -199,13 +204,13 @@ class ANFISManager:
         if not np.isfinite(X_train_array).all():
             nan_count_x = int(np.isnan(X_train_array).sum())
             inf_count_x = int(np.isinf(X_train_array).sum())
-            print(f"⚠️  Обнаружено NaN/Inf во входных данных X: NaN={nan_count_x}, Inf={inf_count_x}. Выполняю очистку.")
+            self.logger.warning(f"Обнаружено NaN/Inf во входных данных X: NaN={nan_count_x}, Inf={inf_count_x}. Выполняю очистку.")
             X_train_array = np.nan_to_num(X_train_array, nan=0.0, posinf=0.0, neginf=0.0)
         
         if not np.isfinite(y_train_array).all():
             nan_count_y = int(np.isnan(y_train_array).sum())
             inf_count_y = int(np.isinf(y_train_array).sum())
-            print(f"⚠️  Обнаружено NaN/Inf в целевых данных y: NaN={nan_count_y}, Inf={inf_count_y}. Выполняю очистку.")
+            self.logger.warning(f"Обнаружено NaN/Inf в целевых данных y: NaN={nan_count_y}, Inf={inf_count_y}. Выполняю очистку.")
             y_train_array = np.nan_to_num(y_train_array, nan=0.0, posinf=0.0, neginf=0.0)
 
         # Проверка на пустые или нулевые данные
@@ -225,14 +230,14 @@ class ANFISManager:
             output_dim=y_train_array.shape[1] if y_train_array.ndim > 1 else 1
         )
         
-        print(f"   Начало обучения...")
+        self.logger.info("Начало обучения...")
         try:
             model.fit(X_train_array, y_train_array)
         except Exception as e:
-            print(f"❌ Ошибка при обучении модели: {e}")
+            self.logger.error(f"Ошибка при обучении модели: {e}")
             # Проверяем состояние модели перед повторной попыткой
             if hasattr(model, 'network') and model.network is not None:
-                print("   Попытка очистки состояния модели и повторного обучения...")
+                self.logger.info("Попытка очистки состояния модели и повторного обучения...")
                 # Очищаем состояние перед повторной попыткой
                 state_dict = model.network.state_dict()
                 cleaned_state = {}
@@ -256,8 +261,8 @@ class ANFISManager:
         if total_nonfinite > 0:
             nan_ratio = total_nonfinite / total_params if total_params > 0 else 0
             if nan_ratio > 0.05:  # Более 5% параметров содержат NaN
-                print(f"⚠️  ВНИМАНИЕ: Обнаружено {total_nonfinite} некорректных параметров из {total_params} ({nan_ratio*100:.2f}%)")
-                print(f"   Рекомендуется увеличить reg_lambda или уменьшить сложность модели")
+                self.logger.warning(f"ВНИМАНИЕ: Обнаружено {total_nonfinite} некорректных параметров из {total_params} ({nan_ratio*100:.2f}%)")
+                self.logger.warning("Рекомендуется увеличить reg_lambda или уменьшить сложность модели")
         
         training_time = time.time() - start_time
 
@@ -301,15 +306,16 @@ class ANFISManager:
         y_true = np.asarray(y_true, dtype=float)
         y_pred = self._sanitize_predictions(y_pred, reference_shape=y_true.shape, context="metrics")
 
+        logger = get_logger("anfis_shap.anfis_manager")
         if not np.isfinite(y_true).all():
-            print("⚠️  Истинные значения содержат NaN/Inf. Выполняю очистку.")
+            logger.warning("Истинные значения содержат NaN/Inf. Выполняю очистку.")
             y_true = np.nan_to_num(y_true, nan=0.0, posinf=0.0, neginf=0.0)
         if not np.isfinite(y_pred).all():
-            print("⚠️  Предсказания содержат NaN/Inf после очистки. Дополнительная очистка.")
+            logger.warning("Предсказания содержат NaN/Inf после очистки. Дополнительная очистка.")
             y_pred = np.nan_to_num(y_pred, nan=0.0, posinf=0.0, neginf=0.0)
 
         if y_pred.shape != y_true.shape:
-            print(f"⚠️  Предупреждение: формы не совпадают! y_true: {y_true.shape}, y_pred: {y_pred.shape}")
+            logger.warning(f"Предупреждение: формы не совпадают! y_true: {y_true.shape}, y_pred: {y_pred.shape}")
             # Пытаемся исправить
             min_samples = min(y_true.shape[0], y_pred.shape[0])
             min_features = min(y_true.shape[1] if y_true.ndim > 1 else 1, 
@@ -366,7 +372,8 @@ class ANFISManager:
             if np.isnan(coefficients).any() or np.isinf(coefficients).any():
                 nan_count = int(np.isnan(coefficients).sum())
                 inf_count = int(np.isinf(coefficients).sum())
-                print(f"⚠️  Коэффициенты модели содержат некорректные значения (NaN: {nan_count}, Inf: {inf_count}). Выполняю очистку.")
+                logger = get_logger("anfis_shap.anfis_manager")
+                logger.warning(f"Коэффициенты модели содержат некорректные значения (NaN: {nan_count}, Inf: {inf_count}). Выполняю очистку.")
                 coefficients = np.nan_to_num(coefficients, nan=0.0, posinf=0.0, neginf=0.0)
             # Для мультирегрессии берем первый выход (или среднее по всем выходам)
             if coefficients.ndim == 3:
@@ -381,33 +388,40 @@ class ANFISManager:
             importance = np.nan_to_num(importance, nan=0.0, posinf=0.0, neginf=0.0)
             return importance
         except Exception as e:
-            print(f"⚠️  Не удалось извлечь важность признаков: {e}")
+            logger = get_logger("anfis_shap.anfis_manager")
+            logger.warning(f"Не удалось извлечь важность признаков: {e}")
             return np.ones(n_features) / n_features
 
     def _print_results(self, results, model_name):
-        """Вывод результатов обучения"""
+        """
+        Вывод результатов обучения
+        
+        Args:
+            results: Словарь с результатами обучения
+            model_name: Название модели
+        """
         metrics = results['metrics']
         
-        print(f"\n✅ {model_name} обучен успешно!")
-        print(f"   📊 MSE: {metrics['mse']:.6f}")
-        print(f"   📊 RMSE: {metrics['rmse']:.6f}")
-        print(f"   🎯 MAE: {metrics['mae']:.6f}")
-        print(f"   📈 R² (variance-weighted): {metrics['r2_weighted']:.6f}")
-        print(f"   📈 R² (mean across outputs): {metrics['r2_mean']:.6f}")
-        print(f"   ⏱️  Время обучения: {results['training_time']:.2f} сек")
+        self.logger.info(f"{model_name} обучен успешно!")
+        self.logger.info(f"MSE: {metrics['mse']:.6f}")
+        self.logger.info(f"RMSE: {metrics['rmse']:.6f}")
+        self.logger.info(f"MAE: {metrics['mae']:.6f}")
+        self.logger.info(f"R² (variance-weighted): {metrics['r2_weighted']:.6f}")
+        self.logger.info(f"R² (mean across outputs): {metrics['r2_mean']:.6f}")
+        self.logger.info(f"Время обучения: {results['training_time']:.2f} сек")
 
         nonfinite_report = results.get('nonfinite_report') or {}
         if nonfinite_report:
-            print("\n   ⚠️  В процессе обучения обнаружены нечисловые значения в параметрах (очищены):")
+            self.logger.warning("В процессе обучения обнаружены нечисловые значения в параметрах (очищены):")
             for name, stats in nonfinite_report.items():
-                print(
-                    f"      {name}: NaN={stats['nan']}, +Inf={stats['posinf']}, "
+                self.logger.warning(
+                    f"{name}: NaN={stats['nan']}, +Inf={stats['posinf']}, "
                     f"-Inf={stats['neginf']}, shape={stats['shape']}"
                 )
         
         # Вывод важности признаков
         if 'feature_importance' in results:
-            print(f"\n   🔍 Важность признаков:")
+            self.logger.info("Важность признаков:")
             for i, imp in enumerate(results['feature_importance']):
-                print(f"      Q{i+1}: {imp:.4f}")
+                self.logger.info(f"Q{i+1}: {imp:.4f}")
 

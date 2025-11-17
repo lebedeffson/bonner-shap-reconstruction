@@ -6,6 +6,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
+from src.utils.logger import get_logger
 
 
 def load_data(data_path, drop_index=True):
@@ -19,7 +20,8 @@ def load_data(data_path, drop_index=True):
     Returns:
         pd.DataFrame: Загруженные данные
     """
-    print(f"📂 Загрузка данных из {data_path}...")
+    logger = get_logger("anfis_shap.data_loader")
+    logger.info(f"Загрузка данных из {data_path}...")
     
     if not os.path.exists(data_path):
         raise FileNotFoundError(f"Файл не найден: {data_path}")
@@ -35,7 +37,7 @@ def load_data(data_path, drop_index=True):
     if drop_index and data.columns[0] == 'Unnamed: 0':
         data.drop(columns=data.columns[0], axis=1, inplace=True)
     
-    print(f"✅ Загружено {len(data)} образцов, {len(data.columns)} столбцов")
+    logger.info(f"Загружено {len(data)} образцов, {len(data.columns)} столбцов")
     return data
 
 
@@ -65,7 +67,8 @@ def load_training_dataset(dataset_config):
                 train_data = train_data.sample(n=train_limit, random_state=random_state).reset_index(drop=True)
             else:
                 train_data = train_data.iloc[:train_limit].reset_index(drop=True)
-            print(f"🔬 Использую подвыборку train_limit={train_limit} (стратегия: {strategy})")
+            logger = get_logger("anfis_shap.data_loader")
+            logger.info(f"Использую подвыборку train_limit={train_limit} (стратегия: {strategy})")
 
     train_fraction = dataset_config.get('train_fraction')
     if train_fraction is not None:
@@ -73,18 +76,20 @@ def load_training_dataset(dataset_config):
             raise ValueError("dataset.train_fraction должен быть в диапазоне (0, 1]")
         n_fraction = max(int(len(train_data) * float(train_fraction)), 1)
         train_data = train_data.sample(n=n_fraction, random_state=random_state).reset_index(drop=True)
-        print(f"🔬 Использую долю train_fraction={train_fraction:.3f} → {n_fraction} образцов")
+        logger = get_logger("anfis_shap.data_loader")
+        logger.info(f"Использую долю train_fraction={train_fraction:.3f} → {n_fraction} образцов")
 
     mix_with_real = dataset_config.get('mix_with_real', False)
     mix_ratio = dataset_config.get('mix_ratio', 0.0)
 
     if mix_with_real and mix_ratio > 0:
         real_path = dataset_config.get('validation_data')
+        logger = get_logger("anfis_shap.data_loader")
         if real_path and os.path.exists(real_path):
-            print("\n🔄 Смешивание с реальными данными...")
+            logger.info("Смешивание с реальными данными...")
             real_data = load_data(real_path)
             if len(real_data) == 0:
-                print("⚠️  Реальные данные пустые - смешивание пропущено")
+                logger.warning("Реальные данные пустые - смешивание пропущено")
                 return train_data
 
             n_total = len(train_data)
@@ -97,10 +102,10 @@ def load_training_dataset(dataset_config):
             combined = pd.concat([generated_sample, real_sample], ignore_index=True)
             combined = combined.sample(frac=1, random_state=random_state).reset_index(drop=True)
 
-            print(f"   ▶️ Использовано {n_generated} сгенерированных и {n_real} реальных спектров")
+            logger.info(f"Использовано {n_generated} сгенерированных и {n_real} реальных спектров")
             return combined
         else:
-            print("⚠️  Путь к реальным данным не указан - смешивание пропущено")
+            logger.warning("Путь к реальным данным не указан - смешивание пропущено")
 
     return train_data
 
@@ -124,8 +129,9 @@ def prepare_features_targets(data, normalize_sum=False):
     
     feature_names = X.columns.tolist()
     
-    print(f"📊 Признаки: {len(feature_names)} ({', '.join(feature_names)})")
-    print(f"📊 Целевые переменные: {y.shape[1]} бинов спектра")
+    logger = get_logger("anfis_shap.data_loader")
+    logger.info(f"Признаки: {len(feature_names)} ({', '.join(feature_names)})")
+    logger.info(f"Целевые переменные: {y.shape[1]} бинов спектра")
     
     SUM = None
     
@@ -138,7 +144,8 @@ def prepare_features_targets(data, normalize_sum=False):
         zero_mask = SUM == 0
         if zero_mask.any():
             eps = np.finfo(float).eps
-            print(f"⚠️  Найдено {zero_mask.sum()} образцов с SUM=0. Заменяю на {eps:.2e}")
+            logger = get_logger("anfis_shap.data_loader")
+            logger.warning(f"Найдено {zero_mask.sum()} образцов с SUM=0. Заменяю на {eps:.2e}")
             SUM = SUM.mask(zero_mask, eps)
         
         # Нормализуем входы
@@ -147,8 +154,9 @@ def prepare_features_targets(data, normalize_sum=False):
         # Нормализуем выходы
         y_normalized = y.div(SUM, axis=0)
         
-        print(f"✅ Применена нормализация на SUM")
-        print(f"   Средний SUM: {SUM.mean():.4f}, Мин: {SUM.min():.4f}, Макс: {SUM.max():.4f}")
+        logger = get_logger("anfis_shap.data_loader")
+        logger.info("Применена нормализация на SUM")
+        logger.info(f"Средний SUM: {SUM.mean():.4f}, Мин: {SUM.min():.4f}, Макс: {SUM.max():.4f}")
         
         return X_normalized, y_normalized, SUM
     
@@ -172,9 +180,10 @@ def split_data(X, y, test_size=0.25, random_state=42):
         X, y, test_size=test_size, random_state=random_state
     )
     
-    print(f"✅ Данные разделены:")
-    print(f"   Train: {X_train.shape[0]} образцов")
-    print(f"   Test: {X_test.shape[0]} образцов")
+    logger = get_logger("anfis_shap.data_loader")
+    logger.info("Данные разделены:")
+    logger.info(f"Train: {X_train.shape[0]} образцов")
+    logger.info(f"Test: {X_test.shape[0]} образцов")
     
     return X_train, X_test, y_train, y_test
 
@@ -222,6 +231,7 @@ def load_validation_data(data_path, normalize_sum=False):
     data = load_data(data_path, drop_index=True)
     X_val, y_val, SUM_val = prepare_features_targets(data, normalize_sum=normalize_sum)
     
-    print(f"✅ Валидационные данные: {len(X_val)} образцов")
+    logger = get_logger("anfis_shap.data_loader")
+    logger.info(f"Валидационные данные: {len(X_val)} образцов")
     return X_val, y_val, SUM_val
 
