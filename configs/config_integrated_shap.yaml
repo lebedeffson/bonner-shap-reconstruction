@@ -1,0 +1,73 @@
+dataset:
+  # Используем только реальные данные для обучения
+  train_data: normalized_data_with_q_375.csv
+  validation_data: normalized_data_with_q_375.csv
+  normalize_sum: true
+  mix_with_real: false
+  mix_ratio: 0.0
+  test_size: 0.2
+  random_state: 42
+
+model:
+  # Оптимальные параметры из ванильной модели
+  num_rules: 50
+  mf_class: GBell
+  vanishing_strategy: blend
+  optim: OriginalPSO
+  reg_lambda: 0.001
+  seed: 42
+  n_workers: 4
+  optim_params:
+    epoch: 50  # УВЕЛИЧЕНО: 50 эпох PSO для лучшей инициализации
+    pop_size: 100 # УВЕЛИЧЕНО: больше популяция для PSO
+    verbose: false
+
+shap_reg:
+  enabled: true
+  integrated_training: true
+  training_mode: real_only
+  
+  # Параметры обучения
+  epochs: 200  # УВЕЛИЧЕНО: больше времени на сходимость
+  batch_size: 32
+  lr: 0.002
+  
+  # SHAP параметры - ОСЛАБЛЕНЫ для приоритета точности
+  gamma: 0.1  # СНИЖЕНО: было 0.2
+  gamma_start: 0.01 # СНИЖЕНО: плавный старт
+  gamma_end: 0.15 # СНИЖЕНО: максимальное влияние ограничено
+  gamma_warmup_epochs: 0.4 # Дольше разогрев
+  
+  # Улучшенная регуляризация
+  use_improved_shap: true
+  use_true_shap: true
+  true_shap_update_frequency: 10
+  
+  # Адаптивность
+  use_adaptive_gamma: true
+  use_adaptive_weights: true
+  use_convergence_smoothing: true
+  convergence_patience: 20
+  
+  # Компоненты
+  use_gini_sparsity: true
+  target_gini: 0.35
+  target_shap_ratio: 0.05  # СНИЖЕНО: приоритет основной задаче (точность)
+  
+  # Штрафы
+  negative_penalty: 0.1
+  grad_clip: 1.0
+  
+  # Инициализация
+  use_pso_init: true
+  pso_epochs: 50 # Соответствует параметру модели
+  
+  use_gpu: true
+
+output:
+  results_dir: results
+  save_model: true
+  save_predictions: true
+  save_plots: true
+  save_samples: true
+  sample_size: 5

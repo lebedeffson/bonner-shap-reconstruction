@@ -174,25 +174,35 @@ def train_and_save(args):
             y_test = y_real
             SUM_test = SUM_real
     
-    # Разделяем реальные данные: 80% для SHAP обучения, 20% для валидации при подборе гиперпараметров
+    # Разделяем реальные данные: 60% обучение, 20% валидация, 20% финальный тест
     random_state = dataset_config.get('random_state', 42)
-    X_real_shap, X_real_val, y_real_shap, y_real_val = train_test_split(
+    
+    # Сначала отделяем 20% для финального теста
+    X_temp, X_real_test, y_temp, y_real_test = train_test_split(
         X_real, y_real, test_size=0.2, random_state=random_state
     )
     
-    # Для финального тестирования используем ВСЕ реальные данные
-    X_real_test = X_real
-    y_real_test = y_real
+    # Оставшиеся 80% разделяем на обучение (60% от всего = 75% от остатка) и валидацию (20% от всего = 25% от остатка)
+    X_real_shap, X_real_val, y_real_shap, y_real_val = train_test_split(
+        X_temp, y_temp, test_size=0.25, random_state=random_state
+    )
     
-    # Сохраняем SUM для теста всех реальных данных
+    # Сохраняем SUM для теста
     if normalize_sum and SUM_real is not None:
-        SUM_real_test = SUM_real
+        # Если SUM_real это numpy массив или pandas series
+        if hasattr(SUM_real, 'iloc'):
+             # Получаем индексы для разделения SUM
+             _, test_indices = train_test_split(np.arange(len(X_real)), test_size=0.2, random_state=random_state)
+             SUM_real_test = SUM_real.iloc[test_indices]
+        else:
+             _, test_indices = train_test_split(np.arange(len(X_real)), test_size=0.2, random_state=random_state)
+             SUM_real_test = SUM_real[test_indices]
     else:
         SUM_real_test = None
     
-    print(f"   ▶️ SHAP обучение: {len(X_real_shap)} реальных образцов")
-    print(f"   ▶️ Валидация (для подбора гиперпараметров): {len(X_real_val)} реальных образцов")
-    print(f"   ▶️ Финальное тестирование: {len(X_real_test)} реальных образцов (ВСЕ данные)")
+    print(f"   ▶️ Обучение (Train): {len(X_real_shap)} реальных образцов (60%)")
+    print(f"   ▶️ Валидация (Val): {len(X_real_val)} реальных образцов (20%)")
+    print(f"   ▶️ Тестирование (Test): {len(X_real_test)} реальных образцов (20%)")
     
     # Преобразуем в массивы для SHAP обучения
     X_real_shap_array = np.array(X_real_shap) if not isinstance(X_real_shap, np.ndarray) else X_real_shap

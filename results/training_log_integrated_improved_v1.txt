@@ -1,0 +1,450 @@
+================================================================================
+🤖 ОБУЧЕНИЕ ANFIS МОДЕЛИ (train.py)
+================================================================================
+
+⚙️  Конфигурация: configs/config_integrated_shap.yaml
+
+📂 Загрузка реальных данных...
+2025-11-22 22:50:53,921 - anfis_shap.data_loader - INFO - Загрузка данных из /home/lebedeffson/.cursor/worktrees/____-____/kp9b0/normalized_data_with_q_375.csv...
+2025-11-22 22:50:53,932 - anfis_shap.data_loader - INFO - Загружено 375 образцов, 70 столбцов
+2025-11-22 22:50:53,933 - anfis_shap.data_loader - INFO - Признаки: 10 (Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10)
+2025-11-22 22:50:53,933 - anfis_shap.data_loader - INFO - Целевые переменные: 60 бинов спектра
+2025-11-22 22:50:53,934 - anfis_shap.data_loader - INFO - Применена нормализация на SUM
+2025-11-22 22:50:53,934 - anfis_shap.data_loader - INFO - Средний SUM: 1.0000, Мин: 1.0000, Макс: 1.0000
+2025-11-22 22:50:53,934 - anfis_shap.data_loader - INFO - Валидационные данные: 375 образцов
+   ▶️ Режим real_only: используем только реальные данные для обучения
+   ▶️ Обучение (Train): 225 реальных образцов (60%)
+   ▶️ Валидация (Val): 75 реальных образцов (20%)
+   ▶️ Тестирование (Test): 75 реальных образцов (20%)
+
+🔄 ИНТЕГРИРОВАННОЕ ОБУЧЕНИЕ с SHAP регуляризацией
+================================================================================
+
+📦 Создание ANFIS модели...
+
+📊 Режим обучения: real_only
+   ▶️ Используем 225 реальных образцов
+
+🧭 Создание интегрированного SHAP тренера...
+   ▶️ gamma = 0.2
+   ▶️ epochs = 150
+   ▶️ batch_size = 32
+   ▶️ shap_n_samples = 100
+2025-11-22 22:50:54,288 - anfis_shap.shap_trainer_improved - INFO - Модель перемещена на GPU: NVIDIA GeForce RTX 4060 Laptop GPU
+
+🔧 PSO инициализация (20 эпох)...
+
+🚀 Запуск интегрированного обучения...
+2025-11-22 22:50:55,660 - anfis_shap.integrated_trainer - INFO - Начинаю обучение ANFIS С НУЛЯ с встроенной SHAP-регуляризацией...
+2025-11-22 22:50:55,660 - anfis_shap.integrated_trainer - INFO - Эпох: 150, Батч: 32, LR: 0.002, Gamma: 0.2
+2025-11-22 22:50:55,660 - anfis_shap.integrated_trainer - INFO - Режим вычисления Shapley values: точное (все 2^n подмножеств) (n=10 признаков)
+2025-11-22 22:50:55,660 - anfis_shap.integrated_trainer - INFO - Размер обучающей выборки: 225 образцов
+2025-11-22 22:50:55,660 - anfis_shap.integrated_trainer - INFO - Начальная инициализация: PSO (20 эпох)
+2025-11-22 22:50:55,660 - anfis_shap.integrated_trainer - INFO - Начинаю основной цикл обучения с SHAP регуляризацией...
+2025-11-22 22:50:55,660 - anfis_shap.integrated_trainer - INFO - Всего батчей в эпохе: 8
+2025-11-22 22:50:55,660 - anfis_shap.integrated_trainer - INFO - Начало эпохи 1/150
+2025-11-22 22:50:56,543 - anfis_shap.integrated_trainer - INFO - Эпоха 1/150: Total: 0.063467, Main: 0.063229, SHAP: 4.219527, SHAP_norm: 0.0048 [C:0.0000, S:10.5487, St:0.0000], Val: 0.078961
+2025-11-22 22:50:56,543 - anfis_shap.integrated_trainer - INFO - Начало эпохи 2/150
+2025-11-22 22:50:56,951 - anfis_shap.integrated_trainer - INFO - Эпоха 2/150: Total: 0.100841, Main: 0.100645, SHAP: 4.219316, SHAP_norm: 0.0036 [C:0.0000, S:10.5479, St:0.0002], Val: 0.078901
+2025-11-22 22:50:56,951 - anfis_shap.integrated_trainer - INFO - Начало эпохи 3/150
+2025-11-22 22:50:57,360 - anfis_shap.integrated_trainer - INFO - Эпоха 3/150: Total: 0.061370, Main: 0.061176, SHAP: 4.217094, SHAP_norm: 0.0033 [C:0.0001, S:10.5420, St:0.0003], Val: 0.078844
+2025-11-22 22:50:57,360 - anfis_shap.integrated_trainer - INFO - Начало эпохи 4/150
+2025-11-22 22:50:57,760 - anfis_shap.integrated_trainer - INFO - Эпоха 4/150: Total: 0.100778, Main: 0.100527, SHAP: 4.218131, SHAP_norm: 0.0040 [C:0.0000, S:10.5444, St:0.0003], Val: 0.078788
+2025-11-22 22:50:57,760 - anfis_shap.integrated_trainer - INFO - Начало эпохи 5/150
+2025-11-22 22:50:58,161 - anfis_shap.integrated_trainer - INFO - Эпоха 5/150: Total: 0.100480, Main: 0.100272, SHAP: 4.208012, SHAP_norm: 0.0031 [C:0.0005, S:10.5186, St:0.0004], Val: 0.078730
+2025-11-22 22:50:58,161 - anfis_shap.integrated_trainer - INFO - Начало эпохи 6/150
+2025-11-22 22:50:58,565 - anfis_shap.integrated_trainer - INFO - Эпоха 6/150: Total: 0.063812, Main: 0.063640, SHAP: 4.203632, SHAP_norm: 0.0024 [C:0.0005, S:10.5074, St:0.0005], Val: 0.078671
+2025-11-22 22:50:58,565 - anfis_shap.integrated_trainer - INFO - Начало эпохи 7/150
+2025-11-22 22:50:58,969 - anfis_shap.integrated_trainer - INFO - Эпоха 7/150: Total: 0.061799, Main: 0.061682, SHAP: 4.215452, SHAP_norm: 0.0015 [C:0.0001, S:10.5371, St:0.0006], Val: 0.078614
+2025-11-22 22:50:58,969 - anfis_shap.integrated_trainer - INFO - Начало эпохи 8/150
+2025-11-22 22:50:59,369 - anfis_shap.integrated_trainer - INFO - Эпоха 8/150: Total: 0.069497, Main: 0.069404, SHAP: 4.214048, SHAP_norm: 0.0011 [C:0.0001, S:10.5334, St:0.0007], Val: 0.078554
+2025-11-22 22:50:59,369 - anfis_shap.integrated_trainer - INFO - Начало эпохи 9/150
+2025-11-22 22:50:59,773 - anfis_shap.integrated_trainer - INFO - Эпоха 9/150: Total: 0.060799, Main: 0.060670, SHAP: 4.211986, SHAP_norm: 0.0015 [C:0.0001, S:10.5281, St:0.0007], Val: 0.078491
+2025-11-22 22:50:59,773 - anfis_shap.integrated_trainer - INFO - Начало эпохи 10/150
+2025-11-22 22:51:00,174 - anfis_shap.integrated_trainer - INFO - Эпоха 10/150: Total: 0.061064, Main: 0.060738, SHAP: 4.213959, SHAP_norm: 0.0036 [C:0.0001, S:10.5331, St:0.0007], Val: 0.078432
+2025-11-22 22:51:00,175 - anfis_shap.integrated_trainer - INFO - Начало эпохи 11/150
+2025-11-22 22:51:00,584 - anfis_shap.integrated_trainer - INFO - Эпоха 11/150: Total: 0.100326, Main: 0.100101, SHAP: 4.184501, SHAP_norm: 0.0024 [C:0.0012, S:10.4582, St:0.0009], Val: 0.078374
+2025-11-22 22:51:00,584 - anfis_shap.integrated_trainer - INFO - Начало эпохи 12/150
+2025-11-22 22:51:00,986 - anfis_shap.integrated_trainer - INFO - Эпоха 12/150: Total: 0.067438, Main: 0.067219, SHAP: 4.208497, SHAP_norm: 0.0022 [C:0.0001, S:10.5188, St:0.0009], Val: 0.078309
+2025-11-22 22:51:00,986 - anfis_shap.integrated_trainer - INFO - Начало эпохи 13/150
+2025-11-22 22:51:01,388 - anfis_shap.integrated_trainer - INFO - Эпоха 13/150: Total: 0.067216, Main: 0.067055, SHAP: 4.208480, SHAP_norm: 0.0016 [C:0.0001, S:10.5188, St:0.0009], Val: 0.078242
+2025-11-22 22:51:01,389 - anfis_shap.integrated_trainer - INFO - Начало эпохи 14/150
+2025-11-22 22:51:01,787 - anfis_shap.integrated_trainer - INFO - Эпоха 14/150: Total: 0.061342, Main: 0.061211, SHAP: 4.202452, SHAP_norm: 0.0012 [C:0.0002, S:10.5032, St:0.0011], Val: 0.078178
+2025-11-22 22:51:01,787 - anfis_shap.integrated_trainer - INFO - Начало эпохи 15/150
+2025-11-22 22:51:02,190 - anfis_shap.integrated_trainer - INFO - Эпоха 15/150: Total: 0.066431, Main: 0.066321, SHAP: 4.201238, SHAP_norm: 0.0010 [C:0.0002, S:10.5001, St:0.0011], Val: 0.078111
+2025-11-22 22:51:02,190 - anfis_shap.integrated_trainer - INFO - Начало эпохи 16/150
+2025-11-22 22:51:02,591 - anfis_shap.integrated_trainer - INFO - Эпоха 16/150: Total: 0.099534, Main: 0.099430, SHAP: 4.167613, SHAP_norm: 0.0009 [C:0.0017, S:10.4146, St:0.0013], Val: 0.078032
+2025-11-22 22:51:02,591 - anfis_shap.integrated_trainer - INFO - Начало эпохи 17/150
+2025-11-22 22:51:02,987 - anfis_shap.integrated_trainer - INFO - Эпоха 17/150: Total: 0.062417, Main: 0.062299, SHAP: 4.191743, SHAP_norm: 0.0010 [C:0.0005, S:10.4754, St:0.0014], Val: 0.077951
+2025-11-22 22:51:02,987 - anfis_shap.integrated_trainer - INFO - Начало эпохи 18/150
+2025-11-22 22:51:03,386 - anfis_shap.integrated_trainer - INFO - Эпоха 18/150: Total: 0.072623, Main: 0.072526, SHAP: 4.193572, SHAP_norm: 0.0008 [C:0.0004, S:10.4802, St:0.0014], Val: 0.077869
+2025-11-22 22:51:03,386 - anfis_shap.integrated_trainer - INFO - Начало эпохи 19/150
+2025-11-22 22:51:03,799 - anfis_shap.integrated_trainer - INFO - Эпоха 19/150: Total: 0.061374, Main: 0.061284, SHAP: 4.184206, SHAP_norm: 0.0007 [C:0.0006, S:10.4560, St:0.0016], Val: 0.077785
+2025-11-22 22:51:03,799 - anfis_shap.integrated_trainer - INFO - Начало эпохи 20/150
+2025-11-22 22:51:04,216 - anfis_shap.integrated_trainer - INFO - Эпоха 20/150: Total: 0.070182, Main: 0.070101, SHAP: 4.185607, SHAP_norm: 0.0006 [C:0.0004, S:10.4596, St:0.0016], Val: 0.077696
+2025-11-22 22:51:04,216 - anfis_shap.integrated_trainer - INFO - Начало эпохи 21/150
+2025-11-22 22:51:04,634 - anfis_shap.integrated_trainer - INFO - Эпоха 21/150: Total: 0.062388, Main: 0.062309, SHAP: 4.186445, SHAP_norm: 0.0006 [C:0.0005, S:10.4619, St:0.0015], Val: 0.077598
+2025-11-22 22:51:04,634 - anfis_shap.integrated_trainer - INFO - Начало эпохи 22/150
+2025-11-22 22:51:05,072 - anfis_shap.integrated_trainer - INFO - Эпоха 22/150: Total: 0.067584, Main: 0.067512, SHAP: 4.171682, SHAP_norm: 0.0005 [C:0.0010, S:10.4241, St:0.0017], Val: 0.077497
+2025-11-22 22:51:05,073 - anfis_shap.integrated_trainer - INFO - Начало эпохи 23/150
+2025-11-22 22:51:05,489 - anfis_shap.integrated_trainer - INFO - Эпоха 23/150: Total: 0.062491, Main: 0.062420, SHAP: 4.163343, SHAP_norm: 0.0005 [C:0.0012, S:10.4027, St:0.0019], Val: 0.077384
+2025-11-22 22:51:05,489 - anfis_shap.integrated_trainer - INFO - Начало эпохи 24/150
+2025-11-22 22:51:05,911 - anfis_shap.integrated_trainer - INFO - Эпоха 24/150: Total: 0.059749, Main: 0.059593, SHAP: 4.148448, SHAP_norm: 0.0010 [C:0.0014, S:10.3649, St:0.0021], Val: 0.077276
+2025-11-22 22:51:05,911 - anfis_shap.integrated_trainer - INFO - Начало эпохи 25/150
+2025-11-22 22:51:06,330 - anfis_shap.integrated_trainer - INFO - Эпоха 25/150: Total: 0.060555, Main: 0.059976, SHAP: 3.984193, SHAP_norm: 0.0037 [C:0.0087, S:9.9476, St:0.0025], Val: 0.077163
+2025-11-22 22:51:06,331 - anfis_shap.integrated_trainer - INFO - Начало эпохи 26/150
+2025-11-22 22:51:06,738 - anfis_shap.integrated_trainer - INFO - Эпоха 26/150: Total: 0.099009, Main: 0.098602, SHAP: 3.998513, SHAP_norm: 0.0025 [C:0.0039, S:9.9860, St:0.0030], Val: 0.077036
+2025-11-22 22:51:06,738 - anfis_shap.integrated_trainer - INFO - Начало эпохи 27/150
+2025-11-22 22:51:07,172 - anfis_shap.integrated_trainer - INFO - Эпоха 27/150: Total: 0.062460, Main: 0.062072, SHAP: 4.081595, SHAP_norm: 0.0023 [C:0.0017, S:10.1967, St:0.0024], Val: 0.076881
+2025-11-22 22:51:07,172 - anfis_shap.integrated_trainer - INFO - Начало эпохи 28/150
+2025-11-22 22:51:07,595 - anfis_shap.integrated_trainer - INFO - Эпоха 28/150: Total: 0.060289, Main: 0.060017, SHAP: 3.921260, SHAP_norm: 0.0016 [C:0.0059, S:9.7911, St:0.0031], Val: 0.076731
+2025-11-22 22:51:07,595 - anfis_shap.integrated_trainer - INFO - Начало эпохи 29/150
+2025-11-22 22:51:08,022 - anfis_shap.integrated_trainer - INFO - Эпоха 29/150: Total: 0.059328, Main: 0.059110, SHAP: 3.948927, SHAP_norm: 0.0013 [C:0.0045, S:9.8616, St:0.0030], Val: 0.076551
+2025-11-22 22:51:08,022 - anfis_shap.integrated_trainer - INFO - Начало эпохи 30/150
+2025-11-22 22:51:08,420 - anfis_shap.integrated_trainer - INFO - Эпоха 30/150: Total: 0.066978, Main: 0.066799, SHAP: 3.810970, SHAP_norm: 0.0010 [C:0.0076, S:9.5132, St:0.0034], Val: 0.076400
+2025-11-22 22:51:08,420 - anfis_shap.integrated_trainer - INFO - Начало эпохи 31/150
+2025-11-22 22:51:08,797 - anfis_shap.integrated_trainer - INFO - Эпоха 31/150: Total: 0.065723, Main: 0.065553, SHAP: 3.735867, SHAP_norm: 0.0009 [C:0.0121, S:9.3221, St:0.0034], Val: 0.076172
+2025-11-22 22:51:08,797 - anfis_shap.integrated_trainer - INFO - Начало эпохи 32/150
+2025-11-22 22:51:09,179 - anfis_shap.integrated_trainer - INFO - Эпоха 32/150: Total: 0.096850, Main: 0.096684, SHAP: 3.576072, SHAP_norm: 0.0009 [C:0.0174, S:8.9181, St:0.0036], Val: 0.075966
+2025-11-22 22:51:09,179 - anfis_shap.integrated_trainer - INFO - Начало эпохи 33/150
+2025-11-22 22:51:09,577 - anfis_shap.integrated_trainer - INFO - Эпоха 33/150: Total: 0.095798, Main: 0.095609, SHAP: 3.550763, SHAP_norm: 0.0010 [C:0.0160, S:8.8558, St:0.0037], Val: 0.075721
+2025-11-22 22:51:09,577 - anfis_shap.integrated_trainer - INFO - Начало эпохи 34/150
+2025-11-22 22:51:09,988 - anfis_shap.integrated_trainer - INFO - Эпоха 34/150: Total: 0.059473, Main: 0.059293, SHAP: 3.370982, SHAP_norm: 0.0009 [C:0.0137, S:8.4076, St:0.0038], Val: 0.075473
+2025-11-22 22:51:09,988 - anfis_shap.integrated_trainer - INFO - Начало эпохи 35/150
+2025-11-22 22:51:10,402 - anfis_shap.integrated_trainer - INFO - Эпоха 35/150: Total: 0.058165, Main: 0.057892, SHAP: 3.525716, SHAP_norm: 0.0014 [C:0.0103, S:8.7968, St:0.0039], Val: 0.075234
+2025-11-22 22:51:10,402 - anfis_shap.integrated_trainer - INFO - Начало эпохи 36/150
+2025-11-22 22:51:10,845 - anfis_shap.integrated_trainer - INFO - Эпоха 36/150: Total: 0.058418, Main: 0.057495, SHAP: 3.573811, SHAP_norm: 0.0045 [C:0.0094, S:8.9172, St:0.0041], Val: 0.075024
+2025-11-22 22:51:10,846 - anfis_shap.integrated_trainer - INFO - Начало эпохи 37/150
+2025-11-22 22:51:11,246 - anfis_shap.integrated_trainer - INFO - Эпоха 37/150: Total: 0.058658, Main: 0.057837, SHAP: 3.350752, SHAP_norm: 0.0039 [C:0.0124, S:8.3575, St:0.0040], Val: 0.074671
+2025-11-22 22:51:11,246 - anfis_shap.integrated_trainer - INFO - Начало эпохи 38/150
+2025-11-22 22:51:11,637 - anfis_shap.integrated_trainer - INFO - Эпоха 38/150: Total: 0.067605, Main: 0.067067, SHAP: 3.234783, SHAP_norm: 0.0025 [C:0.0142, S:8.0658, St:0.0042], Val: 0.074306
+2025-11-22 22:51:11,637 - anfis_shap.integrated_trainer - INFO - Начало эпохи 39/150
+2025-11-22 22:51:12,026 - anfis_shap.integrated_trainer - INFO - Эпоха 39/150: Total: 0.057549, Main: 0.057117, SHAP: 3.265608, SHAP_norm: 0.0020 [C:0.0152, S:8.1413, St:0.0046], Val: 0.074189
+2025-11-22 22:51:12,026 - anfis_shap.integrated_trainer - INFO - Начало эпохи 40/150
+2025-11-22 22:51:12,428 - anfis_shap.integrated_trainer - INFO - Эпоха 40/150: Total: 0.093947, Main: 0.093607, SHAP: 3.205318, SHAP_norm: 0.0015 [C:0.0173, S:7.9889, St:0.0046], Val: 0.073822
+2025-11-22 22:51:12,428 - anfis_shap.integrated_trainer - INFO - Начало эпохи 41/150
+2025-11-22 22:51:12,807 - anfis_shap.integrated_trainer - INFO - Эпоха 41/150: Total: 0.059101, Main: 0.058741, SHAP: 3.256933, SHAP_norm: 0.0016 [C:0.0170, S:8.1185, St:0.0044], Val: 0.073350
+2025-11-22 22:51:12,807 - anfis_shap.integrated_trainer - INFO - Начало эпохи 42/150
+2025-11-22 22:51:13,181 - anfis_shap.integrated_trainer - INFO - Эпоха 42/150: Total: 0.092606, Main: 0.092318, SHAP: 3.231636, SHAP_norm: 0.0012 [C:0.0177, S:8.0543, St:0.0046], Val: 0.072903
+2025-11-22 22:51:13,181 - anfis_shap.integrated_trainer - INFO - Начало эпохи 43/150
+2025-11-22 22:51:13,594 - anfis_shap.integrated_trainer - INFO - Эпоха 43/150: Total: 0.056779, Main: 0.056491, SHAP: 3.016344, SHAP_norm: 0.0012 [C:0.0153, S:7.5175, St:0.0048], Val: 0.072347
+2025-11-22 22:51:13,594 - anfis_shap.integrated_trainer - INFO - Начало эпохи 44/150
+2025-11-22 22:51:13,994 - anfis_shap.integrated_trainer - INFO - Эпоха 44/150: Total: 0.056267, Main: 0.056046, SHAP: 3.183623, SHAP_norm: 0.0009 [C:0.0113, S:7.9384, St:0.0048], Val: 0.071828
+2025-11-22 22:51:13,994 - anfis_shap.integrated_trainer - INFO - Начало эпохи 45/150
+2025-11-22 22:51:14,367 - anfis_shap.integrated_trainer - INFO - Эпоха 45/150: Total: 0.055045, Main: 0.054866, SHAP: 3.000364, SHAP_norm: 0.0007 [C:0.0112, S:7.4802, St:0.0049], Val: 0.071368
+2025-11-22 22:51:14,367 - anfis_shap.integrated_trainer - INFO - Начало эпохи 46/150
+2025-11-22 22:51:14,784 - anfis_shap.integrated_trainer - INFO - Эпоха 46/150: Total: 0.054407, Main: 0.054337, SHAP: 3.057510, SHAP_norm: 0.0006 [C:0.0076, S:7.6262, St:0.0047], Val: 0.070897
+2025-11-22 22:51:14,785 - anfis_shap.integrated_trainer - INFO - Начало эпохи 47/150
+2025-11-22 22:51:15,209 - anfis_shap.integrated_trainer - INFO - Эпоха 47/150: Total: 0.057565, Main: 0.057500, SHAP: 3.058621, SHAP_norm: 0.0006 [C:0.0135, S:7.6243, St:0.0048], Val: 0.070337
+2025-11-22 22:51:15,209 - anfis_shap.integrated_trainer - INFO - Начало эпохи 48/150
+2025-11-22 22:51:15,616 - anfis_shap.integrated_trainer - INFO - Эпоха 48/150: Total: 0.054426, Main: 0.054365, SHAP: 2.964689, SHAP_norm: 0.0005 [C:0.0148, S:7.3885, St:0.0049], Val: 0.070024
+2025-11-22 22:51:15,616 - anfis_shap.integrated_trainer - INFO - Начало эпохи 49/150
+2025-11-22 22:51:16,021 - anfis_shap.integrated_trainer - INFO - Эпоха 49/150: Total: 0.052892, Main: 0.052836, SHAP: 3.005593, SHAP_norm: 0.0005 [C:0.0054, S:7.4972, St:0.0051], Val: 0.069283
+2025-11-22 22:51:16,021 - anfis_shap.integrated_trainer - INFO - Начало эпохи 50/150
+2025-11-22 22:51:16,443 - anfis_shap.integrated_trainer - INFO - Эпоха 50/150: Total: 0.054341, Main: 0.054289, SHAP: 3.242526, SHAP_norm: 0.0004 [C:0.0043, S:8.0906, St:0.0050], Val: 0.068627
+2025-11-22 22:51:16,443 - anfis_shap.integrated_trainer - INFO - Начало эпохи 51/150
+2025-11-22 22:51:16,874 - anfis_shap.integrated_trainer - INFO - Эпоха 51/150: Total: 0.052466, Main: 0.052415, SHAP: 3.073428, SHAP_norm: 0.0004 [C:0.0063, S:7.6660, St:0.0051], Val: 0.068473
+2025-11-22 22:51:16,874 - anfis_shap.integrated_trainer - INFO - Начало эпохи 52/150
+2025-11-22 22:51:17,271 - anfis_shap.integrated_trainer - INFO - Эпоха 52/150: Total: 0.052580, Main: 0.052534, SHAP: 2.954331, SHAP_norm: 0.0004 [C:0.0175, S:7.3598, St:0.0052], Val: 0.067651
+2025-11-22 22:51:17,271 - anfis_shap.integrated_trainer - INFO - Начало эпохи 53/150
+2025-11-22 22:51:17,655 - anfis_shap.integrated_trainer - INFO - Эпоха 53/150: Total: 0.052125, Main: 0.052082, SHAP: 2.956817, SHAP_norm: 0.0004 [C:0.0104, S:7.3717, St:0.0050], Val: 0.067170
+2025-11-22 22:51:17,655 - anfis_shap.integrated_trainer - INFO - Начало эпохи 54/150
+2025-11-22 22:51:18,081 - anfis_shap.integrated_trainer - INFO - Эпоха 54/150: Total: 0.051520, Main: 0.051476, SHAP: 2.936458, SHAP_norm: 0.0004 [C:0.0202, S:7.3131, St:0.0052], Val: 0.066618
+2025-11-22 22:51:18,082 - anfis_shap.integrated_trainer - INFO - Начало эпохи 55/150
+2025-11-22 22:51:18,519 - anfis_shap.integrated_trainer - INFO - Эпоха 55/150: Total: 0.050492, Main: 0.050451, SHAP: 2.963049, SHAP_norm: 0.0003 [C:0.0159, S:7.3826, St:0.0052], Val: 0.066211
+2025-11-22 22:51:18,519 - anfis_shap.integrated_trainer - INFO - Начало эпохи 56/150
+2025-11-22 22:51:18,939 - anfis_shap.integrated_trainer - INFO - Эпоха 56/150: Total: 0.053016, Main: 0.052977, SHAP: 2.948547, SHAP_norm: 0.0003 [C:0.0070, S:7.3529, St:0.0053], Val: 0.065924
+2025-11-22 22:51:18,939 - anfis_shap.integrated_trainer - INFO - Начало эпохи 57/150
+2025-11-22 22:51:19,342 - anfis_shap.integrated_trainer - INFO - Эпоха 57/150: Total: 0.050372, Main: 0.050333, SHAP: 3.105919, SHAP_norm: 0.0003 [C:0.0096, S:7.7449, St:0.0051], Val: 0.065523
+2025-11-22 22:51:19,342 - anfis_shap.integrated_trainer - INFO - Начало эпохи 58/150
+2025-11-22 22:51:19,748 - anfis_shap.integrated_trainer - INFO - Эпоха 58/150: Total: 0.049175, Main: 0.049140, SHAP: 2.903956, SHAP_norm: 0.0003 [C:0.0052, S:7.2424, St:0.0054], Val: 0.065115
+2025-11-22 22:51:19,748 - anfis_shap.integrated_trainer - INFO - Начало эпохи 59/150
+2025-11-22 22:51:20,172 - anfis_shap.integrated_trainer - INFO - Эпоха 59/150: Total: 0.055186, Main: 0.055151, SHAP: 2.975872, SHAP_norm: 0.0003 [C:0.0053, S:7.4222, St:0.0054], Val: 0.064995
+2025-11-22 22:51:20,173 - anfis_shap.integrated_trainer - INFO - Начало эпохи 60/150
+2025-11-22 22:51:20,586 - anfis_shap.integrated_trainer - INFO - Эпоха 60/150: Total: 0.049799, Main: 0.049763, SHAP: 2.950078, SHAP_norm: 0.0003 [C:0.0056, S:7.3567, St:0.0057], Val: 0.064801
+2025-11-22 22:51:20,586 - anfis_shap.integrated_trainer - INFO - Начало эпохи 61/150
+2025-11-22 22:51:20,980 - anfis_shap.integrated_trainer - INFO - Эпоха 61/150: Total: 0.048298, Main: 0.048265, SHAP: 3.001136, SHAP_norm: 0.0003 [C:0.0024, S:7.4875, St:0.0054], Val: 0.064202
+2025-11-22 22:51:20,980 - anfis_shap.integrated_trainer - INFO - Начало эпохи 62/150
+2025-11-22 22:51:21,373 - anfis_shap.integrated_trainer - INFO - Эпоха 62/150: Total: 0.048690, Main: 0.048658, SHAP: 2.866644, SHAP_norm: 0.0002 [C:0.0023, S:7.1505, St:0.0058], Val: 0.064035
+2025-11-22 22:51:21,373 - anfis_shap.integrated_trainer - INFO - Начало эпохи 63/150
+2025-11-22 22:51:21,749 - anfis_shap.integrated_trainer - INFO - Эпоха 63/150: Total: 0.053229, Main: 0.053198, SHAP: 2.936533, SHAP_norm: 0.0002 [C:0.0193, S:7.3117, St:0.0060], Val: 0.064449
+2025-11-22 22:51:21,749 - anfis_shap.integrated_trainer - INFO - Начало эпохи 64/150
+2025-11-22 22:51:22,159 - anfis_shap.integrated_trainer - INFO - Эпоха 64/150: Total: 0.054002, Main: 0.053970, SHAP: 3.065343, SHAP_norm: 0.0002 [C:0.0080, S:7.6437, St:0.0055], Val: 0.063977
+2025-11-22 22:51:22,159 - anfis_shap.integrated_trainer - INFO - Начало эпохи 65/150
+2025-11-22 22:51:22,375 - anfis_shap.integrated_trainer - INFO - Эпоха 65/150: Total: 0.052740, Main: 0.052708, SHAP: 2.906021, SHAP_norm: 0.0002 [C:0.0015, S:7.2491, St:0.0059], Val: 0.063498, Пропущено батчей: 6
+2025-11-22 22:51:22,375 - anfis_shap.integrated_trainer - WARNING - В эпохе 65 пропущено 6 батчей из-за ошибок
+2025-11-22 22:51:22,375 - anfis_shap.integrated_trainer - INFO - Начало эпохи 66/150
+2025-11-22 22:51:22,483 - anfis_shap.integrated_trainer - INFO - Эпоха 66/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:22,483 - anfis_shap.integrated_trainer - WARNING - В эпохе 66 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:22,483 - anfis_shap.integrated_trainer - INFO - Начало эпохи 67/150
+2025-11-22 22:51:22,584 - anfis_shap.integrated_trainer - INFO - Эпоха 67/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:22,584 - anfis_shap.integrated_trainer - WARNING - В эпохе 67 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:22,584 - anfis_shap.integrated_trainer - INFO - Начало эпохи 68/150
+2025-11-22 22:51:22,676 - anfis_shap.integrated_trainer - INFO - Эпоха 68/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:22,677 - anfis_shap.integrated_trainer - WARNING - В эпохе 68 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:22,677 - anfis_shap.integrated_trainer - INFO - Начало эпохи 69/150
+2025-11-22 22:51:22,775 - anfis_shap.integrated_trainer - INFO - Эпоха 69/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:22,775 - anfis_shap.integrated_trainer - WARNING - В эпохе 69 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:22,775 - anfis_shap.integrated_trainer - INFO - Начало эпохи 70/150
+2025-11-22 22:51:22,886 - anfis_shap.integrated_trainer - INFO - Эпоха 70/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:22,887 - anfis_shap.integrated_trainer - WARNING - В эпохе 70 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:22,887 - anfis_shap.integrated_trainer - INFO - Начало эпохи 71/150
+2025-11-22 22:51:22,989 - anfis_shap.integrated_trainer - INFO - Эпоха 71/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:22,989 - anfis_shap.integrated_trainer - WARNING - В эпохе 71 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:22,989 - anfis_shap.integrated_trainer - INFO - Начало эпохи 72/150
+2025-11-22 22:51:23,095 - anfis_shap.integrated_trainer - INFO - Эпоха 72/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,095 - anfis_shap.integrated_trainer - WARNING - В эпохе 72 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,095 - anfis_shap.integrated_trainer - INFO - Начало эпохи 73/150
+2025-11-22 22:51:23,197 - anfis_shap.integrated_trainer - INFO - Эпоха 73/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,197 - anfis_shap.integrated_trainer - WARNING - В эпохе 73 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,197 - anfis_shap.integrated_trainer - INFO - Начало эпохи 74/150
+2025-11-22 22:51:23,300 - anfis_shap.integrated_trainer - INFO - Эпоха 74/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,300 - anfis_shap.integrated_trainer - WARNING - В эпохе 74 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,300 - anfis_shap.integrated_trainer - INFO - Начало эпохи 75/150
+2025-11-22 22:51:23,406 - anfis_shap.integrated_trainer - INFO - Эпоха 75/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,406 - anfis_shap.integrated_trainer - WARNING - В эпохе 75 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,406 - anfis_shap.integrated_trainer - INFO - Начало эпохи 76/150
+2025-11-22 22:51:23,508 - anfis_shap.integrated_trainer - INFO - Эпоха 76/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,508 - anfis_shap.integrated_trainer - WARNING - В эпохе 76 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,508 - anfis_shap.integrated_trainer - INFO - Начало эпохи 77/150
+2025-11-22 22:51:23,611 - anfis_shap.integrated_trainer - INFO - Эпоха 77/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,611 - anfis_shap.integrated_trainer - WARNING - В эпохе 77 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,611 - anfis_shap.integrated_trainer - INFO - Начало эпохи 78/150
+2025-11-22 22:51:23,713 - anfis_shap.integrated_trainer - INFO - Эпоха 78/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,713 - anfis_shap.integrated_trainer - WARNING - В эпохе 78 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,713 - anfis_shap.integrated_trainer - INFO - Начало эпохи 79/150
+2025-11-22 22:51:23,814 - anfis_shap.integrated_trainer - INFO - Эпоха 79/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,814 - anfis_shap.integrated_trainer - WARNING - В эпохе 79 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,814 - anfis_shap.integrated_trainer - INFO - Начало эпохи 80/150
+2025-11-22 22:51:23,915 - anfis_shap.integrated_trainer - INFO - Эпоха 80/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:23,915 - anfis_shap.integrated_trainer - WARNING - В эпохе 80 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:23,915 - anfis_shap.integrated_trainer - INFO - Начало эпохи 81/150
+2025-11-22 22:51:24,017 - anfis_shap.integrated_trainer - INFO - Эпоха 81/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,017 - anfis_shap.integrated_trainer - WARNING - В эпохе 81 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,017 - anfis_shap.integrated_trainer - INFO - Начало эпохи 82/150
+2025-11-22 22:51:24,120 - anfis_shap.integrated_trainer - INFO - Эпоха 82/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,120 - anfis_shap.integrated_trainer - WARNING - В эпохе 82 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,120 - anfis_shap.integrated_trainer - INFO - Начало эпохи 83/150
+2025-11-22 22:51:24,253 - anfis_shap.integrated_trainer - INFO - Эпоха 83/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,253 - anfis_shap.integrated_trainer - WARNING - В эпохе 83 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,253 - anfis_shap.integrated_trainer - INFO - Начало эпохи 84/150
+2025-11-22 22:51:24,363 - anfis_shap.integrated_trainer - INFO - Эпоха 84/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,363 - anfis_shap.integrated_trainer - WARNING - В эпохе 84 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,364 - anfis_shap.integrated_trainer - INFO - Начало эпохи 85/150
+2025-11-22 22:51:24,466 - anfis_shap.integrated_trainer - INFO - Эпоха 85/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,466 - anfis_shap.integrated_trainer - WARNING - В эпохе 85 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,466 - anfis_shap.integrated_trainer - INFO - Начало эпохи 86/150
+2025-11-22 22:51:24,569 - anfis_shap.integrated_trainer - INFO - Эпоха 86/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,569 - anfis_shap.integrated_trainer - WARNING - В эпохе 86 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,569 - anfis_shap.integrated_trainer - INFO - Начало эпохи 87/150
+2025-11-22 22:51:24,672 - anfis_shap.integrated_trainer - INFO - Эпоха 87/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,672 - anfis_shap.integrated_trainer - WARNING - В эпохе 87 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,672 - anfis_shap.integrated_trainer - INFO - Начало эпохи 88/150
+2025-11-22 22:51:24,774 - anfis_shap.integrated_trainer - INFO - Эпоха 88/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,774 - anfis_shap.integrated_trainer - WARNING - В эпохе 88 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,774 - anfis_shap.integrated_trainer - INFO - Начало эпохи 89/150
+2025-11-22 22:51:24,876 - anfis_shap.integrated_trainer - INFO - Эпоха 89/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,876 - anfis_shap.integrated_trainer - WARNING - В эпохе 89 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,876 - anfis_shap.integrated_trainer - INFO - Начало эпохи 90/150
+2025-11-22 22:51:24,978 - anfis_shap.integrated_trainer - INFO - Эпоха 90/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:24,978 - anfis_shap.integrated_trainer - WARNING - В эпохе 90 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:24,978 - anfis_shap.integrated_trainer - INFO - Начало эпохи 91/150
+2025-11-22 22:51:25,078 - anfis_shap.integrated_trainer - INFO - Эпоха 91/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,078 - anfis_shap.integrated_trainer - WARNING - В эпохе 91 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,078 - anfis_shap.integrated_trainer - INFO - Начало эпохи 92/150
+2025-11-22 22:51:25,178 - anfis_shap.integrated_trainer - INFO - Эпоха 92/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,178 - anfis_shap.integrated_trainer - WARNING - В эпохе 92 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,178 - anfis_shap.integrated_trainer - INFO - Начало эпохи 93/150
+2025-11-22 22:51:25,280 - anfis_shap.integrated_trainer - INFO - Эпоха 93/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,280 - anfis_shap.integrated_trainer - WARNING - В эпохе 93 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,280 - anfis_shap.integrated_trainer - INFO - Начало эпохи 94/150
+2025-11-22 22:51:25,378 - anfis_shap.integrated_trainer - INFO - Эпоха 94/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,379 - anfis_shap.integrated_trainer - WARNING - В эпохе 94 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,379 - anfis_shap.integrated_trainer - INFO - Начало эпохи 95/150
+2025-11-22 22:51:25,485 - anfis_shap.integrated_trainer - INFO - Эпоха 95/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,485 - anfis_shap.integrated_trainer - WARNING - В эпохе 95 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,485 - anfis_shap.integrated_trainer - INFO - Начало эпохи 96/150
+2025-11-22 22:51:25,590 - anfis_shap.integrated_trainer - INFO - Эпоха 96/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,590 - anfis_shap.integrated_trainer - WARNING - В эпохе 96 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,590 - anfis_shap.integrated_trainer - INFO - Начало эпохи 97/150
+2025-11-22 22:51:25,700 - anfis_shap.integrated_trainer - INFO - Эпоха 97/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,700 - anfis_shap.integrated_trainer - WARNING - В эпохе 97 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,700 - anfis_shap.integrated_trainer - INFO - Начало эпохи 98/150
+2025-11-22 22:51:25,804 - anfis_shap.integrated_trainer - INFO - Эпоха 98/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,804 - anfis_shap.integrated_trainer - WARNING - В эпохе 98 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,805 - anfis_shap.integrated_trainer - INFO - Начало эпохи 99/150
+2025-11-22 22:51:25,915 - anfis_shap.integrated_trainer - INFO - Эпоха 99/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:25,915 - anfis_shap.integrated_trainer - WARNING - В эпохе 99 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:25,915 - anfis_shap.integrated_trainer - INFO - Начало эпохи 100/150
+2025-11-22 22:51:26,019 - anfis_shap.integrated_trainer - INFO - Эпоха 100/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,019 - anfis_shap.integrated_trainer - WARNING - В эпохе 100 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,019 - anfis_shap.integrated_trainer - INFO - Начало эпохи 101/150
+2025-11-22 22:51:26,124 - anfis_shap.integrated_trainer - INFO - Эпоха 101/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,124 - anfis_shap.integrated_trainer - WARNING - В эпохе 101 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,124 - anfis_shap.integrated_trainer - INFO - Начало эпохи 102/150
+2025-11-22 22:51:26,228 - anfis_shap.integrated_trainer - INFO - Эпоха 102/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,228 - anfis_shap.integrated_trainer - WARNING - В эпохе 102 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,228 - anfis_shap.integrated_trainer - INFO - Начало эпохи 103/150
+2025-11-22 22:51:26,330 - anfis_shap.integrated_trainer - INFO - Эпоха 103/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,330 - anfis_shap.integrated_trainer - WARNING - В эпохе 103 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,330 - anfis_shap.integrated_trainer - INFO - Начало эпохи 104/150
+2025-11-22 22:51:26,435 - anfis_shap.integrated_trainer - INFO - Эпоха 104/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,435 - anfis_shap.integrated_trainer - WARNING - В эпохе 104 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,435 - anfis_shap.integrated_trainer - INFO - Начало эпохи 105/150
+2025-11-22 22:51:26,540 - anfis_shap.integrated_trainer - INFO - Эпоха 105/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,540 - anfis_shap.integrated_trainer - WARNING - В эпохе 105 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,540 - anfis_shap.integrated_trainer - INFO - Начало эпохи 106/150
+2025-11-22 22:51:26,671 - anfis_shap.integrated_trainer - INFO - Эпоха 106/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,671 - anfis_shap.integrated_trainer - WARNING - В эпохе 106 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,671 - anfis_shap.integrated_trainer - INFO - Начало эпохи 107/150
+2025-11-22 22:51:26,781 - anfis_shap.integrated_trainer - INFO - Эпоха 107/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,781 - anfis_shap.integrated_trainer - WARNING - В эпохе 107 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,781 - anfis_shap.integrated_trainer - INFO - Начало эпохи 108/150
+2025-11-22 22:51:26,890 - anfis_shap.integrated_trainer - INFO - Эпоха 108/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,890 - anfis_shap.integrated_trainer - WARNING - В эпохе 108 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,890 - anfis_shap.integrated_trainer - INFO - Начало эпохи 109/150
+2025-11-22 22:51:26,998 - anfis_shap.integrated_trainer - INFO - Эпоха 109/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:26,998 - anfis_shap.integrated_trainer - WARNING - В эпохе 109 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:26,998 - anfis_shap.integrated_trainer - INFO - Начало эпохи 110/150
+2025-11-22 22:51:27,101 - anfis_shap.integrated_trainer - INFO - Эпоха 110/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,101 - anfis_shap.integrated_trainer - WARNING - В эпохе 110 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,101 - anfis_shap.integrated_trainer - INFO - Начало эпохи 111/150
+2025-11-22 22:51:27,202 - anfis_shap.integrated_trainer - INFO - Эпоха 111/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,202 - anfis_shap.integrated_trainer - WARNING - В эпохе 111 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,203 - anfis_shap.integrated_trainer - INFO - Начало эпохи 112/150
+2025-11-22 22:51:27,306 - anfis_shap.integrated_trainer - INFO - Эпоха 112/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,306 - anfis_shap.integrated_trainer - WARNING - В эпохе 112 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,306 - anfis_shap.integrated_trainer - INFO - Начало эпохи 113/150
+2025-11-22 22:51:27,408 - anfis_shap.integrated_trainer - INFO - Эпоха 113/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,408 - anfis_shap.integrated_trainer - WARNING - В эпохе 113 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,408 - anfis_shap.integrated_trainer - INFO - Начало эпохи 114/150
+2025-11-22 22:51:27,510 - anfis_shap.integrated_trainer - INFO - Эпоха 114/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,510 - anfis_shap.integrated_trainer - WARNING - В эпохе 114 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,510 - anfis_shap.integrated_trainer - INFO - Начало эпохи 115/150
+2025-11-22 22:51:27,614 - anfis_shap.integrated_trainer - INFO - Эпоха 115/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,614 - anfis_shap.integrated_trainer - WARNING - В эпохе 115 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,614 - anfis_shap.integrated_trainer - INFO - Начало эпохи 116/150
+2025-11-22 22:51:27,715 - anfis_shap.integrated_trainer - INFO - Эпоха 116/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,715 - anfis_shap.integrated_trainer - WARNING - В эпохе 116 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,715 - anfis_shap.integrated_trainer - INFO - Начало эпохи 117/150
+2025-11-22 22:51:27,816 - anfis_shap.integrated_trainer - INFO - Эпоха 117/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,816 - anfis_shap.integrated_trainer - WARNING - В эпохе 117 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,816 - anfis_shap.integrated_trainer - INFO - Начало эпохи 118/150
+2025-11-22 22:51:27,916 - anfis_shap.integrated_trainer - INFO - Эпоха 118/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:27,916 - anfis_shap.integrated_trainer - WARNING - В эпохе 118 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:27,916 - anfis_shap.integrated_trainer - INFO - Начало эпохи 119/150
+2025-11-22 22:51:28,015 - anfis_shap.integrated_trainer - INFO - Эпоха 119/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,015 - anfis_shap.integrated_trainer - WARNING - В эпохе 119 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,015 - anfis_shap.integrated_trainer - INFO - Начало эпохи 120/150
+2025-11-22 22:51:28,113 - anfis_shap.integrated_trainer - INFO - Эпоха 120/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,113 - anfis_shap.integrated_trainer - WARNING - В эпохе 120 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,113 - anfis_shap.integrated_trainer - INFO - Начало эпохи 121/150
+2025-11-22 22:51:28,216 - anfis_shap.integrated_trainer - INFO - Эпоха 121/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,216 - anfis_shap.integrated_trainer - WARNING - В эпохе 121 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,216 - anfis_shap.integrated_trainer - INFO - Начало эпохи 122/150
+2025-11-22 22:51:28,319 - anfis_shap.integrated_trainer - INFO - Эпоха 122/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,319 - anfis_shap.integrated_trainer - WARNING - В эпохе 122 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,319 - anfis_shap.integrated_trainer - INFO - Начало эпохи 123/150
+2025-11-22 22:51:28,422 - anfis_shap.integrated_trainer - INFO - Эпоха 123/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,423 - anfis_shap.integrated_trainer - WARNING - В эпохе 123 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,423 - anfis_shap.integrated_trainer - INFO - Начало эпохи 124/150
+2025-11-22 22:51:28,525 - anfis_shap.integrated_trainer - INFO - Эпоха 124/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,525 - anfis_shap.integrated_trainer - WARNING - В эпохе 124 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,525 - anfis_shap.integrated_trainer - INFO - Начало эпохи 125/150
+2025-11-22 22:51:28,625 - anfis_shap.integrated_trainer - INFO - Эпоха 125/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,625 - anfis_shap.integrated_trainer - WARNING - В эпохе 125 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,625 - anfis_shap.integrated_trainer - INFO - Начало эпохи 126/150
+2025-11-22 22:51:28,728 - anfis_shap.integrated_trainer - INFO - Эпоха 126/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,728 - anfis_shap.integrated_trainer - WARNING - В эпохе 126 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,728 - anfis_shap.integrated_trainer - INFO - Начало эпохи 127/150
+2025-11-22 22:51:28,831 - anfis_shap.integrated_trainer - INFO - Эпоха 127/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,831 - anfis_shap.integrated_trainer - WARNING - В эпохе 127 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,831 - anfis_shap.integrated_trainer - INFO - Начало эпохи 128/150
+2025-11-22 22:51:28,932 - anfis_shap.integrated_trainer - INFO - Эпоха 128/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:28,932 - anfis_shap.integrated_trainer - WARNING - В эпохе 128 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:28,932 - anfis_shap.integrated_trainer - INFO - Начало эпохи 129/150
+2025-11-22 22:51:29,035 - anfis_shap.integrated_trainer - INFO - Эпоха 129/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,035 - anfis_shap.integrated_trainer - WARNING - В эпохе 129 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,035 - anfis_shap.integrated_trainer - INFO - Начало эпохи 130/150
+2025-11-22 22:51:29,138 - anfis_shap.integrated_trainer - INFO - Эпоха 130/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,138 - anfis_shap.integrated_trainer - WARNING - В эпохе 130 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,138 - anfis_shap.integrated_trainer - INFO - Начало эпохи 131/150
+2025-11-22 22:51:29,239 - anfis_shap.integrated_trainer - INFO - Эпоха 131/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,239 - anfis_shap.integrated_trainer - WARNING - В эпохе 131 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,239 - anfis_shap.integrated_trainer - INFO - Начало эпохи 132/150
+2025-11-22 22:51:29,340 - anfis_shap.integrated_trainer - INFO - Эпоха 132/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,340 - anfis_shap.integrated_trainer - WARNING - В эпохе 132 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,340 - anfis_shap.integrated_trainer - INFO - Начало эпохи 133/150
+2025-11-22 22:51:29,443 - anfis_shap.integrated_trainer - INFO - Эпоха 133/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,443 - anfis_shap.integrated_trainer - WARNING - В эпохе 133 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,443 - anfis_shap.integrated_trainer - INFO - Начало эпохи 134/150
+2025-11-22 22:51:29,574 - anfis_shap.integrated_trainer - INFO - Эпоха 134/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,574 - anfis_shap.integrated_trainer - WARNING - В эпохе 134 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,574 - anfis_shap.integrated_trainer - INFO - Начало эпохи 135/150
+2025-11-22 22:51:29,687 - anfis_shap.integrated_trainer - INFO - Эпоха 135/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,687 - anfis_shap.integrated_trainer - WARNING - В эпохе 135 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,687 - anfis_shap.integrated_trainer - INFO - Начало эпохи 136/150
+2025-11-22 22:51:29,798 - anfis_shap.integrated_trainer - INFO - Эпоха 136/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,798 - anfis_shap.integrated_trainer - WARNING - В эпохе 136 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,798 - anfis_shap.integrated_trainer - INFO - Начало эпохи 137/150
+2025-11-22 22:51:29,907 - anfis_shap.integrated_trainer - INFO - Эпоха 137/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:29,908 - anfis_shap.integrated_trainer - WARNING - В эпохе 137 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:29,908 - anfis_shap.integrated_trainer - INFO - Начало эпохи 138/150
+2025-11-22 22:51:30,017 - anfis_shap.integrated_trainer - INFO - Эпоха 138/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,017 - anfis_shap.integrated_trainer - WARNING - В эпохе 138 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,018 - anfis_shap.integrated_trainer - INFO - Начало эпохи 139/150
+2025-11-22 22:51:30,127 - anfis_shap.integrated_trainer - INFO - Эпоха 139/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,127 - anfis_shap.integrated_trainer - WARNING - В эпохе 139 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,127 - anfis_shap.integrated_trainer - INFO - Начало эпохи 140/150
+2025-11-22 22:51:30,235 - anfis_shap.integrated_trainer - INFO - Эпоха 140/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,236 - anfis_shap.integrated_trainer - WARNING - В эпохе 140 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,236 - anfis_shap.integrated_trainer - INFO - Начало эпохи 141/150
+2025-11-22 22:51:30,348 - anfis_shap.integrated_trainer - INFO - Эпоха 141/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,348 - anfis_shap.integrated_trainer - WARNING - В эпохе 141 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,348 - anfis_shap.integrated_trainer - INFO - Начало эпохи 142/150
+2025-11-22 22:51:30,459 - anfis_shap.integrated_trainer - INFO - Эпоха 142/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,459 - anfis_shap.integrated_trainer - WARNING - В эпохе 142 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,459 - anfis_shap.integrated_trainer - INFO - Начало эпохи 143/150
+2025-11-22 22:51:30,568 - anfis_shap.integrated_trainer - INFO - Эпоха 143/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,568 - anfis_shap.integrated_trainer - WARNING - В эпохе 143 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,568 - anfis_shap.integrated_trainer - INFO - Начало эпохи 144/150
+2025-11-22 22:51:30,678 - anfis_shap.integrated_trainer - INFO - Эпоха 144/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,678 - anfis_shap.integrated_trainer - WARNING - В эпохе 144 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,678 - anfis_shap.integrated_trainer - INFO - Начало эпохи 145/150
+2025-11-22 22:51:30,791 - anfis_shap.integrated_trainer - INFO - Эпоха 145/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,791 - anfis_shap.integrated_trainer - WARNING - В эпохе 145 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,791 - anfis_shap.integrated_trainer - INFO - Начало эпохи 146/150
+2025-11-22 22:51:30,900 - anfis_shap.integrated_trainer - INFO - Эпоха 146/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:30,900 - anfis_shap.integrated_trainer - WARNING - В эпохе 146 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:30,901 - anfis_shap.integrated_trainer - INFO - Начало эпохи 147/150
+2025-11-22 22:51:31,004 - anfis_shap.integrated_trainer - INFO - Эпоха 147/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:31,004 - anfis_shap.integrated_trainer - WARNING - В эпохе 147 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:31,004 - anfis_shap.integrated_trainer - INFO - Начало эпохи 148/150
+2025-11-22 22:51:31,106 - anfis_shap.integrated_trainer - INFO - Эпоха 148/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:31,106 - anfis_shap.integrated_trainer - WARNING - В эпохе 148 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:31,106 - anfis_shap.integrated_trainer - INFO - Начало эпохи 149/150
+2025-11-22 22:51:31,209 - anfis_shap.integrated_trainer - INFO - Эпоха 149/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:31,209 - anfis_shap.integrated_trainer - WARNING - В эпохе 149 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:31,209 - anfis_shap.integrated_trainer - INFO - Начало эпохи 150/150
+2025-11-22 22:51:31,314 - anfis_shap.integrated_trainer - INFO - Эпоха 150/150: Total: nan, Main: nan, SHAP: nan, Val: 0.063498, Пропущено батчей: 8
+2025-11-22 22:51:31,314 - anfis_shap.integrated_trainer - WARNING - В эпохе 150 пропущено 8 батчей из-за ошибок
+2025-11-22 22:51:31,314 - anfis_shap.integrated_trainer - INFO - Обучение завершено за 37.03 сек
+
+🧪 Финальное тестирование на ВСЕХ реальных данных...
+
+🔄 Денормализация предсказаний...
+
+💾 Сохранение модели: /home/lebedeffson/.cursor/worktrees/____-____/kp9b0/results/anfis_model_state_20251122_225131_integrated_improved_v1.pt
+📄 Сводка обучения сохранена: /home/lebedeffson/.cursor/worktrees/____-____/kp9b0/results/training_summary_20251122_225131_integrated_improved_v1.json
+
+📊 Генерация графиков...
+⚠️  Ошибка при генерации графиков: Traceback (most recent call last):
+  File "/home/lebedeffson/.cursor/worktrees/____-____/kp9b0/plot_results.py", line 757, in <module>
+    main()
+  File "/home/lebedeffson/.cursor/worktrees/____-____/kp9b0/plot_results.py", line 744, in main
+    shap_history_fig = plot_shap_history(results_dir, shap_files, summary["timestamp"], output_dir)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lebedeffson/.cursor/worktrees/____-____/kp9b
+   Попробуйте запустить вручную: python /home/lebedeffson/.cursor/worktrees/____-____/kp9b0/plot_results.py --summary /home/lebedeffson/.cursor/worktrees/____-____/kp9b0/results/training_summary_20251122_225131_integrated_improved_v1.json --output-dir /home/lebedeffson/.cursor/worktrees/____-____/kp9b0/results
+
+✅ Обучение завершено. Модель и метрики сохранены.

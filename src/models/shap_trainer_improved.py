@@ -317,18 +317,20 @@ class ShapAwareANFISTrainerImproved:
                     epoch_shap_components['stability'].append(shap_components.get('stability', 0.0))
 
             # Усреднение потерь по эпохе
-            for loss_type in history:
+            for loss_type in ['total_loss', 'main_loss', 'shap_loss']:
                 loss_key = loss_type.split('_')[0]
                 values = epoch_losses[loss_key]
                 history[loss_type].append(float(np.mean(values)) if values else float('nan'))
             
             # Сохраняем адаптивные параметры
             if 'adaptive_gamma' in epoch_losses:
-                history['adaptive_gamma'] = history.get('adaptive_gamma', [])
+                if 'adaptive_gamma' not in history:
+                    history['adaptive_gamma'] = []
                 history['adaptive_gamma'].append(float(np.mean(epoch_losses['adaptive_gamma'])))
             
             if 'convergence_slowdown' in epoch_losses:
-                history['convergence_slowdown'] = history.get('convergence_slowdown', [])
+                if 'convergence_slowdown' not in history:
+                    history['convergence_slowdown'] = []
                 history['convergence_slowdown'].append(float(np.mean(epoch_losses['convergence_slowdown'])))
             
             # Добавляем компоненты SHAP в историю
