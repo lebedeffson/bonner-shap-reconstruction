@@ -565,6 +565,7 @@ def plot_shap_history(results_dir, shap_files, timestamp, output_dir):
         return None
 
     fig, ax = plt.subplots(figsize=(8, 4))
+    has_plots = False
     for key, values in history.items():
         if not isinstance(values, (list, tuple)):
             continue
@@ -572,6 +573,12 @@ def plot_shap_history(results_dir, shap_files, timestamp, output_dir):
         if not finite_values:
             continue
         ax.plot(finite_values, label=key.replace("_", " "))
+        has_plots = True
+        
+    if not has_plots:
+        plt.close(fig)
+        return None
+        
     ax.set_title("История потерь SHAP")
     ax.set_xlabel("Эпоха")
     ax.set_ylabel("Значение")

@@ -38,7 +38,17 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
             gamma: Коэффициент SHAP-регуляризации
             verbose: Выводить ли информацию
         """
+        # Сохраняем ссылку на обертку ДО вызова super().__init__, 
+        # так как родительский класс может заменить self.model на self.model.network
+        anfis_wrapper = None
+        if hasattr(model, 'fit'):
+            anfis_wrapper = model
+            
         super().__init__(model, config, gamma, verbose)
+        
+        # Восстанавливаем ссылку на обертку
+        if anfis_wrapper is not None:
+            self.anfis_wrapper = anfis_wrapper
         
         # GPU уже настроен в родительском классе через _get_device()
         # Модель уже перемещена на GPU в родительском классе
@@ -115,8 +125,45 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
         baseline_values = np.mean(X_train_array, axis=0)
         baseline_values = np.nan_to_num(baseline_values, nan=0.0, posinf=0.0, neginf=0.0)
         
+        # УЛУЧШЕНО: Группировка параметров с разными LR (как в Hybrid learning)
+        # coeffs (линейные) требуют высокого LR (эмуляция LSE), а premises (нелинейные) - аккуратного
+        param_groups = []
+        coeffs_params = []
+        sigma_params = []
+        mu_params = []
+        other_params = []
+        
+        for name, param in self.model.named_parameters():
+            if 'coeff' in name:
+                coeffs_params.append(param)
+            elif 'sigma' in name:
+                sigma_params.append(param)
+            elif 'mu' in name:
+                mu_params.append(param)
+            else:
+                other_params.append(param)
+        
+        # LR множители
+        lr_coeffs_mult = 5.0  # Ускоряем линейную часть (эмуляция LSE)
+        lr_sigma_mult = 0.5   # Замедляем ширину (стабильность)
+        
+        if coeffs_params:
+            param_groups.append({'params': coeffs_params, 'lr': lr * lr_coeffs_mult})
+        if sigma_params:
+            param_groups.append({'params': sigma_params, 'lr': lr * lr_sigma_mult})
+        if mu_params:
+            param_groups.append({'params': mu_params, 'lr': lr})
+        if other_params:
+            param_groups.append({'params': other_params, 'lr': lr})
+            
         # Оптимизатор и функция потерь
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(param_groups)
+        
+        # Планировщик: снижаем LR если вышли на плато
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.5, patience=20, min_lr=1e-6
+        )
+        
         loss_function = torch.nn.MSELoss()
         
         # История потерь
@@ -145,24 +192,39 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
         if self.use_pso_init:
             self.logger.info(f"Начальная инициализация: PSO ({self.pso_epochs} эпох)")
         
-        # Принудительный flush для немедленного вывода
-        sys.stdout.flush()
+        self.logger.info(f"Тип модели (self.model): {type(self.model)}")
+        
+        # Проверяем, есть ли доступ к обертке с методом fit
+        wrapper_with_fit = None
+        if hasattr(self, 'anfis_wrapper') and hasattr(self.anfis_wrapper, 'fit'):
+            wrapper_with_fit = self.anfis_wrapper
+            self.logger.info("Найдена обертка BioAnfisRegressor с методом fit")
+        elif hasattr(self.model, 'fit'):
+            wrapper_with_fit = self.model
+            self.logger.info("Модель имеет метод fit")
+            
+        self.logger.info(f"use_pso_init: {self.use_pso_init}")
         
         # Начальная инициализация через PSO (опционально)
-        if self.use_pso_init and hasattr(self.model, 'fit'):
+        if self.use_pso_init and wrapper_with_fit is not None:
             self.logger.info("Начальная инициализация через PSO...")
             sys.stdout.flush()
             try:
                 # Используем короткое PSO обучение для начальной инициализации
+                # ВАЖНО: Мы не можем использовать wrapper_with_fit.fit() напрямую,
+                # так как это перезапишет нашу модель self.model
+                # Вместо этого мы создаем временную модель того же типа
+                
                 original_epochs = self.config['model']['optim_params']['epoch']
+                # Используем pso_epochs из конфига integrated trainer
                 self.config['model']['optim_params']['epoch'] = self.pso_epochs
                 
                 # Временно отключаем verbose для PSO
                 original_verbose = self.config['model']['optim_params'].get('verbose', False)
                 self.config['model']['optim_params']['verbose'] = False
                 
-                # Быстрое PSO обучение на подвыборке данных
-                init_size = min(1000, len(X_train_array))
+                # Быстрое PSO обучение на подвыборке данных (или полных)
+                init_size = len(X_train_array) # Используем все данные для качества
                 X_init = X_train_array[:init_size]
                 y_init = y_train_array[:init_size]
                 
@@ -177,21 +239,32 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
                     reg_lambda=self.config['model']['reg_lambda'],
                     seed=self.config['model']['seed'],
                     n_workers=self.config['model'].get('n_workers', 4),
-                    verbose=False
+                    verbose=True # Включаем verbose чтобы видеть прогресс PSO
                 )
                 temp_model.size_input = X_init.shape[1]
                 temp_model.size_output = y_init.shape[1] if y_init.ndim > 1 else 1
                 temp_model.build_model()
                 
-                self.logger.info(f"PSO инициализация на {len(X_init)} образцах...")
+                self.logger.info(f"Запуск PSO на {len(X_init)} образцах ({self.pso_epochs} эпох)...")
                 sys.stdout.flush()
                 
                 temp_model.fit(X_init, y_init)
                 
-                # Копируем веса из временной модели
+                # Копируем веса из временной модели в нашу PyTorch модель
                 if hasattr(temp_model, 'network') and temp_model.network is not None:
+                    # self.model это уже network (CustomANFIS)
                     self.model.load_state_dict(temp_model.network.state_dict(), strict=False)
-                    self.logger.info("PSO инициализация завершена")
+                    
+                    # Проверка качества после инициализации
+                    self.model.eval()
+                    with torch.no_grad():
+                        X_check = torch.tensor(X_train_array, dtype=torch.float32, device=self.device)
+                        y_check = torch.tensor(y_train_array, dtype=torch.float32, device=self.device)
+                        preds_check = self.model(X_check)
+                        init_mse = torch.nn.functional.mse_loss(preds_check, y_check).item()
+                        self.logger.info(f"✅ PSO успешно завершено! MSE: {init_mse:.6f}")
+                        
+                    self.logger.info("Веса перенесены успешно")
                     sys.stdout.flush()
                 
                 # Восстанавливаем оригинальные параметры
@@ -200,6 +273,8 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
                 
             except Exception as e:
                 self.logger.warning(f"PSO инициализация не удалась: {e}. Продолжаю с случайной инициализацией.")
+                import traceback
+                self.logger.warning(traceback.format_exc())
                 sys.stdout.flush()
         
         # Основной цикл обучения с SHAP регуляризацией
@@ -295,20 +370,31 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
                     ema_alpha = getattr(self, 'ema_alpha', 0.9)
                     self.main_loss_ema = ema_alpha * self.main_loss_ema + (1 - ema_alpha) * main_loss_detached.item()
                 
-                # Вычисляем адаптивный gamma для текущей эпохи (если используется)
-                if hasattr(self, 'use_adaptive_gamma') and self.use_adaptive_gamma and hasattr(self, 'max_epochs') and self.max_epochs:
+                # Вычисляем адаптивный gamma для текущей эпохи
+                # ВАЖНО: Для обучения с нуля (fit_from_scratch) ВСЕГДА используем warmup,
+                # даже если use_adaptive_gamma выключена, иначе модель не сойдется.
+                if hasattr(self, 'max_epochs') and self.max_epochs:
                     progress = epoch / self.max_epochs
-                    warmup_progress = getattr(self, 'gamma_warmup_epochs', 0.3)
+                    # Используем параметр из конфига или дефолтный 30% warmup
+                    warmup_frac = getattr(self, 'gamma_warmup_epochs', 0.3)
                     
-                    if progress < warmup_progress:
-                        gamma_ratio = progress / warmup_progress
-                        current_gamma = getattr(self, 'gamma_start', 0.05) + (getattr(self, 'gamma_end', 0.5) - getattr(self, 'gamma_start', 0.05)) * gamma_ratio
+                    # Если use_adaptive_gamma=True, используем сложную логику из конфига
+                    if hasattr(self, 'use_adaptive_gamma') and self.use_adaptive_gamma:
+                        if progress < warmup_frac:
+                            gamma_ratio = progress / warmup_frac
+                            current_gamma = getattr(self, 'gamma_start', 0.0) + (getattr(self, 'gamma_end', self.gamma) - getattr(self, 'gamma_start', 0.0)) * gamma_ratio
+                        else:
+                            # Логика для post-warmup (можно держать constant или менять)
+                            # Если gamma_end не задан, используем self.gamma
+                            target_g = getattr(self, 'gamma_end', self.gamma)
+                            current_gamma = target_g
                     else:
-                        remaining_progress = (progress - warmup_progress) / (1.0 - warmup_progress)
-                        current_gamma = getattr(self, 'gamma_start', 0.05) + (getattr(self, 'gamma_end', 0.5) - getattr(self, 'gamma_start', 0.05)) * (
-                            warmup_progress + remaining_progress * (1.0 - warmup_progress)
-                        )
-                        current_gamma = min(current_gamma, getattr(self, 'gamma_end', 0.5))
+                        # ПРОСТОЙ WARMUP (для стабильности fit_from_scratch)
+                        # Линейно увеличиваем от 0 до self.gamma
+                        if progress < warmup_frac:
+                            current_gamma = self.gamma * (progress / warmup_frac)
+                        else:
+                            current_gamma = self.gamma
                 else:
                     current_gamma = self.gamma
                 
@@ -436,8 +522,13 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
                     val_predictions = self.model(X_val_tensor)
                     val_predictions = torch.clamp(val_predictions, min=0.0)
                     val_loss = loss_function(val_predictions, y_val_tensor)
+                    val_loss_val = float(val_loss.item())
                     if history['val_loss'] is not None:
-                        history['val_loss'].append(float(val_loss.item()))
+                        history['val_loss'].append(val_loss_val)
+                    
+                    # Шаг планировщика по валидационному лоссу
+                    if 'scheduler' in locals():
+                        scheduler.step(val_loss_val)
             
             # Прогресс на каждой эпохе
             skipped_info = f", Пропущено батчей: {skipped_batches}" if skipped_batches > 0 else ""
@@ -480,7 +571,9 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
             self.logger.info(f"Эпоха {epoch + 1}/{epochs}: "
                   f"Total: {history['total_loss'][-1]:.6f}, "
                   f"Main: {history['main_loss'][-1]:.6f}, "
-                  f"SHAP: {history['shap_loss'][-1]:.6f}{shap_norm_info}{shap_info}{val_info}{skipped_info}")
+                  f"SHAP: {history['shap_loss'][-1]:.6f}, "
+                  f"Gamma: {current_gamma:.4f}"
+                  f"{shap_norm_info}{shap_info}{val_info}{skipped_info}")
             sys.stdout.flush()
             
             if skipped_batches > 0:
@@ -1023,38 +1116,15 @@ class ShapIntegratedANFISTrainer(ShapAwareANFISTrainerImproved):
         max_entropy = torch.log(torch.tensor(float(n_features), device=self.device))
         normalized_entropy = entropy / (max_entropy + 1e-10)
         
-        # УЛУЧШЕНО: Более агрессивный экспоненциальный штраф
-        # Используем exp(k * H_norm) где k увеличен для более агрессивного штрафа
-        # Normalized entropy слишком высокая (0.87), нужен более сильный штраф
-        k = 2.75  # Коэффициент агрессивности (увеличен с 1.5 до 2.5 для более сильного штрафа за высокую энтропию)
-        exp_penalty = torch.exp(k * normalized_entropy) - 1.0
+        # УЛУЧШЕНО: Линейный штраф за энтропию (максимальная стабильность)
+        # Убираем экспоненту и другие сложные компоненты, оставляем только normalized entropy
+        # Это гарантирует, что loss будет в диапазоне [0, 1] и градиенты не взорвутся
+        sparsity_loss = normalized_entropy
         
-        # Дополнительный штраф через коэффициент вариации (CV)
-        # CV = std / mean, высокий CV = более sparse распределение
-        importance_mean = torch.mean(importance_normalized)
-        importance_std = torch.std(importance_normalized)
-        cv = importance_std / (importance_mean + 1e-10)
-        max_cv = torch.sqrt(torch.tensor(float(n_features - 1), device=self.device))  # Максимальный CV
-        normalized_cv = cv / (max_cv + 1e-10)
-        
-        # УЛУЧШЕНО: Добавляем штраф за максимальную важность (поощряем выделение нескольких признаков)
-        # Максимальная важность должна быть значительно выше средней
-        max_importance = torch.max(importance_normalized)
-        mean_importance = torch.mean(importance_normalized)
-        max_mean_ratio = max_importance / (mean_importance + 1e-10)
-        # Нормализуем: для равномерного распределения ratio = 1, для sparse ratio >> 1
-        max_penalty = 1.0 / (max_mean_ratio + 1e-10)  # Штраф за низкий ratio
-        
-        # УЛУЧШЕНО: Комбинируем все компоненты с весами (более агрессивная формула)
-        # exp_penalty - основной штраф за энтропию (увеличен вес)
-        # CV penalty - штраф за низкую вариативность (увеличен вес)
-        # max_penalty - штраф за отсутствие выделенных признаков
-        # Normalized entropy слишком высокая (0.87), normalized CV слишком низкая (0.33)
-        sparsity_loss = (
-            0.7 * exp_penalty +           # Основной штраф за энтропию (70% - увеличен с 60%)
-            0.2 * (1.0 - normalized_cv) + # Штраф за низкий CV (20% - уменьшен с 25%, но более агрессивный)
-            0.1 * max_penalty             # Штраф за низкий max/mean ratio (10% - уменьшен с 15%)
-        )
+        # Заглушки для совместимости с логгером
+        cv = torch.tensor(0.0, device=self.device)
+        normalized_cv = torch.tensor(0.0, device=self.device)
+        max_mean_ratio = torch.tensor(0.0, device=self.device)
         
         # 2. CONSISTENCY регуляризация - согласованность локальных и глобальных значений
         # УЛУЧШЕНО: более сильное влияние через нормализованную MSE
