@@ -51,3 +51,11 @@ shap_reg:
   gamma_consistency: 0.2
   gamma_faithfulness: 0.05
   gamma_stability: 0.05
+
+output:
+  results_dir: results
+  save_model: true
+  save_predictions: true
+  save_plots: true
+  save_samples: true
+  sample_size: 5

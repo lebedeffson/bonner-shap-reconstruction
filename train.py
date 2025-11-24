@@ -17,7 +17,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.models.anfis_manager import ANFISManager
 from src.models.shap_trainer_improved import ShapAwareANFISTrainerImproved as ShapAwareANFISTrainer
-from src.models.shap_integrated_trainer import ShapIntegratedANFISTrainer
 from src.utils.config_loader import load_config
 from src.utils.data_loader import (
     load_training_dataset,
@@ -113,7 +112,7 @@ def train_and_save(args):
 
     # Проверяем режим обучения ДО загрузки данных
     shap_config = config.get('shap_reg', {})
-    integrated_training = shap_config.get('integrated_training', False)
+    integrated_training = False  # интегрированный режим отключаем; оставляем двухэтапный
     # Для интегрированного режима по умолчанию используем full_fast, иначе real_only
     training_mode = shap_config.get('training_mode', 'full_fast' if integrated_training else 'real_only')
     
@@ -228,7 +227,7 @@ def train_and_save(args):
     if not shap_config.get('enabled', False):
         raise ValueError("SHAP регуляризация должна быть включена (shap_reg.enabled=true)")
     
-    integrated_training = shap_config.get('integrated_training', False)
+    integrated_training = False  # форсируем двухэтапный режим
     
     if integrated_training:
         # ИНТЕГРИРОВАННОЕ ОБУЧЕНИЕ
@@ -505,12 +504,16 @@ def train_and_save(args):
 
     # Сохранение подвыборки для графиков
     if output_config.get('save_samples', False):
+        print("\n💾 Сохранение образцов для графиков...")
         sample_size = int(output_config.get('sample_size', 5))
+        print(f"   • Запрошено образцов: {sample_size}")
         sample_size = max(sample_size, 0)
         if sample_size > 0:
+            print(f"   • Доступно для выбора: {X_test_array.shape[0]}")
             sample_size = min(sample_size, X_test_array.shape[0])
             rng = np.random.default_rng(dataset_config.get('random_state', 42))
             sample_indices = np.sort(rng.choice(X_test_array.shape[0], size=sample_size, replace=False))
+            print(f"   • Выбраны индексы: {sample_indices}")
 
             sample_prefix = os.path.join(results_dir, f"samples_{timestamp}")
             np.save(f"{sample_prefix}_X.npy", np.asarray(X_test_array[sample_indices], dtype=float))

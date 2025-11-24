@@ -12,6 +12,7 @@ from pathlib import Path
 from datetime import datetime
 
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
@@ -196,6 +197,8 @@ def train_vanilla_real_only(args):
     print("\n💾 Сохранение результатов...")
     results_dir = Path(config.get('output', {}).get('results_dir', 'results'))
     results_dir.mkdir(parents=True, exist_ok=True)
+    
+    saved_files = {}
 
     # Сохраняем модель
     model_path = results_dir / f"anfis_model_state_{run_id}.pt"
@@ -206,9 +209,11 @@ def train_vanilla_real_only(args):
     # Сохраняем предсказания
     predictions_path = results_dir / f"predictions_{run_id}.npy"
     np.save(predictions_path, test_predictions)
+    saved_files['predictions'] = f"predictions_{run_id}.npy"
     
     targets_path = results_dir / f"targets_test_{run_id}.npy"
     np.save(targets_path, y_test_array)
+    saved_files['targets_test'] = f"targets_test_{run_id}.npy"
 
     # Денормализация предсказаний, если нужно
     predictions_denorm = None
@@ -227,6 +232,9 @@ def train_vanilla_real_only(args):
         np.save(predictions_denorm_path, predictions_denorm)
         np.save(targets_denorm_path, targets_denorm)
         
+        saved_files['predictions_denorm'] = f"predictions_denorm_{run_id}.npy"
+        saved_files['targets_denorm'] = f"targets_test_denorm_{run_id}.npy"
+        
         metrics_denorm = {
             'mse': float(mean_squared_error(targets_denorm, predictions_denorm, multioutput='uniform_average')),
             'rmse': float(np.sqrt(mean_squared_error(targets_denorm, predictions_denorm, multioutput='uniform_average'))),
@@ -240,6 +248,40 @@ def train_vanilla_real_only(args):
         print(f"   • RMSE: {metrics_denorm['rmse']:.6f}")
         print(f"   • MAE: {metrics_denorm['mae']:.6f}")
         print(f"   • R²: {metrics_denorm['r2']:.6f}")
+
+    # Сохранение подвыборки для графиков (как в train.py)
+    output_config = config.get('output', {})
+    if output_config.get('save_samples', False):
+        sample_size = int(output_config.get('sample_size', 5))
+        sample_size = max(sample_size, 0)
+        if sample_size > 0:
+            sample_size = min(sample_size, X_test_array.shape[0])
+            rng = np.random.default_rng(dataset_config.get('random_state', 42))
+            sample_indices = np.sort(rng.choice(X_test_array.shape[0], size=sample_size, replace=False))
+
+            sample_prefix = results_dir / f"samples_{run_id}"
+            np.save(f"{sample_prefix}_X.npy", np.asarray(X_test_array[sample_indices], dtype=float))
+            np.save(f"{sample_prefix}_y.npy", np.asarray(y_test_array[sample_indices], dtype=float))
+            np.save(f"{sample_prefix}_pred.npy", np.asarray(test_predictions[sample_indices], dtype=float))
+
+            sample_record = {
+                'indices': sample_indices.tolist(),
+                'X': f"samples_{run_id}_X.npy",
+                'y': f"samples_{run_id}_y.npy",
+                'pred': f"samples_{run_id}_pred.npy"
+            }
+            if SUM_test is not None:
+                sum_array = np.asarray(SUM_test)
+                np.save(f"{sample_prefix}_sum.npy", np.asarray(sum_array[sample_indices], dtype=float))
+                sample_record['sum'] = f"samples_{run_id}_sum.npy"
+
+            saved_files['samples'] = sample_record
+
+    # Сохраняем метрики в CSV
+    metrics_df = pd.DataFrame([test_metrics])
+    metrics_csv_path = results_dir / f"metrics_{run_id}.csv"
+    metrics_df.to_csv(metrics_csv_path, index=False)
+    saved_files['metrics_csv'] = f"metrics_{run_id}.csv"
 
     # Сохраняем сводку
     summary = {
@@ -262,15 +304,8 @@ def train_vanilla_real_only(args):
             'pso_epochs': model_config['optim_params']['epoch'],
             'pso_pop_size': model_config['optim_params']['pop_size'],
         },
-        'saved_files': {
-            'predictions': f"predictions_{run_id}.npy",
-            'targets_test': f"targets_test_{run_id}.npy",
-        }
+        'saved_files': saved_files
     }
-    
-    if predictions_denorm is not None:
-        summary['saved_files']['predictions_denorm'] = f"predictions_denorm_{run_id}.npy"
-        summary['saved_files']['targets_denorm'] = f"targets_test_denorm_{run_id}.npy"
 
     summary_path = results_dir / f"training_summary_{run_id}.json"
     with open(summary_path, 'w', encoding='utf-8') as f:

@@ -114,7 +114,16 @@ def load_predictions(results_dir, saved_files):
     }
 
 
-def plot_samples(output_dir, timestamp, samples, spectra_dir, style="step", log_x=True):
+def _get_model_label_from_summary(summary):
+    src = str(summary.get("metrics_source", "")).lower()
+    if src == "vanilla_real_only":
+        return "Vanilla (real-only)"
+    if src == "shap":
+        return "Two-Stage SHAP (PSO)"
+    return src or "Model"
+
+
+def plot_samples(output_dir, timestamp, samples, spectra_dir, style="step", log_x=True, model_label=None):
     if samples is None or samples["y"] is None or samples["pred"] is None:
         print("⚠️  Нет сохранённых подвыборок для построения спектров.")
         return []
@@ -143,6 +152,8 @@ def plot_samples(output_dir, timestamp, samples, spectra_dir, style="step", log_
         title = f"Сравнение спектров (sample {sample_id})"
         if sum_values is not None:
             title += f", SUM={sum_values[idx]:.3f}"
+        if model_label:
+            title += f" — {model_label}"
         ax.set_title(title)
         ax.legend()
         _apply_axis_style(ax, log_x)
@@ -320,12 +331,12 @@ def _apply_axis_style(ax, log_x):
         pass
 
 
-def plot_prediction_samples(pred, target, timestamp, output_dir, sample_size=5, suffix="", indices=None, seed=42, style="step", log_x=True):
+def plot_prediction_samples(pred, target, timestamp, output_dir, sample_size=5, suffix="", indices=None, seed=42, style="step", log_x=True, model_label=None):
     if pred is None or target is None:
-        return []
+        return [], None
     if pred.shape != target.shape:
         print("⚠️  Размерности предсказаний и истинных значений не совпадают, пропускаю сводные графики.")
-        return []
+        return [], None
 
     n_samples = pred.shape[0]
     if indices is not None:
@@ -334,7 +345,7 @@ def plot_prediction_samples(pred, target, timestamp, output_dir, sample_size=5, 
     else:
         sample_size = min(sample_size, n_samples)
         if sample_size <= 0:
-            return []
+            return [], None
         rng = np.random.default_rng(seed)
         base_idx = np.linspace(0, n_samples - 1, min(sample_size, max(sample_size // 2, 1)), dtype=int)
         rand_idx = rng.choice(n_samples, size=sample_size, replace=False) if n_samples > sample_size else base_idx
@@ -343,7 +354,7 @@ def plot_prediction_samples(pred, target, timestamp, output_dir, sample_size=5, 
             indices = indices[:sample_size]
 
     if indices.size == 0:
-        return []
+        return [], None
 
     energies = _get_energy_axis(pred.shape[1])
 
@@ -362,7 +373,10 @@ def plot_prediction_samples(pred, target, timestamp, output_dir, sample_size=5, 
             ax.plot(energies, pred[idx], color="#FF6B6B", alpha=0.25, linestyle="--")
         ax.plot(energies, target[indices[0]], color="#333333", linewidth=2, label="Истинные (пример)")
         ax.plot(energies, pred[indices[0]], color="#FF6B6B", linewidth=2, linestyle="--", label="Предсказания (пример)")
-    ax.set_title("Несколько спектров (истинные/предсказанные)")
+    title = "Несколько спектров (истинные/предсказанные)"
+    if model_label:
+        title += f" — {model_label}"
+    ax.set_title(title)
     ax.set_xlabel("Energy, eV")
     ax.set_ylabel("phi, neutron cm^-2 s^-1")
     _apply_axis_style(ax, log_x)
@@ -381,7 +395,10 @@ def plot_prediction_samples(pred, target, timestamp, output_dir, sample_size=5, 
     else:
         ax.plot(energies, mean_true, label="Средний истинный спектр", linewidth=2)
         ax.plot(energies, mean_pred, label="Средний предсказанный спектр", linewidth=2, linestyle="--")
-    ax.set_title("Средние спектры")
+    title_mean = "Средние спектры"
+    if model_label:
+        title_mean += f" — {model_label}"
+    ax.set_title(title_mean)
     ax.set_xlabel("Energy, eV")
     ax.set_ylabel("phi, neutron cm^-2 s^-1")
     _apply_axis_style(ax, log_x)
@@ -394,7 +411,7 @@ def plot_prediction_samples(pred, target, timestamp, output_dir, sample_size=5, 
     return [samples_path, mean_path], indices
 
 
-def plot_individual_spectra(pred, target, timestamp, output_dir, count, suffix="", base_dir="spectra", seed=42, indices=None, style="step", log_x=True):
+def plot_individual_spectra(pred, target, timestamp, output_dir, count, suffix="", base_dir="spectra", seed=42, indices=None, style="step", log_x=True, model_label=None):
     if pred is None or target is None:
         return [], np.array([])
     if pred.shape != target.shape:
@@ -432,7 +449,10 @@ def plot_individual_spectra(pred, target, timestamp, output_dir, count, suffix="
         else:
             ax.plot(energies, target[idx], label="Истинный спектр", linewidth=2)
             ax.plot(energies, pred[idx], label="Предсказанный спектр", linewidth=2, linestyle="--")
-        ax.set_title(f"Спектр #{idx}")
+        title_sp = f"Спектр #{idx}"
+        if model_label:
+            title_sp += f" — {model_label}"
+        ax.set_title(title_sp)
         ax.set_xlabel("Energy, eV")
         ax.set_ylabel("phi, neutron cm^-2 s^-1")
         _apply_axis_style(ax, log_x)
@@ -591,6 +611,45 @@ def plot_shap_history(results_dir, shap_files, timestamp, output_dir):
     return output_path
 
 
+def plot_bonner_counts(output_dir, timestamp, samples, suffix=""):
+    if samples is None or samples.get("X") is None:
+        return []
+
+    X = samples["X"]
+    indices = samples.get("indices", range(len(X)))
+
+    bonner_dir = output_dir / "bonner_counts"
+    bonner_dir.mkdir(parents=True, exist_ok=True)
+
+    figure_paths = []
+    
+    n_features = X.shape[1]
+    feature_names = [f"Q{i+1}" for i in range(n_features)]
+
+    for idx, (x_row, sample_id) in enumerate(zip(X, indices)):
+        fig, ax = plt.subplots(figsize=(8, 5))
+        
+        x_pos = np.arange(len(x_row))
+        ax.bar(x_pos, x_row, color="#4C72B0", alpha=0.8)
+        
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(feature_names, rotation=45)
+        
+        ax.set_title(f"Отсчеты сфер Боннера (Sample {sample_id})")
+        ax.set_ylabel("Нормированная скорость счета")
+        ax.set_xlabel("Сферы")
+        ax.grid(axis="y", alpha=0.3)
+        
+        plt.tight_layout()
+        
+        path = bonner_dir / f"bonner_{timestamp}_sample_{sample_id}{suffix}.png"
+        fig.savefig(path, dpi=150)
+        plt.close(fig)
+        figure_paths.append(path)
+        
+    return figure_paths
+
+
 def main():
     args = parse_args()
 
@@ -608,12 +667,21 @@ def main():
     generated_figures = {}
     plot_config = {"style": args.plot_style, "log_x": args.log_x}
 
-    saved_figures = plot_samples(output_dir, summary["timestamp"], samples, args.spectra_dir, **plot_config)
+    model_label = _get_model_label_from_summary(summary)
+
+    saved_figures = plot_samples(output_dir, summary["timestamp"], samples, args.spectra_dir, model_label=model_label, **plot_config)
     if saved_figures:
         print("🖼️  Графики сохранённой подвыборки:")
         for path in saved_figures:
             print(f"   {path}")
     generated_figures["saved_samples"] = saved_figures
+
+    bonner_figs = plot_bonner_counts(output_dir, summary["timestamp"], samples)
+    if bonner_figs:
+        print("🖼️  Графики сфер Боннера:")
+        for path in bonner_figs:
+            print(f"   {path}")
+    generated_figures["bonner_counts"] = bonner_figs
 
     predictions = load_predictions(results_dir, saved_files)
     error_figs = plot_error_distribution(
@@ -638,6 +706,7 @@ def main():
         suffix="",
         base_dir=args.spectra_dir,
         seed=args.seed,
+        model_label=model_label,
         **plot_config
     )
     if indiv_norm_figs:
@@ -646,7 +715,7 @@ def main():
             print(f"   {path}")
     generated_figures["spectra_normalized"] = indiv_norm_figs
 
-    sample_figs, _ = plot_prediction_samples(
+    sample_figs, indices = plot_prediction_samples(
         predictions["pred"],
         predictions["target"],
         summary["timestamp"],
@@ -655,8 +724,11 @@ def main():
         suffix="",
         indices=selected_indices if selected_indices.size else None,
         seed=args.seed,
+        model_label=model_label,
         **plot_config
     )
+    if not sample_figs:
+        indices = np.array([])
     if sample_figs:
         print("🖼️  Сводные спектры (нормализованные):")
         for path in sample_figs:
@@ -686,6 +758,7 @@ def main():
         base_dir=args.spectra_dir,
         seed=args.seed,
         indices=selected_indices if selected_indices.size else None,
+        model_label=model_label,
         **plot_config
     )
     if indiv_denorm_figs:
@@ -703,6 +776,7 @@ def main():
         suffix="_denorm",
         indices=selected_indices if selected_indices.size else None,
         seed=args.seed,
+        model_label=model_label,
         **plot_config
     )
     if sample_denorm_figs:
