@@ -11,25 +11,29 @@ model:
   num_rules: 50
   mf_class: Gaussian # Используем Gaussian для стабильности и дифференцируемости
   vanishing_strategy: blend
-  optim: OriginalPSO # Основной оптимизатор для структуры (Global Search)
+  optim: OriginalPSO # Основной оптимизатор для структуры
   reg_lambda: 0.001
   seed: 42
   n_workers: 4
   optim_params:
-    epoch: 150 # 150 эпох PSO для нахождения глобального минимума
+    epoch: 150 
     pop_size: 100
     verbose: false
 
 shap_reg:
   enabled: true
-  # ИСПОЛЬЗУЕМ ГИБРИДНУЮ СТРАТЕГИЮ (Two-Stage):
-  # 1. Обучение структуры через PSO (Vanilla) -> R² ~ 0.84
-  # 2. Fine-tuning с SHAP регуляризацией (Gradient Descent) -> Улучшение интерпретируемости
-  # Это дает лучшие результаты, чем обучение с нуля (integrated_training: true)
+  # ГИБРИДНЫЙ РЕЖИМ (Hybrid Two-Stage XAI):
+  # 1. Сначала запускается Vanilla PSO (внешний вызов) -> R2 ~ 0.85
+  # 2. Затем запускается SHAP Fine-tuning (300 эпох) -> R2 ~ 0.84 + Объяснимость
+  # integrated_training: false переключает train.py в этот надежный режим.
   integrated_training: false 
   training_mode: real_only
   
-  epochs: 300 # Длительная тонкая настройка с SHAP
+  # Параметры встроенной инициализации (не используются в Hybrid режиме, но оставим для истории)
+  use_pso_init: false
+  pso_epochs: 150
+  
+  epochs: 300 # 300 эпох тонкой настройки с SHAP
   batch_size: 32
   lr: 0.001
   
