@@ -47,7 +47,11 @@
     "shap": {
       "feature_importance_shap": "feature_importance_shap_20251123_001406_hybrid_v12_final.csv",
       "history": "shap_history_20251123_001406_hybrid_v12_final.json"
-    }
+    },
+    "predictions": "predictions_20251123_001406_hybrid_v12_final.npy",
+    "targets_test": "targets_test_20251123_001406_hybrid_v12_final.npy",
+    "predictions_denorm": "predictions_denorm_20251123_001406_hybrid_v12_final.npy",
+    "targets_denorm": "targets_test_denorm_20251123_001406_hybrid_v12_final.npy"
   },
   "diagnostics": {
     "prediction_stats": {},
