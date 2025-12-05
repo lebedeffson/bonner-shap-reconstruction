@@ -41,7 +41,7 @@ ENV/
 # results/  # Раскомментировано - results/ добавляется в git
 *.png
 *.pdf
-*.csv
+# *.csv
 !normalized_*.csv
 !results/**/*.png
 !results/**/*.pdf
