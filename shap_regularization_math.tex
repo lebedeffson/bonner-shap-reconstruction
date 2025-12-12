@@ -1,0 +1,162 @@
+\subsection{Математические основы SHAP-регуляризации}
+
+\subsubsection{Вычисление важности признаков через градиенты}
+
+В отличие от классического подхода, где SHAP-значения вычисляются post-hoc через маскирование признаков, в нашей реализации используется дифференцируемый градиентный подход, интегрированный непосредственно в процесс обучения. Для батча входных данных $\mathbf{X} \in \mathbb{R}^{B \times n}$ (где $B$ --- размер батча, $n=10$ --- число признаков) и предсказаний модели $\hat{\mathbf{y}} = f_{\theta}(\mathbf{X}) \in \mathbb{R}^{B \times m}$ (где $m=60$ --- число энергетических бинов), важность признаков вычисляется через градиенты:
+
+\begin{equation}
+\nabla_{\mathbf{X}} \hat{\mathbf{y}} = \frac{\partial \hat{\mathbf{y}}}{\partial \mathbf{X}} \in \mathbb{R}^{B \times n \times m},
+\end{equation}
+
+где градиенты вычисляются по всем выходным измерениям. Для получения скалярной важности каждого признака используется взвешенное усреднение:
+
+\begin{equation}
+\phi_j(\mathbf{X}) = \frac{1}{B} \sum_{i=1}^{B} \left| \frac{1}{m} \sum_{k=1}^{m} \frac{\partial \hat{y}_{ik}}{\partial x_{ij}} \right| \cdot |x_{ij}|, \quad j = 1, \ldots, n.
+\end{equation}
+
+Здесь произведение $|\partial \hat{y}/\partial x_j| \cdot |x_j|$ учитывает как чувствительность модели к признаку (градиент), так и его абсолютное значение, что обеспечивает более устойчивую оценку важности. Нормализованный вектор важности признаков определяется как:
+
+\begin{equation}
+\tilde{\boldsymbol{\phi}}(\mathbf{X}) = \frac{\boldsymbol{\phi}(\mathbf{X})}{\|\boldsymbol{\phi}(\mathbf{X})\|_1 + \epsilon}, \quad \text{где } \epsilon = 10^{-8},
+\end{equation}
+
+где $\boldsymbol{\phi}(\mathbf{X}) = [\phi_1(\mathbf{X}), \ldots, \phi_n(\mathbf{X})]^T$ и $\|\cdot\|_1$ --- L1-норма.
+
+\subsubsection{Компоненты SHAP-регуляризации}
+
+Общая функция потерь с SHAP-регуляризацией имеет вид:
+
+\begin{equation}
+\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{main}} + \gamma \left( \alpha R_{\text{sparsity}} + \beta R_{\text{consistency}} + \delta R_{\text{faithfulness}} + \eta R_{\text{stability}} \right),
+\end{equation}
+
+где $\mathcal{L}_{\text{main}} = \frac{1}{B} \sum_{i=1}^{B} \|\hat{\mathbf{y}}_i - \mathbf{y}_i\|_2^2$ --- основная функция потерь (MSE), $\gamma$ --- общий коэффициент регуляризации, а $\alpha, \beta, \delta, \eta$ --- веса компонентов (в экспериментах: $\alpha=0.7$, $\beta=0.2$, $\delta=0.05$, $\eta=0.05$).
+
+\paragraph{1. Разреженность (Sparsity)}
+
+Компонент разреженности поощряет модель использовать минимальное число значимых детекторов Боннера. Это достигается через комбинацию L1-нормы и коэффициента Джини:
+
+\begin{equation}
+R_{\text{sparsity}} = \frac{1}{n} \sum_{j=1}^{n} \tilde{\phi}_j + \lambda_G \cdot G(\tilde{\boldsymbol{\phi}}),
+\end{equation}
+
+где $G(\tilde{\boldsymbol{\phi}})$ --- коэффициент Джини, измеряющий неравномерность распределения важности:
+
+\begin{equation}
+G(\tilde{\boldsymbol{\phi}}) = \frac{2 \sum_{j=1}^{n} j \cdot \tilde{\phi}_{(j)}}{n \sum_{j=1}^{n} \tilde{\phi}_j} - \frac{n+1}{n},
+\end{equation}
+
+где $\tilde{\phi}_{(j)}$ --- отсортированные по убыванию значения важности. Коэффициент Джини равен 0 при равномерном распределении и стремится к 1 при максимальной концентрации важности в одном признаке. В нашей реализации целевое значение $G_{\text{target}} = 0.3$, что соответствует умеренной разреженности: модель использует 2--4 ключевых детектора из 10.
+
+\paragraph{2. Согласованность (Consistency)}
+
+Компонент согласованности обеспечивает соответствие градиентной важности $\tilde{\boldsymbol{\phi}}$ истинным SHAP-значениям, вычисленным через маскирование признаков. Для экземпляра $\mathbf{x}$ истинные SHAP-значения аппроксимируются как:
+
+\begin{equation}
+\phi_j^{\text{true}}(\mathbf{x}) = \left| f_{\theta}(\mathbf{x}) - f_{\theta}(\mathbf{x}_{-j}) \right|, \quad j = 1, \ldots, n,
+\end{equation}
+
+где $\mathbf{x}_{-j}$ --- вектор, в котором $j$-й признак заменён на базовое значение (среднее по обучающей выборке). Нормализованные истинные SHAP-значения: $\tilde{\boldsymbol{\phi}}^{\text{true}} = \boldsymbol{\phi}^{\text{true}} / \|\boldsymbol{\phi}^{\text{true}}\|_1$.
+
+Компонент согласованности объединяет MSE и дивергенцию Йенсена--Шеннона:
+
+\begin{equation}
+R_{\text{consistency}} = \text{MSE}(\tilde{\boldsymbol{\phi}}, \tilde{\boldsymbol{\phi}}^{\text{true}}) + \lambda_{\text{JS}} \cdot \text{JS}(\tilde{\boldsymbol{\phi}} \| \tilde{\boldsymbol{\phi}}^{\text{true}}),
+\end{equation}
+
+где
+
+\begin{align}
+\text{MSE}(\mathbf{p}, \mathbf{q}) &= \frac{1}{n} \sum_{j=1}^{n} (p_j - q_j)^2, \\
+\text{JS}(\mathbf{p} \| \mathbf{q}) &= \frac{1}{2} \text{KL}(\mathbf{p} \| \mathbf{m}) + \frac{1}{2} \text{KL}(\mathbf{q} \| \mathbf{m}), \quad \mathbf{m} = \frac{\mathbf{p} + \mathbf{q}}{2},
+\end{align}
+
+и $\text{KL}(\mathbf{p} \| \mathbf{q}) = \sum_j p_j \log(p_j / q_j)$ --- дивергенция Кульбака--Лейблера. Истинные SHAP-значения обновляются периодически (каждые 10 батчей) для снижения вычислительных затрат.
+
+\paragraph{3. Достоверность (Faithfulness)}
+
+Компонент достоверности проверяет, что величина важности $|\tilde{\phi}_j|$ соответствует реальному влиянию признака на выход модели. Это измеряется через сравнение предсказаний на исходных данных и данных с замаскированными признаками:
+
+\begin{equation}
+R_{\text{faithfulness}} = \frac{1}{B} \sum_{i=1}^{B} \left\| \hat{\mathbf{y}}_i - \hat{\mathbf{y}}_i^{\text{baseline}} - \sum_{j=1}^{n} \tilde{\phi}_{ij} \cdot \Delta_{ij} \right\|_2^2,
+\end{equation}
+
+где $\hat{\mathbf{y}}_i^{\text{baseline}} = f_{\theta}(\mathbf{0})$ --- предсказание на нулевом базисе, а $\Delta_{ij}$ --- локальное изменение выхода при изменении $j$-го признака:
+
+\begin{equation}
+\Delta_{ij} = \frac{\partial \hat{y}_{ik}}{\partial x_{ij}} \Big|_{\mathbf{x}_i} \cdot x_{ij}.
+\end{equation}
+
+Минимизация $R_{\text{faithfulness}}$ гарантирует, что аддитивное разложение $\hat{\mathbf{y}} = \hat{\mathbf{y}}^{\text{baseline}} + \sum_j \tilde{\phi}_j \Delta_j$ выполняется с высокой точностью, что является ключевым свойством SHAP-объяснений.
+
+\paragraph{4. Стабильность (Stability)}
+
+Компонент стабильности обеспечивает устойчивость важности признаков к малым возмущениям входных данных. Для батча $\mathbf{X}$ и его возмущённой версии $\mathbf{X} + \boldsymbol{\epsilon}$ (где $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma^2 \mathbf{I})$, $\sigma = 0.01$), стабильность измеряется как:
+
+\begin{equation}
+R_{\text{stability}} = \frac{1}{B} \sum_{i=1}^{B} \left\| \tilde{\boldsymbol{\phi}}(\mathbf{x}_i) - \tilde{\boldsymbol{\phi}}(\mathbf{x}_i + \boldsymbol{\epsilon}_i) \right\|_2^2.
+\end{equation}
+
+Минимизация этого компонента гарантирует, что объяснения модели не меняются резко при незначительных изменениях показаний детекторов Боннера, что критично для практического применения в условиях измерительного шума.
+
+\subsubsection{Адаптивная балансировка компонентов}
+
+Для обеспечения баланса между точностью модели и интерпретируемостью используется адаптивная нормализация SHAP-потерь. Пусть $\mathcal{L}_{\text{main}}^{\text{EMA}}$ --- экспоненциальное скользящее среднее основной функции потерь (коэффициент $\alpha_{\text{EMA}} = 0.9$). Тогда нормализованная SHAP-регуляризация вычисляется как:
+
+\begin{equation}
+\mathcal{L}_{\text{SHAP}}^{\text{norm}} = \mathcal{L}_{\text{SHAP}} \cdot \frac{\text{target\_ratio} \cdot \mathcal{L}_{\text{main}}^{\text{EMA}}}{\mathcal{L}_{\text{SHAP}} + \epsilon},
+\end{equation}
+
+где $\text{target\_ratio} = 0.2$ --- целевое соотношение между SHAP-потерями и основной функцией потерь. Это обеспечивает, что регуляризация не доминирует над основной задачей на ранних этапах обучения и постепенно усиливается по мере сходимости модели.
+
+\subsubsection{Алгоритм обучения с SHAP-регуляризацией}
+
+\begin{algorithm}[H]
+\caption{Обучение ANFIS с SHAP-регуляризацией (этап 2)}
+\begin{algorithmic}[1]
+\Require Предобученная модель $f_{\theta_0}$ (этап 1, PSO), обучающая выборка $\mathcal{D} = \{(\mathbf{x}^{(i)}, \mathbf{y}^{(i)})\}_{i=1}^{N}$, количество эпох $T$, размер батча $B$, скорость обучения $\eta$, коэффициенты $\gamma, \alpha, \beta, \delta, \eta$
+\Ensure Обученная модель $f_{\theta}$
+\State Вычислить базовые значения: $\mathbf{b} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{x}^{(i)}$
+\State Инициализировать $\theta \gets \theta_0$
+\State Инициализировать оптимизатор: $\text{Adam}(\theta, \text{lr}=\eta)$
+\For{эпоха $t = 1$ to $T$}
+    \For{каждый батч $\mathcal{B} \subset \mathcal{D}$ размера $B$}
+        \State $\mathbf{X}, \mathbf{Y} \gets \mathcal{B}$
+        \State $\hat{\mathbf{Y}} \gets f_{\theta}(\mathbf{X})$ \Comment{Прямой проход}
+        \State $\mathcal{L}_{\text{main}} \gets \frac{1}{B} \sum_{i=1}^{B} \|\hat{\mathbf{y}}_i - \mathbf{y}_i\|_2^2$
+        \State
+        \State \Comment{Вычисление градиентной важности}
+        \State $\nabla_{\mathbf{X}} \hat{\mathbf{Y}} \gets \text{autograd.grad}(\hat{\mathbf{Y}}, \mathbf{X})$
+        \State $\boldsymbol{\phi} \gets \text{mean}(|\nabla_{\mathbf{X}} \hat{\mathbf{Y}}| \cdot |\mathbf{X}|, \text{dim}=[0,2])$
+        \State $\tilde{\boldsymbol{\phi}} \gets \boldsymbol{\phi} / (\|\boldsymbol{\phi}\|_1 + \epsilon)$
+        \State
+        \State \Comment{Вычисление компонентов регуляризации}
+        \State $R_{\text{sparsity}} \gets \text{compute\_sparsity}(\tilde{\boldsymbol{\phi}})$
+        \State $R_{\text{consistency}} \gets \text{compute\_consistency}(\tilde{\boldsymbol{\phi}}, \mathbf{X}, \mathbf{b})$ \Comment{Если $t \bmod 10 = 0$: обновить true SHAP}
+        \State $R_{\text{faithfulness}} \gets \text{compute\_faithfulness}(\mathbf{X}, \hat{\mathbf{Y}}, \tilde{\boldsymbol{\phi}})$
+        \State $R_{\text{stability}} \gets \text{compute\_stability}(\mathbf{X}, \tilde{\boldsymbol{\phi}})$
+        \State
+        \State $\mathcal{L}_{\text{SHAP}} \gets \alpha R_{\text{sparsity}} + \beta R_{\text{consistency}} + \delta R_{\text{faithfulness}} + \eta R_{\text{stability}}$
+        \State $\mathcal{L}_{\text{SHAP}}^{\text{norm}} \gets \text{adaptive\_normalize}(\mathcal{L}_{\text{SHAP}}, \mathcal{L}_{\text{main}}^{\text{EMA}})$
+        \State $\mathcal{L}_{\text{total}} \gets \mathcal{L}_{\text{main}} + \gamma \cdot \mathcal{L}_{\text{SHAP}}^{\text{norm}}$
+        \State
+        \State $\theta \gets \theta - \eta \cdot \nabla_{\theta} \mathcal{L}_{\text{total}}$ \Comment{Обратное распространение}
+    \EndFor
+\EndFor
+\State \textbf{return} $f_{\theta}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Отличие от пост-хок SHAP-анализа}
+
+Ключевое отличие предложенного подхода от классического пост-хок SHAP-анализа заключается в том, что регуляризация применяется \textit{во время обучения}, а не после него. Это означает, что модель обучается не только минимизировать ошибку предсказания, но и формировать внутренние представления, которые согласованы с интерпретируемыми объяснениями. В результате:
+
+\begin{itemize}
+    \item \textbf{Встроенная интерпретируемость}: важность признаков становится неотъемлемым свойством обученной модели, а не внешним анализом «чёрного ящика».
+    \item \textbf{Согласованность}: градиентная важность, вычисляемая через $\nabla_{\mathbf{X}} \hat{\mathbf{y}}$, согласована с истинными SHAP-значениями, что гарантируется компонентом consistency.
+    \item \textbf{Стабильность}: модель устойчива к возмущениям входных данных, что критично для практического применения в условиях измерительного шума.
+    \item \textbf{Разреженность}: модель автоматически выделяет минимальный набор значимых детекторов Боннера, что упрощает экспертизу и отладку.
+\end{itemize}
+
+Таким образом, SHAP-регуляризация превращает ANFIS из потенциально непрозрачной модели в полностью интерпретируемую систему, где каждое правило и каждый параметр имеют ясный физический смысл, а важность входных признаков вычисляется дифференцируемо и согласована с теорией кооперативных игр.
+
