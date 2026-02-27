@@ -17,7 +17,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.models.anfis_manager import ANFISManager
 from src.utils.config_loader import load_config
-from src.utils.data_loader import load_validation_data
+from src.utils.data_loader import (
+    load_validation_data,
+    resolve_feature_count,
+    resolve_target_count
+)
 
 # Настройка стиля
 plt.style.use('seaborn-v0_8-darkgrid')
@@ -28,21 +32,24 @@ def load_model_and_data(config_path, model_path):
     """Загружает модель и данные"""
     config = load_config(config_path)
     manager = ANFISManager(config)
+    dataset_config = config.get('dataset', {})
     
     # Загружаем модель
     import torch
+    input_dim = resolve_feature_count(dataset_config) or 10
+    output_dim = resolve_target_count(dataset_config) or 60
     model = manager.create_model(
-        input_dim=10,
-        output_dim=60
+        input_dim=input_dim,
+        output_dim=output_dim
     )
     model.network.load_state_dict(torch.load(model_path, map_location='cpu'))
     model.network.eval()
     
     # Загружаем данные
-    dataset_config = config['dataset']
     X_real, y_real, _ = load_validation_data(
         dataset_config.get('validation_data'),
-        normalize_sum=dataset_config.get('normalize_sum', True)
+        normalize_sum=dataset_config.get('normalize_sum', True),
+        dataset_config=dataset_config
     )
     
     return model, X_real, y_real, config
@@ -106,7 +113,7 @@ def compute_entropy(importance):
     return entropy / (max_entropy + 1e-10)
 
 
-def visualize_feature_importance(importance_dict, output_path):
+def visualize_feature_importance(importance_dict, output_path, feature_names=None):
     """Визуализирует важность признаков"""
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
     fig.suptitle('📊 Интерпретируемость модели: Важность признаков', fontsize=16, fontweight='bold')
@@ -114,7 +121,8 @@ def visualize_feature_importance(importance_dict, output_path):
     # 1. Bar plot важности признаков
     ax1 = axes[0, 0]
     model_names = list(importance_dict.keys())
-    feature_names = [f'Q{i+1}' for i in range(10)]
+    if not feature_names:
+        feature_names = [f'X{i+1}' for i in range(len(next(iter(importance_dict.values()))))]
     
     x = np.arange(len(feature_names))
     width = 0.35
@@ -211,7 +219,7 @@ def visualize_feature_importance(importance_dict, output_path):
     plt.close()
 
 
-def create_interpretability_report(results_dir, output_path):
+def create_interpretability_report(results_dir, output_path, feature_names=None):
     """Создает отчет об интерпретируемости"""
     # Ищем файлы с важностью признаков
     importance_files = list(Path(results_dir).glob("*feature_importance*.csv"))
@@ -232,7 +240,7 @@ def create_interpretability_report(results_dir, output_path):
         importance_data[model_name] = df['importance'].values
     
     # Создаем визуализацию
-    visualize_feature_importance(importance_data, output_path)
+    visualize_feature_importance(importance_data, output_path, feature_names=feature_names)
     
     # Создаем текстовый отчет
     report_path = output_path.replace('.png', '_report.txt')
@@ -269,7 +277,10 @@ def create_interpretability_report(results_dir, output_path):
             top_indices = np.argsort(importance)[-3:][::-1]
             f.write(f"  Топ-3 важных признака:\n")
             for i, idx in enumerate(top_indices, 1):
-                feat_name = f'Q{idx+1}'
+                if feature_names and idx < len(feature_names):
+                    feat_name = feature_names[idx]
+                else:
+                    feat_name = f'X{idx+1}'
                 feat_importance = importance[idx]
                 f.write(f"    {i}. {feat_name}: {feat_importance:.4f} ({feat_importance*100:.1f}%)\n")
         
@@ -292,17 +303,28 @@ def main():
     parser.add_argument("--results-dir", default="results", help="Директория с результатами")
     parser.add_argument("--output", default="results/interpretability_comparison.png", 
                        help="Путь для сохранения графика")
+    parser.add_argument("--config", help="Путь к YAML конфигурации (для имен признаков)")
     args = parser.parse_args()
     
     print("=" * 80)
     print("📊 ВИЗУАЛИЗАЦИЯ ИНТЕРПРЕТИРУЕМОСТИ")
     print("=" * 80)
     
-    create_interpretability_report(args.results_dir, args.output)
+    feature_names = None
+    if args.config:
+        config = load_config(args.config)
+        dataset_config = config.get('dataset', {})
+        if dataset_config.get('feature_columns'):
+            feature_names = list(dataset_config.get('feature_columns'))
+        elif dataset_config.get('feature_prefix') is not None and dataset_config.get('feature_count') is not None:
+            start = int(dataset_config.get('feature_index_start', 1))
+            count = int(dataset_config.get('feature_count'))
+            prefix = dataset_config.get('feature_prefix')
+            feature_names = [f"{prefix}{i}" for i in range(start, start + count)]
+    create_interpretability_report(args.results_dir, args.output, feature_names=feature_names)
     
     print("\n✅ Готово!")
 
 
 if __name__ == "__main__":
     main()
-

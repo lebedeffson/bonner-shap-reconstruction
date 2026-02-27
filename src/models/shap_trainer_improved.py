@@ -73,6 +73,12 @@ class ShapAwareANFISTrainerImproved:
         # Улучшенная Sparsity с Gini coefficient
         self.use_gini_sparsity = shap_config.get('use_gini_sparsity', True)
         self.target_gini = shap_config.get('target_gini', 0.3)  # Целевое значение Gini
+
+        # Тихоновская регуляризация (гладкость спектра по выходу)
+        tikhonov_config = shap_config.get('tikhonov', {})
+        self.tikhonov_lambda = float(tikhonov_config.get('lambda', 0.0))
+        self.tikhonov_order = int(tikhonov_config.get('order', 2))
+        self.tikhonov_enabled = bool(tikhonov_config.get('enabled', self.tikhonov_lambda > 0.0))
         
         # Логгер (создаем до использования)
         self.logger = get_logger("anfis_shap.shap_trainer_improved")
@@ -143,7 +149,8 @@ class ShapAwareANFISTrainerImproved:
         history = {
             'total_loss': [],
             'main_loss': [],
-            'shap_loss': []
+            'shap_loss': [],
+            'tikhonov_loss': []
         }
 
         if self.verbose:
@@ -157,10 +164,12 @@ class ShapAwareANFISTrainerImproved:
                 self.logger.info(f"   Используется улучшенная SHAP регуляризация (4 компонента)")
             if self.use_convergence_smoothing:
                 self.logger.info(f"   Плавная сходимость: включена (patience: {self.convergence_patience})")
+            if self.tikhonov_enabled and self.tikhonov_lambda > 0:
+                self.logger.info(f"   Тихонов: порядок D{self.tikhonov_order}, lambda={self.tikhonov_lambda}")
 
         for epoch in range(epochs):
             self.current_epoch = epoch
-            epoch_losses = {'total': [], 'main': [], 'shap': []}
+            epoch_losses = {'total': [], 'main': [], 'shap': [], 'tikhonov': []}
             epoch_shap_components = {
                 'consistency': [], 'sparsity': [], 'faithfulness': [], 'stability': []
             }
@@ -203,6 +212,12 @@ class ShapAwareANFISTrainerImproved:
                     batch_y = batch_y[..., :min_dim]
                 
                 main_loss = loss_function(predictions, batch_y)
+
+                # Тихоновская регуляризация (гладкость спектра)
+                if self.tikhonov_enabled and self.tikhonov_lambda > 0:
+                    tikhonov_loss = self._compute_tikhonov_loss(predictions)
+                else:
+                    tikhonov_loss = torch.tensor(0.0, device=self.device)
 
                 # Улучшенная SHAP регуляризация
                 if self.use_improved_shap:
@@ -281,7 +296,7 @@ class ShapAwareANFISTrainerImproved:
                 # АДАПТИВНАЯ ФУНКЦИЯ ПОТЕРЬ: балансировка двух задач
                 # Используем адаптивный gamma (может меняться в процессе обучения)
                 effective_gamma = current_gamma if self.use_adaptive_gamma else self.gamma
-                total_loss = main_loss + effective_gamma * shap_loss_normalized
+                total_loss = main_loss + effective_gamma * shap_loss_normalized + self.tikhonov_lambda * tikhonov_loss
 
                 # Обратное распространение
                 if not torch.isfinite(total_loss):
@@ -297,6 +312,7 @@ class ShapAwareANFISTrainerImproved:
                 epoch_losses['total'].append(float(total_loss.item()))
                 epoch_losses['main'].append(float(main_loss.item()))
                 epoch_losses['shap'].append(float(shap_loss_tensor.item()))
+                epoch_losses['tikhonov'].append(float(tikhonov_loss.item()))
                 
                 # Сохраняем адаптивные параметры для анализа
                 if 'adaptive_gamma' not in epoch_losses:
@@ -317,7 +333,7 @@ class ShapAwareANFISTrainerImproved:
                     epoch_shap_components['stability'].append(shap_components.get('stability', 0.0))
 
             # Усреднение потерь по эпохе
-            for loss_type in ['total_loss', 'main_loss', 'shap_loss']:
+            for loss_type in ['total_loss', 'main_loss', 'shap_loss', 'tikhonov_loss']:
                 loss_key = loss_type.split('_')[0]
                 values = epoch_losses[loss_key]
                 history[loss_type].append(float(np.mean(values)) if values else float('nan'))
@@ -344,6 +360,8 @@ class ShapAwareANFISTrainerImproved:
             # Прогресс с адаптивными параметрами
             if self.verbose and (epoch + 1) % 5 == 0:
                 msg = f"   Эпоха {epoch + 1}/{epochs}: Total: {history['total_loss'][-1]:.6f}, Main: {history['main_loss'][-1]:.6f}, SHAP: {history['shap_loss'][-1]:.6f}"
+                if self.tikhonov_enabled and 'tikhonov_loss' in history:
+                    msg += f", Tikh: {history['tikhonov_loss'][-1]:.6f}"
                 if self.use_improved_shap and epoch_shap_components['consistency']:
                     msg += f" [C:{np.mean(epoch_shap_components['consistency']):.4f}, S:{np.mean(epoch_shap_components['sparsity']):.4f}, F:{np.mean(epoch_shap_components['faithfulness']):.4f}, St:{np.mean(epoch_shap_components['stability']):.4f}]"
                 if self.use_adaptive_gamma and 'adaptive_gamma' in history:
@@ -357,6 +375,28 @@ class ShapAwareANFISTrainerImproved:
             self.logger.info(f"✅ Обучение завершено за {self.training_time:.2f} сек")
 
         return history
+
+    def _compute_tikhonov_loss(self, predictions):
+        """
+        Тихоновская регуляризация гладкости спектра по выходу.
+        Использует разности первого (D1) или второго (D2) порядка.
+        """
+        if predictions.ndim == 1:
+            predictions = predictions.unsqueeze(0)
+
+        n_bins = predictions.shape[1]
+        if self.tikhonov_order == 1:
+            if n_bins < 2:
+                return torch.tensor(0.0, device=self.device)
+            diffs = predictions[:, 1:] - predictions[:, :-1]
+        elif self.tikhonov_order == 2:
+            if n_bins < 3:
+                return torch.tensor(0.0, device=self.device)
+            diffs = predictions[:, 2:] - 2.0 * predictions[:, 1:-1] + predictions[:, :-2]
+        else:
+            raise ValueError(f"Неподдерживаемый порядок Тихонова: {self.tikhonov_order} (ожидается 1 или 2)")
+
+        return torch.mean(diffs ** 2)
 
     def _compute_improved_shap_regularization(self, batch_X, baseline_values, predictions, main_loss_value=None):
         """
@@ -680,4 +720,3 @@ class ShapAwareANFISTrainerImproved:
                 shap_values.append(feature_importance)
 
         return np.asarray(shap_values, dtype=float)
-

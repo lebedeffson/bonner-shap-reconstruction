@@ -53,7 +53,8 @@ class UncertaintyEstimator:
         X: np.ndarray,
         n_samples: int = 1000,
         error_percent: float = 5.0,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        normalize_sum: bool = False
     ) -> Dict[str, np.ndarray]:
         """
         Оценивает неопределённость спектра методом Monte Carlo
@@ -69,6 +70,7 @@ class UncertaintyEstimator:
             n_samples: Количество Monte Carlo семплов
             error_percent: Процент ошибки (стандартное отклонение в процентах)
             seed: Seed для воспроизводимости
+            normalize_sum: Нормализовать ли входы по SUM после добавления ошибки
             
         Returns:
             dict: Словарь с результатами:
@@ -84,9 +86,15 @@ class UncertaintyEstimator:
             np.random.seed(seed)
         
         X = np.array(X) if not isinstance(X, np.ndarray) else X
-        
+
         # Базовое предсказание без ошибок
-        base_prediction = self._predict(X)
+        if normalize_sum:
+            sums = np.sum(X, axis=1, keepdims=True)
+            sums = np.where(sums == 0, 1e-12, sums)
+            X_base = X / sums
+            base_prediction = self._predict(X_base)
+        else:
+            base_prediction = self._predict(X)
         n_outputs = base_prediction.shape[1] if base_prediction.ndim > 1 else 1
         
         self.logger.info("Оценка неопределённости методом Monte Carlo...")
@@ -108,6 +116,10 @@ class UncertaintyEstimator:
         for i in iterator:
             # Добавляем случайную ошибку к входным данным
             X_perturbed = self._add_measurement_error(X, error_percent)
+            if normalize_sum:
+                sums = np.sum(X_perturbed, axis=1, keepdims=True)
+                sums = np.where(sums == 0, 1e-12, sums)
+                X_perturbed = X_perturbed / sums
             
             # Получаем предсказание
             prediction = self._predict(X_perturbed)
@@ -267,4 +279,3 @@ class UncertaintyEstimator:
             'max_uncertainty': float(max_uncertainty),
             'mean_uncertainty': float(mean_uncertainty)
         }
-

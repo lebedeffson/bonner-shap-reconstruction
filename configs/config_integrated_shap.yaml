@@ -6,6 +6,15 @@ dataset:
   mix_ratio: 0.0
   test_size: 0.2
   random_state: 42
+  # Гибкая настройка колонок
+  # Признаки (детекторы)
+  feature_prefix: "Q"
+  feature_count: 10
+  feature_index_start: 1
+  # Целевые значения (спектр)
+  target_prefix: ""
+  target_count: 60
+  target_index_start: 1
 
 model:
   num_rules: 50
@@ -51,6 +60,12 @@ shap_reg:
   gamma_consistency: 0.2
   gamma_faithfulness: 0.05
   gamma_stability: 0.05
+
+  # Тихоновская регуляризация (гладкость спектра)
+  tikhonov:
+    enabled: true
+    lambda: 0.001
+    order: 2
 
 output:
   results_dir: results

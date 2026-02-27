@@ -35,7 +35,7 @@ def load_data(data_path, drop_index=True):
     data.dropna(inplace=True)
     
     if drop_index and data.columns[0] == 'Unnamed: 0':
-        data.drop(columns=data.columns[0], axis=1, inplace=True)
+        data.drop(columns=[data.columns[0]], inplace=True)
     
     logger.info(f"Загружено {len(data)} образцов, {len(data.columns)} столбцов")
     return data
@@ -110,7 +110,150 @@ def load_training_dataset(dataset_config):
     return train_data
 
 
-def prepare_features_targets(data, normalize_sum=False):
+def _resolve_columns_by_indices(columns, indices):
+    return [columns[int(idx)] for idx in indices]
+
+
+def resolve_feature_columns(data, dataset_config=None):
+    """
+    Определение колонок признаков из данных и конфигурации.
+    Поддерживаются:
+      - feature_columns: явный список
+      - feature_indices: индексы колонок
+      - feature_prefix + feature_count (+ feature_index_start)
+      - feature_regex
+    По умолчанию: regex 'Q'
+    """
+    if dataset_config is None:
+        return data.filter(regex='Q', axis=1).columns.tolist()
+
+    feature_columns = dataset_config.get('feature_columns')
+    if feature_columns:
+        return list(feature_columns)
+
+    feature_indices = dataset_config.get('feature_indices')
+    if feature_indices:
+        return _resolve_columns_by_indices(data.columns, feature_indices)
+
+    feature_prefix = dataset_config.get('feature_prefix')
+    feature_count = dataset_config.get('feature_count')
+    if feature_prefix is not None and feature_count is not None:
+        start = int(dataset_config.get('feature_index_start', 1))
+        count = int(feature_count)
+        return [f"{feature_prefix}{i}" for i in range(start, start + count)]
+
+    feature_regex = dataset_config.get('feature_regex')
+    if feature_regex:
+        return data.filter(regex=feature_regex, axis=1).columns.tolist()
+
+    return data.filter(regex='Q', axis=1).columns.tolist()
+
+
+def resolve_target_columns(data, dataset_config=None):
+    """
+    Определение колонок целей из данных и конфигурации.
+    Поддерживаются:
+      - target_columns: явный список
+      - target_indices: индексы колонок
+      - target_prefix + target_count (+ target_index_start)
+      - target_range: [start, end) по позициям колонок
+      - target_regex
+    По умолчанию: первые 60 колонок.
+    """
+    if dataset_config is None:
+        return data.columns[:60].tolist()
+
+    target_columns = dataset_config.get('target_columns')
+    if target_columns:
+        return list(target_columns)
+
+    target_indices = dataset_config.get('target_indices')
+    if target_indices:
+        return _resolve_columns_by_indices(data.columns, target_indices)
+
+    target_prefix = dataset_config.get('target_prefix')
+    target_count = dataset_config.get('target_count')
+    if target_prefix is not None and target_count is not None:
+        start = int(dataset_config.get('target_index_start', 1))
+        count = int(target_count)
+        return [f"{target_prefix}{i}" for i in range(start, start + count)]
+
+    target_range = dataset_config.get('target_range')
+    if target_range:
+        start, end = int(target_range[0]), int(target_range[1])
+        return data.columns[start:end].tolist()
+
+    target_regex = dataset_config.get('target_regex')
+    if target_regex:
+        return data.filter(regex=target_regex, axis=1).columns.tolist()
+
+    return data.columns[:60].tolist()
+
+
+def resolve_feature_count(dataset_config=None):
+    if dataset_config is None:
+        return None
+    if dataset_config.get('feature_columns'):
+        return len(dataset_config.get('feature_columns'))
+    if dataset_config.get('feature_indices'):
+        return len(dataset_config.get('feature_indices'))
+    if dataset_config.get('feature_count') is not None:
+        return int(dataset_config.get('feature_count'))
+    return None
+
+
+def resolve_target_count(dataset_config=None):
+    if dataset_config is None:
+        return None
+    if dataset_config.get('target_columns'):
+        return len(dataset_config.get('target_columns'))
+    if dataset_config.get('target_indices'):
+        return len(dataset_config.get('target_indices'))
+    if dataset_config.get('target_count') is not None:
+        return int(dataset_config.get('target_count'))
+    target_range = dataset_config.get('target_range')
+    if target_range:
+        return int(target_range[1]) - int(target_range[0])
+    return None
+
+
+def resolve_feature_columns_from_config(dataset_config=None):
+    if dataset_config is None:
+        return None
+    feature_columns = dataset_config.get('feature_columns')
+    if feature_columns:
+        return list(feature_columns)
+    feature_prefix = dataset_config.get('feature_prefix')
+    feature_count = dataset_config.get('feature_count')
+    if feature_prefix is not None and feature_count is not None:
+        start = int(dataset_config.get('feature_index_start', 1))
+        count = int(feature_count)
+        return [f"{feature_prefix}{i}" for i in range(start, start + count)]
+    if feature_count is not None:
+        count = int(feature_count)
+        return [f"X{i+1}" for i in range(count)]
+    return None
+
+
+def resolve_target_columns_from_config(dataset_config=None):
+    if dataset_config is None:
+        return None
+    target_columns = dataset_config.get('target_columns')
+    if target_columns:
+        return list(target_columns)
+    target_prefix = dataset_config.get('target_prefix')
+    target_count = dataset_config.get('target_count')
+    if target_prefix is not None and target_count is not None:
+        start = int(dataset_config.get('target_index_start', 1))
+        count = int(target_count)
+        return [f"{target_prefix}{i}" for i in range(start, start + count)]
+    if target_count is not None:
+        count = int(target_count)
+        return [f"E{i+1}" for i in range(count)]
+    return None
+
+
+def prepare_features_targets(data, normalize_sum=False, dataset_config=None):
     """
     Подготовка признаков и целевых переменных
     
@@ -121,11 +264,24 @@ def prepare_features_targets(data, normalize_sum=False):
     Returns:
         tuple: (X, y, SUM) где SUM - суммы показаний (если normalize_sum=True)
     """
-    # Признаки: показания детекторов Q1-Q10
-    X = data.filter(regex='Q', axis=1).copy()
-    
-    # Целевая переменная: спектр (первые 60 столбцов)
-    y = data.iloc[:, 0:60].copy()
+    feature_columns = resolve_feature_columns(data, dataset_config)
+    target_columns = resolve_target_columns(data, dataset_config)
+
+    # Проверяем колонки
+    missing_features = [col for col in feature_columns if col not in data.columns]
+    missing_targets = [col for col in target_columns if col not in data.columns]
+    if missing_features:
+        raise ValueError(f"Не найдены колонки признаков: {missing_features}")
+    if missing_targets:
+        raise ValueError(f"Не найдены колонки целей: {missing_targets}")
+
+    overlap = set(feature_columns) & set(target_columns)
+    if overlap:
+        raise ValueError(f"Колонки признаков и целей пересекаются: {sorted(overlap)}")
+
+    # Признаки и целевая переменная по конфигурации
+    X = data[feature_columns].copy()
+    y = data[target_columns].copy()
     
     feature_names = X.columns.tolist()
     
@@ -217,7 +373,7 @@ def denormalize_predictions(y_pred_normalized, SUM):
         raise ValueError(f"Неожиданная размерность предсказаний: {y_pred.ndim}")
 
 
-def load_validation_data(data_path, normalize_sum=False):
+def load_validation_data(data_path, normalize_sum=False, dataset_config=None):
     """
     Загрузка валидационных данных (реальные спектры)
     
@@ -229,9 +385,10 @@ def load_validation_data(data_path, normalize_sum=False):
         tuple: (X_val, y_val, SUM_val)
     """
     data = load_data(data_path, drop_index=True)
-    X_val, y_val, SUM_val = prepare_features_targets(data, normalize_sum=normalize_sum)
+    X_val, y_val, SUM_val = prepare_features_targets(
+        data, normalize_sum=normalize_sum, dataset_config=dataset_config
+    )
     
     logger = get_logger("anfis_shap.data_loader")
     logger.info(f"Валидационные данные: {len(X_val)} образцов")
     return X_val, y_val, SUM_val
-

@@ -1,0 +1,219 @@
+\section{Математическая постановка задачи}
+
+Пусть $\mathbf{x} \in \mathbb{R}^{n}$ --- вектор измерений детекторов (в работе $n=10$), а $\mathbf{y} \in \mathbb{R}^{m}$ --- спектр нейтронов по энергетическим бинам (в работе $m=60$). Требуется восстановить спектр по измерениям:
+\begin{equation}
+\hat{\mathbf{y}} = f_{\theta}(\mathbf{x}),
+\end{equation}
+где $f_{\theta}$ --- модель ANFIS с параметрами $\theta$.
+
+\subsection{Нормализация по сумме}
+
+При необходимости применяется нормализация по сумме измерений:
+\begin{equation}
+S = \sum_{j=1}^{n} x_j, \qquad \mathbf{x}' = \frac{\mathbf{x}}{S}, \qquad \mathbf{y}' = \frac{\mathbf{y}}{S}.
+\end{equation}
+Обучение и инференс выполняются в нормализованном пространстве, а денормализация осуществляется как $\hat{\mathbf{y}} = \hat{\mathbf{y}}' \cdot S$.
+
+\section{Модель ANFIS}
+
+Используется ANFIS (Sugeno-type) с $R$ правилами. Для $r$-го правила:
+\begin{equation}
+\text{IF } x_1 \text{ is } A_{r1} \text{ AND } \dots \text{ AND } x_n \text{ is } A_{rn}
+\text{ THEN } \hat{\mathbf{y}}_r = \mathbf{a}_r^{\top} \mathbf{x} + \mathbf{b}_r,
+\end{equation}
+где $A_{rj}$ --- функции принадлежности (в работе Gaussian/GBell), $\mathbf{a}_r \in \mathbb{R}^{n \times m}$, $\mathbf{b}_r \in \mathbb{R}^{m}$.
+
+Сила срабатывания правила:
+\begin{equation}
+w_r(\mathbf{x}) = \prod_{j=1}^{n} \mu_{rj}(x_j),
+\end{equation}
+нормализованные веса:
+\begin{equation}
+\bar{w}_r(\mathbf{x}) = \frac{w_r(\mathbf{x})}{\sum_{s=1}^{R} w_s(\mathbf{x}) + \epsilon}.
+\end{equation}
+Выход модели:
+\begin{equation}
+\hat{\mathbf{y}} = \sum_{r=1}^{R} \bar{w}_r(\mathbf{x}) \, (\mathbf{a}_r^{\top}\mathbf{x} + \mathbf{b}_r).
+\end{equation}
+
+\section{Функция потерь (этап 1)}
+
+Базовое обучение минимизирует MSE:
+\begin{equation}
+\mathcal{L}_{\text{main}} = \frac{1}{B}\sum_{i=1}^{B} \|\hat{\mathbf{y}}_i - \mathbf{y}_i\|_2^2.
+\end{equation}
+Для устойчивой инициализации структуры используется глобальная оптимизация (PSO).
+
+\section{SHAP-регуляризация (этап 2)}
+
+\subsection{Градиентная важность признаков}
+
+Для батча $\mathbf{X} \in \mathbb{R}^{B \times n}$:
+\begin{equation}
+\phi_j(\mathbf{X}) = \frac{1}{B}\sum_{i=1}^B
+\left|\frac{1}{m}\sum_{k=1}^m \frac{\partial \hat{y}_{ik}}{\partial x_{ij}}\right| \cdot |x_{ij}|.
+\end{equation}
+Нормированная важность:
+\begin{equation}
+\tilde{\boldsymbol{\phi}} = \frac{\boldsymbol{\phi}}{\|\boldsymbol{\phi}\|_1 + \epsilon}.
+\end{equation}
+
+\subsection{Компоненты SHAP-регуляризации}
+
+\begin{equation}
+\mathcal{L}_{\text{SHAP}} = \alpha R_{\text{sparsity}} + \beta R_{\text{consistency}} + \delta R_{\text{faithfulness}} + \eta R_{\text{stability}}.
+\end{equation}
+
+\paragraph{1. Разреженность (Sparsity)}
+Используется энтропия и коэффициент Джини:
+\begin{equation}
+R_{\text{sparsity}} = H(\tilde{\boldsymbol{\phi}}) + \lambda_G \cdot \max(0, G_{\text{target}} - G(\tilde{\boldsymbol{\phi}}))^2.
+\end{equation}
+
+\paragraph{2. Согласованность (Consistency)}
+Истинные SHAP аппроксимируются маскированием признаков:
+\begin{equation}
+\phi_j^{\text{true}}(\mathbf{x}) = \left| f_{\theta}(\mathbf{x}) - f_{\theta}(\mathbf{x}_{-j}) \right|,
+\qquad
+\tilde{\boldsymbol{\phi}}^{\text{true}} = \frac{\boldsymbol{\phi}^{\text{true}}}{\|\boldsymbol{\phi}^{\text{true}}\|_1}.
+\end{equation}
+Потеря:
+\begin{equation}
+R_{\text{consistency}} = \text{MSE}(\tilde{\boldsymbol{\phi}}, \tilde{\boldsymbol{\phi}}^{\text{true}}) +
+\lambda_{\text{JS}}\cdot \text{JS}(\tilde{\boldsymbol{\phi}}\|\tilde{\boldsymbol{\phi}}^{\text{true}}).
+\end{equation}
+
+\paragraph{3. Достоверность (Faithfulness)}
+\begin{equation}
+R_{\text{faithfulness}} =
+\frac{1}{B}\sum_{i=1}^B
+\left\|
+\hat{\mathbf{y}}_i - \hat{\mathbf{y}}_i^{\text{baseline}} - \sum_{j=1}^{n} \tilde{\phi}_{ij}\Delta_{ij}
+\right\|_2^2,
+\end{equation}
+где $\Delta_{ij} = \frac{\partial \hat{y}_{ik}}{\partial x_{ij}} x_{ij}$.
+
+\paragraph{4. Стабильность (Stability)}
+\begin{equation}
+R_{\text{stability}} = \frac{1}{B}\sum_{i=1}^{B}
+\left\| \tilde{\boldsymbol{\phi}}(\mathbf{x}_i) - \tilde{\boldsymbol{\phi}}(\mathbf{x}_i + \boldsymbol{\epsilon}_i) \right\|_2^2,
+\quad \boldsymbol{\epsilon}_i \sim \mathcal{N}(0, \sigma^2 \mathbf{I}).
+\end{equation}
+
+\subsection{Адаптивная балансировка SHAP}
+
+Для предотвращения доминирования SHAP-потерь используется нормализация по EMA:
+\begin{equation}
+\mathcal{L}_{\text{SHAP}}^{\text{norm}} =
+\mathcal{L}_{\text{SHAP}}
+\cdot
+\frac{\text{target\_ratio}\cdot \mathcal{L}_{\text{main}}^{\text{EMA}}}{\mathcal{L}_{\text{SHAP}} + \epsilon}.
+\end{equation}
+
+\section{Тихоновская регуляризация спектра}
+
+Для обеспечения гладкости выходного спектра по энергии используется тихоновская регуляризация:
+\begin{align}
+(D_1 \hat{\mathbf{y}})_k &= \hat{y}_{k+1} - \hat{y}_k, \\
+(D_2 \hat{\mathbf{y}})_k &= \hat{y}_{k+2} - 2\hat{y}_{k+1} + \hat{y}_k.
+\end{align}
+\begin{equation}
+R_{\text{Tikh}} = \frac{1}{B}\sum_{i=1}^{B}\|D_p \hat{\mathbf{y}}_i\|_2^2, \quad p \in \{1,2\}.
+\end{equation}
+В экспериментах использован $p=2$.
+
+\section{Итоговая функция потерь (этап 2)}
+
+\begin{equation}
+\mathcal{L}_{\text{total}} =
+\mathcal{L}_{\text{main}} +
+\gamma \cdot \mathcal{L}_{\text{SHAP}}^{\text{norm}} +
+\lambda \cdot R_{\text{Tikh}}.
+\end{equation}
+
+\section{Оценка устойчивости (Monte Carlo)}
+
+Для оценки чувствительности к ошибке измерений вводится гауссов шум:
+\begin{equation}
+\mathbf{x}^{(t)} = \mathbf{x} + \boldsymbol{\xi}^{(t)}, \qquad
+\boldsymbol{\xi}^{(t)} \sim \mathcal{N}(0, \sigma^2), \quad
+\sigma = \epsilon \cdot |\mathbf{x}|,
+\end{equation}
+где $\epsilon$ --- относительная погрешность (в работе $1\%$). Для каждого образца выполняется $T$ прогонов:
+\begin{equation}
+\hat{\mathbf{y}}^{(t)} = f_{\theta}(\mathbf{x}^{(t)}), \quad t=1,\dots,T.
+\end{equation}
+Далее вычисляются статистики:
+\begin{align}
+\bar{\mathbf{y}} &= \frac{1}{T}\sum_{t=1}^{T}\hat{\mathbf{y}}^{(t)},\\
+\sigma_{\mathbf{y}} &= \sqrt{\frac{1}{T}\sum_{t=1}^{T}(\hat{\mathbf{y}}^{(t)}-\bar{\mathbf{y}})^2},\\
+\text{percentiles} &= \{p_5, p_{25}, p_{50}, p_{75}, p_{95}\}.
+\end{align}
+
+\section{Метрики качества}
+
+\begin{align}
+\text{MSE} &= \frac{1}{N}\sum_{i=1}^{N}\|\hat{\mathbf{y}}_i - \mathbf{y}_i\|_2^2,\\
+\text{RMSE} &= \sqrt{\text{MSE}},\\
+\text{MAE} &= \frac{1}{N}\sum_{i=1}^{N}\|\hat{\mathbf{y}}_i - \mathbf{y}_i\|_1.
+\end{align}
+Для $R^2$ используется взвешивание по дисперсии выходных бинов.
+
+\section{Параметры обучения и регуляризации}
+
+В финальных экспериментах использованы:
+\begin{itemize}
+    \item число правил ANFIS: $R=50$;
+    \item PSO: 150 эпох, размер популяции 100;
+    \item SHAP-тонкая настройка: 300 эпох, batch 32, $lr=10^{-3}$;
+    \item SHAP-веса: $\gamma=0.05$, $\gamma_{\text{sparsity}}=0.7$, $\gamma_{\text{consistency}}=0.2$,
+    $\gamma_{\text{faithfulness}}=0.05$, $\gamma_{\text{stability}}=0.05$;
+    \item Тихоновская регуляризация: $\lambda=10^{-3}$, порядок $p=2$.
+\end{itemize}
+
+\section{Практическая реализация и конфигурация данных}
+
+В реализации предусмотрена гибкая настройка колонок признаков и целей через конфигурационный файл:
+\begin{itemize}
+    \item \texttt{feature\_columns} / \texttt{target\_columns} --- явные списки названий;
+    \item \texttt{feature\_prefix} + \texttt{feature\_count} --- генерация имён (например, Q1..Q10);
+    \item \texttt{target\_prefix} + \texttt{target\_count} --- генерация имён спектральных бинов;
+    \item альтернативно допускаются \texttt{feature\_indices}, \texttt{target\_indices}, \texttt{target\_range}, \texttt{feature\_regex}/\texttt{target\_regex}.
+\end{itemize}
+Это позволяет переносить метод на другие наборы данных без изменения кода.
+
+\section{Инференс}
+
+После обучения модель используется для восстановления спектра по измерениям:
+\begin{equation}
+\hat{\mathbf{y}} = f_{\theta}(\mathbf{x}),
+\end{equation}
+с последующей денормализацией при необходимости:
+\begin{equation}
+\hat{\mathbf{y}}_{\text{denorm}} = \hat{\mathbf{y}} \cdot S.
+\end{equation}
+В практическом использовании сохраняются массивы предсказаний и визуализации спектра.
+
+\section{Экспериментальные результаты}
+
+Данные: 375 измерений (нормализованный набор), разбиение 80/20, тестовая выборка $N=75$.
+Получены следующие метрики на тесте:
+\begin{align}
+\text{MSE} &= 0.0106, \\
+\text{RMSE} &= 0.1030, \\
+\text{MAE} &= 0.0486, \\
+R^2_{\text{weighted}} &= 0.8368, \\
+R^2_{\text{mean}} &= 0.5560.
+\end{align}
+
+Метрики по диапазонам энергий (бинов): 
+\begin{itemize}
+    \item $[0,19]$: $R^2 = 0.4734$;
+    \item $[20,39]$: $R^2 = 0.6774$;
+    \item $[40,59]$: $R^2 = 0.5173$.
+\end{itemize}
+
+Устойчивость к ошибкам измерений оценивалась Monte Carlo при $T=1000$.
+При росте погрешности входов от $0.5\%$ до $10\%$ среднее стандартное отклонение
+восстановленного спектра выросло с $3.9\cdot 10^{-5}$ до $7.58\cdot 10^{-4}$,
+а максимум --- с $2.16\cdot 10^{-4}$ до $4.17\cdot 10^{-3}$.

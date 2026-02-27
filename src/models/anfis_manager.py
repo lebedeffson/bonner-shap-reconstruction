@@ -50,6 +50,29 @@ class ANFISManager:
         self.model_config = config['model']
         self.task_type = 'regression'  # Всегда регрессия для нашей задачи
         self.logger = get_logger("anfis_shap.anfis_manager")
+        self.feature_names = self._resolve_feature_names(config)
+
+    @staticmethod
+    def _resolve_feature_names(config):
+        dataset_config = config.get('dataset', {})
+        feature_columns = dataset_config.get('feature_columns')
+        if feature_columns:
+            return list(feature_columns)
+        feature_prefix = dataset_config.get('feature_prefix')
+        feature_count = dataset_config.get('feature_count')
+        if feature_prefix is not None and feature_count is not None:
+            start = int(dataset_config.get('feature_index_start', 1))
+            count = int(feature_count)
+            return [f"{feature_prefix}{i}" for i in range(start, start + count)]
+        return None
+
+    def set_feature_names(self, feature_names):
+        if feature_names is None:
+            return
+        names = list(feature_names)
+        if len(names) == 0:
+            return
+        self.feature_names = names
 
     def create_model(self, verbose=True, input_dim=None, output_dim=None):
         """
@@ -422,6 +445,8 @@ class ANFISManager:
         # Вывод важности признаков
         if 'feature_importance' in results:
             self.logger.info("Важность признаков:")
-            for i, imp in enumerate(results['feature_importance']):
-                self.logger.info(f"Q{i+1}: {imp:.4f}")
-
+            names = self.feature_names
+            if not names or len(names) != len(results['feature_importance']):
+                names = [f"X{i+1}" for i in range(len(results['feature_importance']))]
+            for name, imp in zip(names, results['feature_importance']):
+                self.logger.info(f"{name}: {imp:.4f}")
