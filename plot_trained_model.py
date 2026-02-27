@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.models.anfis_manager import ANFISManager
 from src.utils.config_loader import load_config
-from src.utils.data_loader import load_validation_data
+from src.utils.data_loader import load_validation_data, resolve_feature_count, resolve_target_count
 from constants import Ebins_float_IAEA_Comp
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
@@ -24,11 +24,14 @@ def load_model(model_path, config_path):
     """Загружает обученную модель"""
     config = load_config(config_path)
     manager = ANFISManager(config)
+    dataset_config = config.get('dataset', {})
+    input_dim = resolve_feature_count(dataset_config) or 10
+    output_dim = resolve_target_count(dataset_config) or 60
     
     # Создаем модель
     model = manager.create_model(
-        input_dim=10,
-        output_dim=60,
+        input_dim=input_dim,
+        output_dim=output_dim,
         verbose=False
     )
     
@@ -240,7 +243,8 @@ def main():
     dataset_config = config['dataset']
     X_test, y_test, SUM_test = load_validation_data(
         dataset_config.get('validation_data'),
-        normalize_sum=dataset_config.get('normalize_sum', True)
+        normalize_sum=dataset_config.get('normalize_sum', True),
+        dataset_config=dataset_config
     )
     # Преобразуем в numpy arrays если нужно
     if hasattr(X_test, 'values'):
@@ -299,4 +303,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

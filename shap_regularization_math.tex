@@ -24,13 +24,13 @@
 
 \subsubsection{Компоненты SHAP-регуляризации}
 
-Общая функция потерь с SHAP-регуляризацией имеет вид:
+Общая функция потерь с SHAP-регуляризацией (и добавленной гладкостью спектра) имеет вид:
 
 \begin{equation}
-\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{main}} + \gamma \left( \alpha R_{\text{sparsity}} + \beta R_{\text{consistency}} + \delta R_{\text{faithfulness}} + \eta R_{\text{stability}} \right),
+\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{main}} + \gamma \left( \alpha R_{\text{sparsity}} + \beta R_{\text{consistency}} + \delta R_{\text{faithfulness}} + \eta R_{\text{stability}} \right) + \lambda R_{\text{Tikh}},
 \end{equation}
 
-где $\mathcal{L}_{\text{main}} = \frac{1}{B} \sum_{i=1}^{B} \|\hat{\mathbf{y}}_i - \mathbf{y}_i\|_2^2$ --- основная функция потерь (MSE), $\gamma$ --- общий коэффициент регуляризации, а $\alpha, \beta, \delta, \eta$ --- веса компонентов (в экспериментах: $\alpha=0.7$, $\beta=0.2$, $\delta=0.05$, $\eta=0.05$).
+где $\mathcal{L}_{\text{main}} = \frac{1}{B} \sum_{i=1}^{B} \|\hat{\mathbf{y}}_i - \mathbf{y}_i\|_2^2$ --- основная функция потерь (MSE), $\gamma$ --- общий коэффициент регуляризации SHAP, $\alpha, \beta, \delta, \eta$ --- веса компонентов (в экспериментах: $\alpha=0.7$, $\beta=0.2$, $\delta=0.05$, $\eta=0.05$), а $\lambda$ --- коэффициент тихоновской регуляризации.
 
 \paragraph{1. Разреженность (Sparsity)}
 
@@ -99,6 +99,23 @@ R_{\text{stability}} = \frac{1}{B} \sum_{i=1}^{B} \left\| \tilde{\boldsymbol{\ph
 
 Минимизация этого компонента гарантирует, что объяснения модели не меняются резко при незначительных изменениях показаний детекторов Боннера, что критично для практического применения в условиях измерительного шума.
 
+\subsubsection{Тихоновская регуляризация формы спектра}
+
+Для обеспечения физически правдоподобной формы выходного спектра вводится тихоновская регуляризация по энергетическим бинам. Пусть $\hat{\mathbf{y}} \in \mathbb{R}^{m}$ --- предсказанный спектр (в нашей задаче $m=60$). Определим разностные операторы первого и второго порядка:
+
+\begin{align}
+(D_1 \hat{\mathbf{y}})_k &= \hat{y}_{k+1} - \hat{y}_k, \quad k = 1, \ldots, m-1, \\
+(D_2 \hat{\mathbf{y}})_k &= \hat{y}_{k+2} - 2\hat{y}_{k+1} + \hat{y}_k, \quad k = 1, \ldots, m-2.
+\end{align}
+
+Тихоновский штраф определяется как:
+
+\begin{equation}
+R_{\text{Tikh}} = \frac{1}{B} \sum_{i=1}^{B} \| D_p \hat{\mathbf{y}}_i \|_2^2, \quad p \in \{1,2\},
+\end{equation}
+
+где $p=2$ (вторые разности) используется для подавления «зубчатости» и обеспечения гладкости спектра. Это не влияет на интерпретируемость входных признаков, но стабилизирует форму выходного распределения.
+
 \subsubsection{Адаптивная балансировка компонентов}
 
 Для обеспечения баланса между точностью модели и интерпретируемостью используется адаптивная нормализация SHAP-потерь. Пусть $\mathcal{L}_{\text{main}}^{\text{EMA}}$ --- экспоненциальное скользящее среднее основной функции потерь (коэффициент $\alpha_{\text{EMA}} = 0.9$). Тогда нормализованная SHAP-регуляризация вычисляется как:
@@ -133,12 +150,13 @@ R_{\text{stability}} = \frac{1}{B} \sum_{i=1}^{B} \left\| \tilde{\boldsymbol{\ph
         \State \Comment{Вычисление компонентов регуляризации}
         \State $R_{\text{sparsity}} \gets \text{compute\_sparsity}(\tilde{\boldsymbol{\phi}})$
         \State $R_{\text{consistency}} \gets \text{compute\_consistency}(\tilde{\boldsymbol{\phi}}, \mathbf{X}, \mathbf{b})$ \Comment{Если $t \bmod 10 = 0$: обновить true SHAP}
-        \State $R_{\text{faithfulness}} \gets \text{compute\_faithfulness}(\mathbf{X}, \hat{\mathbf{Y}}, \tilde{\boldsymbol{\phi}})$
-        \State $R_{\text{stability}} \gets \text{compute\_stability}(\mathbf{X}, \tilde{\boldsymbol{\phi}})$
-        \State
-        \State $\mathcal{L}_{\text{SHAP}} \gets \alpha R_{\text{sparsity}} + \beta R_{\text{consistency}} + \delta R_{\text{faithfulness}} + \eta R_{\text{stability}}$
-        \State $\mathcal{L}_{\text{SHAP}}^{\text{norm}} \gets \text{adaptive\_normalize}(\mathcal{L}_{\text{SHAP}}, \mathcal{L}_{\text{main}}^{\text{EMA}})$
-        \State $\mathcal{L}_{\text{total}} \gets \mathcal{L}_{\text{main}} + \gamma \cdot \mathcal{L}_{\text{SHAP}}^{\text{norm}}$
+\State $R_{\text{faithfulness}} \gets \text{compute\_faithfulness}(\mathbf{X}, \hat{\mathbf{Y}}, \tilde{\boldsymbol{\phi}})$
+\State $R_{\text{stability}} \gets \text{compute\_stability}(\mathbf{X}, \tilde{\boldsymbol{\phi}})$
+\State
+\State $\mathcal{L}_{\text{SHAP}} \gets \alpha R_{\text{sparsity}} + \beta R_{\text{consistency}} + \delta R_{\text{faithfulness}} + \eta R_{\text{stability}}$
+\State $\mathcal{L}_{\text{SHAP}}^{\text{norm}} \gets \text{adaptive\_normalize}(\mathcal{L}_{\text{SHAP}}, \mathcal{L}_{\text{main}}^{\text{EMA}})$
+\State $R_{\text{Tikh}} \gets \frac{1}{B} \sum_{i=1}^{B} \| D_p \hat{\mathbf{y}}_i \|_2^2$
+\State $\mathcal{L}_{\text{total}} \gets \mathcal{L}_{\text{main}} + \gamma \cdot \mathcal{L}_{\text{SHAP}}^{\text{norm}} + \lambda R_{\text{Tikh}}$
         \State
         \State $\theta \gets \theta - \eta \cdot \nabla_{\theta} \mathcal{L}_{\text{total}}$ \Comment{Обратное распространение}
     \EndFor
@@ -159,4 +177,3 @@ R_{\text{stability}} = \frac{1}{B} \sum_{i=1}^{B} \left\| \tilde{\boldsymbol{\ph
 \end{itemize}
 
 Таким образом, SHAP-регуляризация превращает ANFIS из потенциально непрозрачной модели в полностью интерпретируемую систему, где каждое правило и каждый параметр имеют ясный физический смысл, а важность входных признаков вычисляется дифференцируемо и согласована с теорией кооперативных игр.
-

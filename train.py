@@ -70,8 +70,12 @@ def _compute_band_metrics(y_true, y_pred, bands):
 
     metrics = {}
     for name, band_slice in bands:
+        if band_slice.stop is not None and band_slice.stop > y_true.shape[1]:
+            continue
         y_true_band = y_true[:, band_slice]
         y_pred_band = y_pred[:, band_slice]
+        if y_true_band.size == 0 or y_pred_band.size == 0:
+            continue
         mse = mean_squared_error(y_true_band, y_pred_band, multioutput='uniform_average')
         rmse = np.sqrt(mse)
         mae = mean_absolute_error(y_true_band, y_pred_band, multioutput='uniform_average')
@@ -125,7 +129,11 @@ def train_and_save(args):
         raise FileNotFoundError(f"Файл с реальными данными не найден: {real_data_path}")
     
     print("\n📂 Загрузка реальных данных...")
-    X_real, y_real, SUM_real = load_validation_data(real_data_path, normalize_sum=normalize_sum)
+    X_real, y_real, SUM_real = load_validation_data(
+        real_data_path,
+        normalize_sum=normalize_sum,
+        dataset_config=dataset_config
+    )
     
     # Если режим real_only и интегрированное обучение - используем только реальные данные
     if training_mode == 'real_only' and integrated_training:
@@ -142,7 +150,9 @@ def train_and_save(args):
         print("\n📂 Загрузка обучающих данных...")
         try:
             data = load_training_dataset(dataset_config)
-            X, y, SUM_train = prepare_features_targets(data, normalize_sum=normalize_sum)
+            X, y, SUM_train = prepare_features_targets(
+                data, normalize_sum=normalize_sum, dataset_config=dataset_config
+            )
             
             print("\n🔀 Разделение данных...")
             X_train, X_test, y_train, y_test = split_data(
@@ -328,6 +338,8 @@ def train_and_save(args):
         
         print("\n🛠️  Этап 1: Обучение базовой ANFIS модели на синтетических данных...")
         manager = ANFISManager(config)
+        if hasattr(X_train, 'columns'):
+            manager.set_feature_names(X_train.columns)
         results = manager.train_vanilla_model(X_train_array, y_train_array, X_real_val_array, y_real_val_array)
         
         print("\n🧭 Этап 2: SHAP-регуляризация с улучшенной регуляризацией (4 компонента)...")
@@ -540,7 +552,10 @@ def train_and_save(args):
     saved_files['metrics_csv'] = os.path.basename(metrics_csv_path)
 
     # Сохраняем важность признаков
-    feature_names = X_train.columns if hasattr(X_train, 'columns') else [f'Q{i+1}' for i in range(X_train.shape[1])]
+    if hasattr(X_train, 'columns'):
+        feature_names = list(X_train.columns)
+    else:
+        feature_names = [f'X{i+1}' for i in range(X_train.shape[1])]
     
     # Базовая важность признаков (из vanilla модели)
     if 'feature_importance' in results:

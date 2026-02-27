@@ -7,6 +7,13 @@ dataset:
   mix_ratio: 0.0  # Только реальные данные
   test_size: 0.25  # 75% на обучение, 25% на тест
   random_state: 42
+  # Гибкая настройка колонок
+  feature_prefix: "Q"
+  feature_count: 10
+  feature_index_start: 1
+  target_prefix: ""
+  target_count: 60
+  target_index_start: 1
 model:
   # МАКСИМАЛЬНЫЕ ПАРАМЕТРЫ ДЛЯ R² = 0.9
   num_rules: 50  # УВЕЛИЧЕНО: 50 правил для максимальной емкости
@@ -30,4 +37,3 @@ output:
   save_plots: true
   save_samples: true
   sample_size: 5
-

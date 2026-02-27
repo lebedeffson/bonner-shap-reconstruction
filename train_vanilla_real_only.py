@@ -70,8 +70,12 @@ def _compute_band_metrics(y_true, y_pred, bands):
 
     metrics = {}
     for name, band_slice in bands:
+        if band_slice.stop is not None and band_slice.stop > y_true.shape[1]:
+            continue
         y_true_band = y_true[:, band_slice]
         y_pred_band = y_pred[:, band_slice]
+        if y_true_band.size == 0 or y_pred_band.size == 0:
+            continue
         mse = mean_squared_error(y_true_band, y_pred_band, multioutput='uniform_average')
         rmse = np.sqrt(mse)
         mae = mean_absolute_error(y_true_band, y_pred_band, multioutput='uniform_average')
@@ -114,7 +118,11 @@ def train_vanilla_real_only(args):
     if not real_data_path or not os.path.exists(real_data_path):
         raise FileNotFoundError(f"Файл с реальными данными не найден: {real_data_path}")
     
-    X_real, y_real, SUM_real = load_validation_data(real_data_path, normalize_sum=normalize_sum)
+    X_real, y_real, SUM_real = load_validation_data(
+        real_data_path,
+        normalize_sum=normalize_sum,
+        dataset_config=dataset_config
+    )
     print(f"   ✅ Загружено {len(X_real)} реальных образцов")
     print(f"   ✅ Размерность признаков: {X_real.shape[1]}")
     print(f"   ✅ Размерность целевых значений: {y_real.shape[1]}")
@@ -162,6 +170,8 @@ def train_vanilla_real_only(args):
     print("\n🛠️  Обучение ANFIS модели...")
     print("=" * 80)
     manager = ANFISManager(config)
+    if hasattr(X_train, 'columns'):
+        manager.set_feature_names(X_train.columns)
     
     print(f"\n📊 Параметры модели:")
     print(f"   • num_rules: {model_config['num_rules']}")
@@ -328,4 +338,3 @@ def train_vanilla_real_only(args):
 if __name__ == "__main__":
     args = parse_args()
     train_vanilla_real_only(args)
-
