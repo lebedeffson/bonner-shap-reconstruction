@@ -1,22 +1,19 @@
 """
-Property-based тесты для Shapley values
-Проверяет свойства эффективности, симметричности и аддитивности
+Тесты свойств текущей SHAP-аппроксимации
 """
 
 import unittest
 import numpy as np
-import torch
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.models.shap_trainer import ShapAwareANFISTrainer
-from src.models.shap_metrics import ShapMetrics
+from src.models.shap_trainer_improved import ShapAwareANFISTrainerImproved
 
 
 class TestShapProperties(unittest.TestCase):
-    """Тесты свойств Shapley values"""
+    """Тесты свойств SHAP-аппроксимации"""
     
     def setUp(self):
         """Подготовка тестов"""
@@ -41,10 +38,9 @@ class TestShapProperties(unittest.TestCase):
             'shap_reg': {
                 'enabled': True,
                 'gamma': 0.5,
-                'shap_n_samples': 50,  # Малое количество для быстрых тестов
-                'shap_exact': False,
-                'cache_enabled': False,  # Отключаем кэш для тестов
-                'use_gpu': False
+                'true_shap_update_frequency': 1,
+                'use_gpu': False,
+                'use_improved_shap': True
             }
         }
         
@@ -76,82 +72,43 @@ class TestShapProperties(unittest.TestCase):
         self.model.fit(self.X_test, self.y_test)
         
         # Создаем тренер
-        self.trainer = ShapAwareANFISTrainer(
+        self.trainer = ShapAwareANFISTrainerImproved(
             self.model,
             self.config,
             gamma=0.5,
             verbose=False
         )
     
-    def test_efficiency_property(self):
-        """
-        Тест свойства эффективности Shapley values
+    def test_shap_values_reproducible(self):
+        """Повторные вычисления на одних и тех же данных должны совпадать"""
+        baseline = np.mean(self.X_test, axis=0)
+        shap_values_1 = self.trainer._calculate_shap_approximation(self.X_test[0], baseline)
+        shap_values_2 = self.trainer._calculate_shap_approximation(self.X_test[0], baseline)
+        np.testing.assert_allclose(shap_values_1, shap_values_2, atol=1e-8)
+    
+    def test_global_shap_importance_shape(self):
+        """Глобальная важность должна совпадать с числом признаков"""
+        shap_importance = self.trainer.get_global_shap_importance(self.X_test[:5])
+        self.assertEqual(shap_importance.shape, (self.n_features,))
+        self.assertTrue(np.all(np.isfinite(shap_importance)))
+        self.assertTrue(np.all(shap_importance >= 0))
+        self.assertAlmostEqual(float(np.sum(shap_importance)), 1.0, places=6)
+
+    def test_baseline_independence(self):
+        """SHAP-аппроксимация должна зависеть от baseline"""
+        baseline1 = np.mean(self.X_test, axis=0)
+        baseline2 = baseline1 + 0.1
         
-        Эффективность: сумма Shapley values должна равняться разнице между
-        предсказанием модели и предсказанием на baseline
-        """
+        shap_values1 = self.trainer._calculate_shap_approximation(self.X_test[0], baseline1)
+        shap_values2 = self.trainer._calculate_shap_approximation(self.X_test[0], baseline2)
+        
+        self.assertFalse(np.allclose(shap_values1, shap_values2, atol=1e-6))
+
+    def test_single_sample_shap_is_nontrivial(self):
+        """Важности не должны схлопываться в нулевой вектор"""
         baseline = np.mean(self.X_test, axis=0)
         shap_values = self.trainer._calculate_shap_approximation(self.X_test[0], baseline)
-        
-        # Получаем предсказания
-        predictions = self.trainer.predict(self.X_test[:1])
-        
-        # Вычисляем метрики эффективности
-        metrics = ShapMetrics.compute_efficiency(shap_values, predictions)
-        
-        # Проверяем, что сумма Shapley values не равна нулю
-        self.assertNotEqual(metrics['shap_sum'], 0.0, "Сумма Shapley values не должна быть нулевой")
-        
-        # Проверяем, что метрики вычислены корректно
-        self.assertIn('shap_sum', metrics)
-        self.assertIn('mean_prediction', metrics)
-        self.assertIn('efficiency_error', metrics)
-        self.assertIn('is_efficient', metrics)
-    
-    def test_symmetry_property(self):
-        """
-        Тест свойства симметричности Shapley values
-        
-        Симметричность: если два признака вносят одинаковый вклад,
-        их Shapley values должны быть близки
-        """
-        baseline = np.mean(self.X_test, axis=0)
-        shap_values = self.trainer._calculate_shap_approximation(self.X_test[0], baseline)
-        
-        # Вычисляем метрики симметричности
-        metrics = ShapMetrics.compute_symmetry(shap_values)
-        
-        # Проверяем, что метрики вычислены корректно
-        self.assertIn('mean_symmetry_error', metrics)
-        self.assertIn('max_symmetry_error', metrics)
-        self.assertIn('n_pairs_tested', metrics)
-        
-        # Проверяем, что ошибка симметричности неотрицательна
-        self.assertGreaterEqual(metrics['mean_symmetry_error'], 0.0)
-    
-    def test_stability_metrics(self):
-        """
-        Тест метрик стабильности Shapley values
-        """
-        baseline = np.mean(self.X_test, axis=0)
-        
-        # Вычисляем Shapley values несколько раз
-        shap_values_list = []
-        for _ in range(3):
-            shap_values = self.trainer._calculate_shap_approximation(self.X_test[0], baseline)
-            shap_values_list.append(shap_values)
-        
-        # Вычисляем метрики стабильности
-        stability_metrics = ShapMetrics.compute_stability(shap_values_list)
-        
-        # Проверяем, что метрики вычислены корректно
-        self.assertIn('mean_stability', stability_metrics)
-        self.assertIn('max_stability', stability_metrics)
-        self.assertIn('min_stability', stability_metrics)
-        self.assertIn('per_feature_stability', stability_metrics)
-        
-        # Проверяем, что стабильность неотрицательна
-        self.assertGreaterEqual(stability_metrics['mean_stability'], 0.0)
+        self.assertGreater(float(np.sum(shap_values)), 0.0)
     
     def test_shap_values_shape(self):
         """Тест формы Shapley values"""
@@ -183,22 +140,5 @@ class TestShapProperties(unittest.TestCase):
         self.assertTrue(np.all(shap_values >= 0), 
                         "Shapley values должны быть неотрицательными (abs)")
     
-    def test_baseline_independence(self):
-        """
-        Тест что Shapley values изменяются при изменении baseline
-        """
-        baseline1 = np.mean(self.X_test, axis=0)
-        baseline2 = baseline1 + 0.1  # Сдвигаем baseline
-        
-        shap_values1 = self.trainer._calculate_shap_approximation(self.X_test[0], baseline1)
-        shap_values2 = self.trainer._calculate_shap_approximation(self.X_test[0], baseline2)
-        
-        # Shapley values должны изменяться при изменении baseline
-        # (хотя бы немного)
-        self.assertFalse(np.allclose(shap_values1, shap_values2, atol=1e-6),
-                        "Shapley values должны изменяться при изменении baseline")
-
-
 if __name__ == '__main__':
     unittest.main()
-

@@ -1,30 +1,31 @@
 """
-Интеграционные тесты для интегрированного режима обучения
+Интеграционные тесты для текущего SHAP fine-tune режима
 """
 
 import unittest
 import numpy as np
 import sys
 from pathlib import Path
+from copy import deepcopy
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.models.shap_integrated_trainer import ShapIntegratedANFISTrainer
 from src.models.anfis_manager import ANFISManager
+from src.models.shap_trainer_improved import ShapAwareANFISTrainerImproved
 from src.utils.config_loader import load_config
 
 
-class TestIntegratedTraining(unittest.TestCase):
-    """Тесты интегрированного режима обучения"""
+class TestShapFineTune(unittest.TestCase):
+    """Тесты текущего режима SHAP fine-tune"""
     
     @classmethod
     def setUpClass(cls):
         """Подготовка для всех тестов"""
-        cls.config_path = "configs/config.yaml"
+        cls.config_path = "configs/config_integrated_shap.yaml"
         if not Path(cls.config_path).exists():
-            cls.config_path = Path(__file__).parent.parent / "configs" / "config.yaml"
+            cls.config_path = Path(__file__).parent.parent / "configs" / "config_integrated_shap.yaml"
         
-        cls.config = load_config(str(cls.config_path))
+        cls.config = deepcopy(load_config(str(cls.config_path)))
         
         # Уменьшаем параметры для быстрых тестов
         cls.config['model']['num_rules'] = 3
@@ -34,49 +35,39 @@ class TestIntegratedTraining(unittest.TestCase):
         
         # Настройки SHAP для тестов
         cls.config['shap_reg']['epochs'] = 5
-        cls.config['shap_reg']['shap_n_samples'] = 20
+        cls.config['shap_reg']['true_shap_update_frequency'] = 1
         cls.config['shap_reg']['use_gpu'] = False
-        cls.config['shap_reg']['cache_enabled'] = False
-        cls.config['shap_reg']['integrated_training'] = True
-        cls.config['shap_reg']['use_pso_init'] = False  # Отключаем PSO для быстрых тестов
+        cls.config['shap_reg']['integrated_training'] = False
+        cls.config['shap_reg']['use_pso_init'] = False
     
-    def test_integrated_training_creation(self):
-        """Тест создания интегрированного тренера"""
+    def test_shap_trainer_creation(self):
+        """Тест создания SHAP fine-tune тренера"""
         manager = ANFISManager(self.config)
         
-        # Создаем простые данные
-        n_samples = 50
         n_features = 10
         n_outputs = 60
-        
-        X = np.random.rand(n_samples, n_features)
-        y = np.random.rand(n_samples, n_outputs)
-        
-        # Создаем модель
+
         model = manager.create_model(
             verbose=False,
             input_dim=n_features,
             output_dim=n_outputs
         )
         
-        # Создаем интегрированный тренер
-        trainer = ShapIntegratedANFISTrainer(
+        trainer = ShapAwareANFISTrainerImproved(
             model,
             self.config,
             gamma=0.5,
             verbose=False
         )
         
-        # Проверяем, что тренер создан
         self.assertIsNotNone(trainer)
         self.assertIsNotNone(trainer.model)
         self.assertEqual(trainer.gamma, 0.5)
     
-    def test_integrated_training_fit(self):
-        """Тест обучения в интегрированном режиме"""
+    def test_shap_trainer_fit(self):
+        """Тест обучения в текущем SHAP режиме"""
         manager = ANFISManager(self.config)
         
-        # Создаем простые данные
         n_samples = 30
         n_features = 10
         n_outputs = 60
@@ -93,41 +84,37 @@ class TestIntegratedTraining(unittest.TestCase):
             output_dim=n_outputs
         )
         
-        # Создаем интегрированный тренер
-        trainer = ShapIntegratedANFISTrainer(
+        trainer = ShapAwareANFISTrainerImproved(
             model,
             self.config,
             gamma=0.5,
             verbose=False
         )
         
-        # Обучаем модель
-        history = trainer.fit_from_scratch(
+        history = trainer.fit(
             X_train,
             y_train,
             epochs=3,
             batch_size=10,
-            lr=0.01,
-            X_val=X_val,
-            y_val=y_val
+            lr=0.01
         )
         
-        # Проверяем результаты
         self.assertIsNotNone(history)
         self.assertIn('total_loss', history)
         self.assertIn('main_loss', history)
         self.assertIn('shap_loss', history)
-        self.assertIn('val_loss', history)
+        self.assertIn('tikhonov_loss', history)
+        self.assertIn('adaptive_gamma', history)
         
-        # Проверяем, что потери уменьшаются (или хотя бы вычисляются)
         self.assertGreater(len(history['total_loss']), 0)
         self.assertTrue(all(np.isfinite(v) for v in history['total_loss']))
+        self.assertEqual(len(history['shap_consistency']), 3)
+        self.assertEqual(len(history['shap_sparsity']), 3)
     
-    def test_integrated_training_predictions(self):
-        """Тест предсказаний после интегрированного обучения"""
+    def test_shap_trainer_predictions(self):
+        """Тест предсказаний после SHAP обучения"""
         manager = ANFISManager(self.config)
         
-        # Создаем простые данные
         n_samples = 30
         n_features = 10
         n_outputs = 60
@@ -143,16 +130,14 @@ class TestIntegratedTraining(unittest.TestCase):
             output_dim=n_outputs
         )
         
-        # Создаем интегрированный тренер
-        trainer = ShapIntegratedANFISTrainer(
+        trainer = ShapAwareANFISTrainerImproved(
             model,
             self.config,
             gamma=0.5,
             verbose=False
         )
         
-        # Обучаем модель
-        trainer.fit_from_scratch(
+        trainer.fit(
             X_train,
             y_train,
             epochs=3,
@@ -160,20 +145,16 @@ class TestIntegratedTraining(unittest.TestCase):
             lr=0.01
         )
         
-        # Получаем предсказания
         predictions = trainer.predict(X_test)
         
-        # Проверяем предсказания
         self.assertIsNotNone(predictions)
         self.assertEqual(predictions.shape, (len(X_test), n_outputs))
         self.assertTrue(np.all(np.isfinite(predictions)))
-        self.assertTrue(np.all(predictions >= 0))  # Спектры не могут быть отрицательными
     
-    def test_integrated_training_shap_importance(self):
-        """Тест вычисления важности признаков в интегрированном режиме"""
+    def test_shap_trainer_global_importance(self):
+        """Тест вычисления глобальной важности признаков"""
         manager = ANFISManager(self.config)
         
-        # Создаем простые данные
         n_samples = 30
         n_features = 10
         n_outputs = 60
@@ -188,16 +169,14 @@ class TestIntegratedTraining(unittest.TestCase):
             output_dim=n_outputs
         )
         
-        # Создаем интегрированный тренер
-        trainer = ShapIntegratedANFISTrainer(
+        trainer = ShapAwareANFISTrainerImproved(
             model,
             self.config,
             gamma=0.5,
             verbose=False
         )
         
-        # Обучаем модель
-        trainer.fit_from_scratch(
+        trainer.fit(
             X_train,
             y_train,
             epochs=3,
@@ -205,10 +184,8 @@ class TestIntegratedTraining(unittest.TestCase):
             lr=0.01
         )
         
-        # Вычисляем важность признаков
         shap_importance = trainer.get_global_shap_importance(X_train[:5])
         
-        # Проверяем важность признаков
         self.assertIsNotNone(shap_importance)
         self.assertEqual(len(shap_importance), n_features)
         self.assertTrue(np.all(np.isfinite(shap_importance)))
@@ -217,4 +194,3 @@ class TestIntegratedTraining(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

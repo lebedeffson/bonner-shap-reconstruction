@@ -86,6 +86,21 @@ class UncertaintyEstimator:
             np.random.seed(seed)
         
         X = np.array(X) if not isinstance(X, np.ndarray) else X
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+
+        if X.size == 0 or X.shape[0] == 0:
+            empty = np.empty((0, 0), dtype=float)
+            empty_percentiles = {p: empty.copy() for p in (5, 25, 50, 75, 95)}
+            return {
+                'mean': empty.copy(),
+                'std': empty.copy(),
+                'min': empty.copy(),
+                'max': empty.copy(),
+                'percentiles': empty_percentiles,
+                'base_prediction': empty.copy(),
+                'all_predictions': np.empty((0, 0, 0), dtype=float)
+            }
 
         # Базовое предсказание без ошибок
         if normalize_sum:
@@ -171,7 +186,8 @@ class UncertaintyEstimator:
     def _add_measurement_error(
         self,
         X: np.ndarray,
-        error_percent: float
+        error_percent: float,
+        seed: Optional[int] = None,
     ) -> np.ndarray:
         """
         Добавляет случайную ошибку измерения к входным данным
@@ -191,7 +207,11 @@ class UncertaintyEstimator:
         std_values = np.maximum(std_values, 1e-10)
         
         # Генерируем случайную ошибку из нормального распределения
-        noise = np.random.normal(loc=0.0, scale=std_values, size=X.shape)
+        if seed is None:
+            noise = np.random.normal(loc=0.0, scale=std_values, size=X.shape)
+        else:
+            rng = np.random.default_rng(seed)
+            noise = rng.normal(loc=0.0, scale=std_values, size=X.shape)
         
         # Добавляем ошибку к данным
         X_perturbed = X + noise

@@ -30,8 +30,14 @@ def load_data(data_path, drop_index=True):
         data = pd.read_csv(data_path)
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Файл не найден: {e}")
+    except pd.errors.EmptyDataError:
+        raise
     except Exception as e:
         raise Exception(f"Ошибка при чтении CSV файла: {e}")
+
+    if data.empty:
+        raise ValueError(f"CSV файл пуст: {data_path}")
+
     data.dropna(inplace=True)
     
     if drop_index and data.columns[0] == 'Unnamed: 0':
@@ -161,7 +167,9 @@ def resolve_target_columns(data, dataset_config=None):
     По умолчанию: первые 60 колонок.
     """
     if dataset_config is None:
-        return data.columns[:60].tolist()
+        feature_columns = set(resolve_feature_columns(data, dataset_config))
+        target_columns = [col for col in data.columns if col not in feature_columns]
+        return target_columns[:60]
 
     target_columns = dataset_config.get('target_columns')
     if target_columns:
@@ -264,8 +272,16 @@ def prepare_features_targets(data, normalize_sum=False, dataset_config=None):
     Returns:
         tuple: (X, y, SUM) где SUM - суммы показаний (если normalize_sum=True)
     """
+    if data is None or len(data.columns) == 0:
+        raise KeyError("Пустой DataFrame: невозможно определить признаки и цели")
+
     feature_columns = resolve_feature_columns(data, dataset_config)
     target_columns = resolve_target_columns(data, dataset_config)
+
+    if len(feature_columns) == 0:
+        raise KeyError("Не удалось определить ни одной колонки признаков")
+    if len(target_columns) == 0:
+        raise KeyError("Не удалось определить ни одной колонки целей")
 
     # Проверяем колонки
     missing_features = [col for col in feature_columns if col not in data.columns]
@@ -360,14 +376,23 @@ def denormalize_predictions(y_pred_normalized, SUM):
     
     y_pred = np.array(y_pred_normalized)
     SUM_array = np.array(SUM)
+    if SUM_array.ndim > 1:
+        SUM_array = SUM_array.reshape(-1)
     
     # Убеждаемся, что формы совместимы
     if y_pred.ndim == 1:
-        # Одномерный массив - умножаем каждый элемент на соответствующий SUM
+        if SUM_array.size not in (1, y_pred.shape[0]):
+            raise ValueError(
+                f"Несовместимые формы для денормализации: y_pred={y_pred.shape}, SUM={SUM_array.shape}"
+            )
+        if SUM_array.size == 1:
+            return y_pred * SUM_array.item()
         return y_pred * SUM_array
     elif y_pred.ndim == 2:
-        # Двумерный массив (samples, features)
-        # Умножаем каждую строку на соответствующий SUM
+        if SUM_array.size != y_pred.shape[0]:
+            raise ValueError(
+                f"Несовместимые формы для денормализации: y_pred={y_pred.shape}, SUM={SUM_array.shape}"
+            )
         return y_pred * SUM_array[:, np.newaxis]
     else:
         raise ValueError(f"Неожиданная размерность предсказаний: {y_pred.ndim}")

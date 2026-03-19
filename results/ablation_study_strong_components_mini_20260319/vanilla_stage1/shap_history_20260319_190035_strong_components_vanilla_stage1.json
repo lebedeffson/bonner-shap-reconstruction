@@ -1,0 +1,11 @@
+{
+  "total_loss": [],
+  "main_loss": [],
+  "shap_loss": [],
+  "shap_loss_normalized": [],
+  "tikhonov_loss": [],
+  "shap_scale_factor": [],
+  "shap_contribution": [],
+  "tikhonov_contribution": [],
+  "regularization_share": []
+}

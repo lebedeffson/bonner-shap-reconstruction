@@ -3,6 +3,7 @@
 """
 
 import unittest
+import numpy as np
 import sys
 from pathlib import Path
 
@@ -12,37 +13,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 class TestModuleImports(unittest.TestCase):
     """Тесты импорта всех модулей"""
     
-    def test_shap_trainer_import(self):
-        """Тест импорта ShapAwareANFISTrainer"""
+    def test_shap_trainer_improved_import(self):
+        """Тест импорта улучшенного SHAP-тренера"""
         try:
-            from src.models.shap_trainer import ShapAwareANFISTrainer
+            from src.models.shap_trainer_improved import ShapAwareANFISTrainerImproved
             self.assertTrue(True)
         except ImportError as e:
-            self.fail(f"Не удалось импортировать ShapAwareANFISTrainer: {e}")
+            self.fail(f"Не удалось импортировать ShapAwareANFISTrainerImproved: {e}")
     
-    def test_shap_integrated_trainer_import(self):
-        """Тест импорта ShapIntegratedANFISTrainer"""
+    def test_shap_precision_utils_import(self):
+        """Тест импорта precision-aware SHAP утилит"""
         try:
-            from src.models.shap_integrated_trainer import ShapIntegratedANFISTrainer
+            from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
             self.assertTrue(True)
         except ImportError as e:
-            self.fail(f"Не удалось импортировать ShapIntegratedANFISTrainer: {e}")
-    
-    def test_shap_adaptive_import(self):
-        """Тест импорта AdaptiveShapConfig"""
-        try:
-            from src.models.shap_adaptive import AdaptiveShapConfig
-            self.assertTrue(True)
-        except ImportError as e:
-            self.fail(f"Не удалось импортировать AdaptiveShapConfig: {e}")
-    
-    def test_shap_metrics_import(self):
-        """Тест импорта ShapMetrics"""
-        try:
-            from src.models.shap_metrics import ShapMetrics
-            self.assertTrue(True)
-        except ImportError as e:
-            self.fail(f"Не удалось импортировать ShapMetrics: {e}")
+            self.fail(f"Не удалось импортировать PrecisionOptimizedSHAPRegularization: {e}")
     
     def test_uncertainty_estimation_import(self):
         """Тест импорта UncertaintyEstimator"""
@@ -96,24 +81,40 @@ class TestModuleImports(unittest.TestCase):
 class TestModuleBasicFunctionality(unittest.TestCase):
     """Базовые тесты функциональности модулей"""
     
-    def test_shap_metrics_compute_stability(self):
-        """Тест вычисления метрик стабильности"""
-        import numpy as np
-        from src.models.shap_metrics import ShapMetrics
-        
-        # Создаем тестовые данные
-        shap_values_list = [
-            np.array([0.1, 0.2, 0.3]),
-            np.array([0.11, 0.19, 0.31]),
-            np.array([0.09, 0.21, 0.29])
-        ]
-        
-        metrics = ShapMetrics.compute_stability(shap_values_list)
-        
-        self.assertIn('mean_stability', metrics)
-        self.assertIn('max_stability', metrics)
-        self.assertIn('min_stability', metrics)
-        self.assertGreaterEqual(metrics['mean_stability'], 0.0)
+    def test_precision_shap_compute_stability(self):
+        """Тест вычисления стабильности precision-aware SHAP"""
+        import torch
+        from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
+
+        importance = torch.tensor([
+            [0.1, 0.2, 0.3],
+            [0.11, 0.19, 0.31],
+            [0.09, 0.21, 0.29]
+        ], dtype=torch.float32)
+
+        metrics = PrecisionOptimizedSHAPRegularization.compute_precision_aware_stability(
+            importance,
+            current_main_loss=0.01
+        )
+
+        self.assertIn('stability_loss', metrics)
+        self.assertGreaterEqual(float(metrics['stability_loss']), 0.0)
+
+    def test_precision_shap_js_divergence_is_symmetric_and_zero_on_match(self):
+        """JS-дивергенция должна быть симметричной и нулевой для одинаковых распределений."""
+        import torch
+        from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
+
+        p = torch.tensor([0.2, 0.3, 0.5], dtype=torch.float32)
+        q = torch.tensor([0.4, 0.1, 0.5], dtype=torch.float32)
+
+        js_pp = PrecisionOptimizedSHAPRegularization._js_divergence(p, p)
+        js_pq = PrecisionOptimizedSHAPRegularization._js_divergence(p, q)
+        js_qp = PrecisionOptimizedSHAPRegularization._js_divergence(q, p)
+
+        self.assertAlmostEqual(float(js_pp.item()), 0.0, places=7)
+        self.assertGreaterEqual(float(js_pq.item()), 0.0)
+        self.assertAlmostEqual(float(js_pq.item()), float(js_qp.item()), places=7)
     
     def test_uncertainty_estimator_init(self):
         """Тест инициализации UncertaintyEstimator"""
@@ -134,4 +135,3 @@ class TestModuleBasicFunctionality(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

@@ -1,0 +1,65 @@
+dataset:
+  train_data: /home/lebedeffson/Code/bonner-shap-reconstruction/normalized_data_with_q_375.csv
+  validation_data: /home/lebedeffson/Code/bonner-shap-reconstruction/normalized_data_with_q_375.csv
+  normalize_sum: true
+  mix_with_real: false
+  mix_ratio: 0.0
+  test_size: 0.2
+  random_state: 42
+  feature_prefix: Q
+  feature_count: 10
+  feature_index_start: 1
+  target_prefix: ''
+  target_count: 60
+  target_index_start: 1
+  train_limit: 96
+model:
+  num_rules: 10
+  mf_class: Gaussian
+  vanishing_strategy: blend
+  optim: OriginalPSO
+  reg_lambda: 0.001
+  seed: 42
+  n_workers: 1
+  optim_params:
+    epoch: 10
+    pop_size: 10
+    verbose: false
+shap_reg:
+  enabled: true
+  integrated_training: false
+  training_mode: real_only
+  use_pso_init: false
+  pso_epochs: 150
+  epochs: 20
+  batch_size: 16
+  lr: 0.001
+  gamma: 0.1
+  gamma_start: 0.02
+  gamma_end: 0.1
+  gamma_warmup_epochs: 0.5
+  use_adaptive_gamma: true
+  use_adaptive_weights: true
+  use_improved_shap: true
+  gamma_sparsity: 0.7
+  gamma_consistency: 0.2
+  gamma_faithfulness: 0.05
+  gamma_stability: 0.05
+  tikhonov:
+    enabled: true
+    lambda: 0.002
+    order: 2
+  target_shap_ratio: 0.4
+  min_convergence_slowdown: 0.25
+  active_components:
+  - sparsity
+  - faithfulness
+  - stability
+  use_gpu: false
+output:
+  results_dir: results/ablation_study_strong_components_mini_20260319/strong_no_consistency
+  save_model: true
+  save_predictions: true
+  save_plots: false
+  save_samples: false
+  sample_size: 5

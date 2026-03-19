@@ -46,15 +46,21 @@ shap_reg:
   batch_size: 32
   lr: 0.001
   
-  # SHAP параметры - мягкий старт
-  gamma: 0.05
-  gamma_start: 0.0
-  gamma_end: 0.05
+  # SHAP параметры - усиленный режим после абляционного анализа
+  gamma: 0.10
+  gamma_start: 0.02
+  gamma_end: 0.10
   gamma_warmup_epochs: 0.5
   
   use_adaptive_gamma: true
+  target_shap_ratio: 0.40
+  min_convergence_slowdown: 0.25
+  use_adaptive_weights: true
+  use_true_shap: true
+  active_components: [consistency, sparsity, faithfulness, stability]
   
   # Улучшенная регуляризация (Consistency, Sparsity, Faithfulness, Stability)
+  # При use_adaptive_weights=false эти коэффициенты используются как фиксированные веса компонентов.
   use_improved_shap: true
   gamma_sparsity: 0.7
   gamma_consistency: 0.2
@@ -64,7 +70,7 @@ shap_reg:
   # Тихоновская регуляризация (гладкость спектра)
   tikhonov:
     enabled: true
-    lambda: 0.001
+    lambda: 0.002
     order: 2
 
 output:
