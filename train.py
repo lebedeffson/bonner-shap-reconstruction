@@ -11,6 +11,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.model_selection import train_test_split
 
 # Добавляем путь к модулям
 sys.path.insert(0, str(Path(__file__).parent))
@@ -32,11 +33,18 @@ ENERGY_BANDS = [
     ("band_20_39", slice(20, 40)),
     ("band_40_59", slice(40, 60)),
 ]
+REAL_TEST_FRACTION = 0.2
+REAL_VALIDATION_FRACTION_OF_TEMP = 0.25
+REAL_DATA_SPLIT = {
+    'train': 0.6,
+    'validation': 0.2,
+    'test': 0.2,
+}
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Обучение ANFIS модели для восстановления спектра")
-    parser.add_argument("--config", default="configs/config.yaml", help="Путь к YAML конфигурации")
+    parser.add_argument("--config", default="configs/config_integrated_shap.yaml", help="Путь к YAML конфигурации")
     parser.add_argument("--train-limit", type=int, dest="train_limit",
                         help="Переопределяет dataset.train_limit в конфигурации")
     parser.add_argument("--train-fraction", type=float, dest="train_fraction",
@@ -93,6 +101,137 @@ def _compute_band_metrics(y_true, y_pred, bands):
     return metrics
 
 
+def _prepare_feature_importance(values, feature_names, *, normalize=False):
+    """Санитизирует важности признаков, проверяет размерность и при необходимости нормализует."""
+    feature_names = list(feature_names)
+    importance = np.asarray(values, dtype=float).reshape(-1)
+    importance = np.nan_to_num(importance, nan=0.0, posinf=0.0, neginf=0.0)
+    importance = np.maximum(importance, 0.0)
+
+    if importance.size != len(feature_names):
+        raise ValueError(
+            f"Размер importance ({importance.size}) не совпадает с количеством признаков ({len(feature_names)})"
+        )
+
+    if normalize and importance.size > 0:
+        total = float(np.sum(importance))
+        if not np.isfinite(total) or total <= 1e-12:
+            importance = np.full(importance.shape, 1.0 / importance.size, dtype=float)
+        else:
+            importance = importance / total
+
+    return pd.Series(importance, index=feature_names, dtype=float)
+
+
+def _summarize_regularization_history(shap_history, shap_config):
+    """Извлекает компактную сводку о вкладе SHAP и Tikhonov из истории обучения."""
+    if not shap_history:
+        return {}
+
+    component_names = ('consistency', 'sparsity', 'faithfulness', 'stability')
+
+    def _stats(values):
+        arr = np.asarray(values, dtype=float)
+        arr = arr[np.isfinite(arr)]
+        if arr.size == 0:
+            return None
+        return {
+            'mean': float(np.mean(arr)),
+            'last': float(arr[-1]),
+            'max': float(np.max(arr)),
+        }
+
+    summary = {
+        'active_components': list(shap_config.get('active_components', ['consistency', 'sparsity', 'faithfulness', 'stability']))
+    }
+
+    for key in [
+        'shap_contribution',
+        'tikhonov_contribution',
+        'regularization_share',
+        'shap_scale_factor',
+        'shap_loss_normalized',
+    ]:
+        stats = _stats(shap_history.get(key))
+        if stats is not None:
+            summary[key] = stats
+
+    component_terms = {}
+    component_weights = {}
+    weighted_component_signal = {}
+    for name in component_names:
+        term_key = f'shap_{name}'
+        weight_key = f'shap_weight_{name}'
+
+        term_stats = _stats(shap_history.get(term_key))
+        if term_stats is not None:
+            component_terms[name] = term_stats
+
+        weight_stats = _stats(shap_history.get(weight_key))
+        if weight_stats is not None:
+            component_weights[name] = weight_stats
+
+        terms = np.asarray(shap_history.get(term_key, []), dtype=float)
+        weights = np.asarray(shap_history.get(weight_key, []), dtype=float)
+        if terms.size and weights.size:
+            size = min(len(terms), len(weights))
+            signal = terms[:size] * weights[:size]
+            signal = signal[np.isfinite(signal)]
+            if signal.size:
+                weighted_component_signal[name] = {
+                    'mean': float(np.mean(signal)),
+                    'last': float(signal[-1]),
+                    'max': float(np.max(signal)),
+                }
+
+    if component_terms:
+        summary['component_terms'] = component_terms
+    if component_weights:
+        summary['component_weights'] = component_weights
+    if weighted_component_signal:
+        summary['weighted_component_signal'] = weighted_component_signal
+        dominant_name = max(weighted_component_signal.items(), key=lambda item: item[1]['mean'])[0]
+        summary['dominant_shap_component'] = dominant_name
+
+    shap_mean = summary.get('shap_contribution', {}).get('mean', 0.0)
+    tikh_mean = summary.get('tikhonov_contribution', {}).get('mean', 0.0)
+    if shap_mean > tikh_mean:
+        summary['dominant_regularizer'] = 'shap'
+    elif tikh_mean > shap_mean:
+        summary['dominant_regularizer'] = 'tikhonov'
+    else:
+        summary['dominant_regularizer'] = 'balanced'
+
+    return summary
+
+
+def _split_real_data_for_shap(X_real, y_real, SUM_real, *, normalize_sum=False, random_state=42):
+    """Разделяет реальные данные на train/val/test и сохраняет выравнивание SUM с test-частью."""
+    if normalize_sum and SUM_real is not None:
+        X_temp, X_real_test, y_temp, y_real_test, _, SUM_real_test = train_test_split(
+            X_real, y_real, SUM_real, test_size=REAL_TEST_FRACTION, random_state=random_state
+        )
+    else:
+        X_temp, X_real_test, y_temp, y_real_test = train_test_split(
+            X_real, y_real, test_size=REAL_TEST_FRACTION, random_state=random_state
+        )
+        SUM_real_test = None
+
+    X_real_shap, X_real_val, y_real_shap, y_real_val = train_test_split(
+        X_temp, y_temp, test_size=REAL_VALIDATION_FRACTION_OF_TEMP, random_state=random_state
+    )
+
+    return (
+        X_real_shap,
+        X_real_val,
+        X_real_test,
+        y_real_shap,
+        y_real_val,
+        y_real_test,
+        SUM_real_test,
+    )
+
+
 def train_and_save(args):
     """Обучает модель и сохраняет артефакты"""
 
@@ -114,15 +253,18 @@ def train_and_save(args):
         dataset_config['train_fraction'] = args.train_fraction
         print(f"   ➤ Переопределён dataset.train_fraction = {args.train_fraction}")
 
-    # Проверяем режим обучения ДО загрузки данных
+    # В проекте поддерживается только основной двухэтапный режим:
+    # vanilla PSO на train-данных -> SHAP + Tikhonov fine-tune на real train split.
     shap_config = config.get('shap_reg', {})
-    integrated_training = False  # интегрированный режим отключаем; оставляем двухэтапный
-    # Для интегрированного режима по умолчанию используем full_fast, иначе real_only
-    training_mode = shap_config.get('training_mode', 'full_fast' if integrated_training else 'real_only')
+    if shap_config.get('integrated_training', False):
+        raise ValueError(
+            "integrated_training больше не поддерживается в текущем train.py. "
+            "Используйте основной two-stage режим с integrated_training=false."
+        )
+    training_mode = shap_config.get('training_mode', 'real_only')
     
     # Загружаем реальные данные для SHAP обучения и тестирования
     from src.utils.data_loader import load_validation_data
-    from sklearn.model_selection import train_test_split
     
     real_data_path = dataset_config.get('validation_data')
     if not real_data_path or not os.path.exists(real_data_path):
@@ -135,79 +277,60 @@ def train_and_save(args):
         dataset_config=dataset_config
     )
     
-    # Если режим real_only и интегрированное обучение - используем только реальные данные
-    if training_mode == 'real_only' and integrated_training:
-        print("   ▶️ Режим real_only: используем только реальные данные для обучения")
-        # Используем реальные данные как тренировочные
+    # Стандартный режим: загружаем синтетические данные для vanilla-этапа.
+    print("\n📂 Загрузка обучающих данных...")
+    try:
+        data = load_training_dataset(dataset_config)
+        X, y, SUM_train = prepare_features_targets(
+            data, normalize_sum=normalize_sum, dataset_config=dataset_config
+        )
+        
+        print("\n🔀 Разделение данных...")
+        X_train, X_test, y_train, y_test = split_data(
+            X, y,
+            test_size=dataset_config.get('test_size', 0.25),
+            random_state=dataset_config.get('random_state', 42)
+        )
+        
+        # Сохраняем SUM для теста, если нужно
+        if normalize_sum and SUM_train is not None:
+            if hasattr(X_train, 'index'):
+                SUM_test = SUM_train.loc[X_test.index].values if hasattr(SUM_train, 'loc') else SUM_train[X_test.index]
+            else:
+                n_train = len(X_train)
+                SUM_test = SUM_train[n_train:]
+        else:
+            SUM_test = None
+    except FileNotFoundError as e:
+        if training_mode != 'real_only':
+            raise FileNotFoundError(
+                f"Синтетические данные не найдены, но режим {training_mode} требует их. Ошибка: {e}"
+            )
+        print(f"   ⚠️  Синтетические данные не найдены, используем только реальные данные")
         X_train = X_real
         y_train = y_real
         SUM_train = SUM_real
-        X_test = X_real  # Для совместимости, но не используется
+        X_test = X_real
         y_test = y_real
         SUM_test = SUM_real
-    else:
-        # Стандартный режим: загружаем синтетические данные
-        print("\n📂 Загрузка обучающих данных...")
-        try:
-            data = load_training_dataset(dataset_config)
-            X, y, SUM_train = prepare_features_targets(
-                data, normalize_sum=normalize_sum, dataset_config=dataset_config
-            )
-            
-            print("\n🔀 Разделение данных...")
-            X_train, X_test, y_train, y_test = split_data(
-                X, y,
-                test_size=dataset_config.get('test_size', 0.25),
-                random_state=dataset_config.get('random_state', 42)
-            )
-            
-            # Сохраняем SUM для теста, если нужно
-            if normalize_sum and SUM_train is not None:
-                if hasattr(X_train, 'index'):
-                    SUM_test = SUM_train.loc[X_test.index].values if hasattr(SUM_train, 'loc') else SUM_train[X_test.index]
-                else:
-                    n_train = len(X_train)
-                    SUM_test = SUM_train[n_train:]
-            else:
-                SUM_test = None
-        except FileNotFoundError as e:
-            # Если синтетические данные не найдены, но режим не real_only - ошибка
-            if training_mode != 'real_only':
-                raise FileNotFoundError(f"Синтетические данные не найдены, но режим {training_mode} требует их. Ошибка: {e}")
-            # Иначе используем только реальные данные
-            print(f"   ⚠️  Синтетические данные не найдены, используем только реальные данные")
-            X_train = X_real
-            y_train = y_real
-            SUM_train = SUM_real
-            X_test = X_real
-            y_test = y_real
-            SUM_test = SUM_real
     
     # Разделяем реальные данные: 60% обучение, 20% валидация, 20% финальный тест
     random_state = dataset_config.get('random_state', 42)
-    
-    # Сначала отделяем 20% для финального теста
-    X_temp, X_real_test, y_temp, y_real_test = train_test_split(
-        X_real, y_real, test_size=0.2, random_state=random_state
+    (
+        X_real_shap,
+        X_real_val,
+        X_real_test,
+        y_real_shap,
+        y_real_val,
+        y_real_test,
+        SUM_real_test,
+    ) = _split_real_data_for_shap(
+        X_real,
+        y_real,
+        SUM_real,
+        normalize_sum=normalize_sum,
+        random_state=random_state,
     )
-    
-    # Оставшиеся 80% разделяем на обучение (60% от всего = 75% от остатка) и валидацию (20% от всего = 25% от остатка)
-    X_real_shap, X_real_val, y_real_shap, y_real_val = train_test_split(
-        X_temp, y_temp, test_size=0.25, random_state=random_state
-    )
-    
-    # Сохраняем SUM для теста
-    if normalize_sum and SUM_real is not None:
-        # Если SUM_real это numpy массив или pandas series
-        if hasattr(SUM_real, 'iloc'):
-             # Получаем индексы для разделения SUM
-             _, test_indices = train_test_split(np.arange(len(X_real)), test_size=0.2, random_state=random_state)
-             SUM_real_test = SUM_real.iloc[test_indices]
-        else:
-             _, test_indices = train_test_split(np.arange(len(X_real)), test_size=0.2, random_state=random_state)
-             SUM_real_test = SUM_real[test_indices]
-    else:
-        SUM_real_test = None
     
     print(f"   ▶️ Обучение (Train): {len(X_real_shap)} реальных образцов (60%)")
     print(f"   ▶️ Валидация (Val): {len(X_real_val)} реальных образцов (20%)")
@@ -237,148 +360,51 @@ def train_and_save(args):
     if not shap_config.get('enabled', False):
         raise ValueError("SHAP регуляризация должна быть включена (shap_reg.enabled=true)")
     
-    integrated_training = False  # форсируем двухэтапный режим
+    # ДВУХЭТАПНОЕ ОБУЧЕНИЕ: vanilla + SHAP/Tikhonov fine-tune.
+    print("\n🛠️  ДВУХЭТАПНОЕ ОБУЧЕНИЕ")
+    print("=" * 80)
     
-    if integrated_training:
-        # ИНТЕГРИРОВАННОЕ ОБУЧЕНИЕ
-        print("\n🔄 ИНТЕГРИРОВАННОЕ ОБУЧЕНИЕ с SHAP регуляризацией")
-        print("=" * 80)
-        
-        manager = ANFISManager(config)
-        
-        # Создаем модель
-        print("\n📦 Создание ANFIS модели...")
-        model = manager.create_model(
-            verbose=True,
-            input_dim=X_train_array.shape[1],
-            output_dim=y_train_array.shape[1]
-        )
-        
-        # Определяем режим обучения и параметры
-        training_mode = shap_config.get('training_mode', 'full_fast')  # По умолчанию full_fast для лучших результатов
-        print(f"\n📊 Режим обучения: {training_mode}")
-        
-        if training_mode == 'real_only':
-            # Только реальные данные, больше эпох
-            train_config = shap_config.get('real_only', {})
-            # Используем значения из основной секции shap_reg, если указаны, иначе из real_only
-            epochs = shap_config.get('epochs', train_config.get('epochs', 100))
-            batch_size = shap_config.get('batch_size', train_config.get('batch_size', 32))
-            shap_n_samples = shap_config.get('shap_n_samples', train_config.get('shap_n_samples', 100))
-            train_X = X_real_shap_array
-            train_y = y_real_shap_array
-            print(f"   ▶️ Используем {len(train_X)} реальных образцов")
-        elif training_mode == 'full_fast':
-            # Весь датасет, быстрее
-            train_config = shap_config.get('full_fast', {})
-            # Используем значения из основной секции shap_reg, если указаны, иначе из full_fast
-            epochs = shap_config.get('epochs', train_config.get('epochs', 50))
-            batch_size = shap_config.get('batch_size', train_config.get('batch_size', 128))
-            shap_n_samples = shap_config.get('shap_n_samples', train_config.get('shap_n_samples', 100))
-            train_samples = shap_config.get('train_samples', train_config.get('train_samples', None))
-            
-            # Используем синтетические данные для обучения
-            if train_samples and train_samples < len(X_train_array):
-                print(f"   ▶️ Подвыборка: {train_samples} из {len(X_train_array)} синтетических образцов")
-                rng = np.random.default_rng(dataset_config.get('random_state', 42))
-                indices = rng.choice(len(X_train_array), size=train_samples, replace=False)
-                train_X = X_train_array[indices]
-                train_y = y_train_array[indices]
-            else:
-                train_X = X_train_array
-                train_y = y_train_array
-                print(f"   ▶️ Используем все {len(train_X)} синтетических образцов")
-        else:
-            raise ValueError(f"Неизвестный режим обучения: {training_mode}")
-        
-        # Создаем интегрированный тренер
-        print(f"\n🧭 Создание интегрированного SHAP тренера...")
-        print(f"   ▶️ gamma = {shap_config.get('gamma', 0.3)}")
-        print(f"   ▶️ epochs = {epochs}")
-        print(f"   ▶️ batch_size = {batch_size}")
-        print(f"   ▶️ shap_n_samples = {shap_n_samples}")
-        
-        shap_trainer = ShapIntegratedANFISTrainer(
-            model,
-            config,
-            gamma=shap_config.get('gamma', 0.3),
-            verbose=True
-        )
-        
-        # Опциональная PSO инициализация
-        use_pso_init = shap_config.get('use_pso_init', False)
-        if use_pso_init:
-            pso_epochs = shap_config.get('pso_epochs', 5)
-            print(f"\n🔧 PSO инициализация ({pso_epochs} эпох)...")
-            # PSO инициализация выполняется внутри fit_from_scratch если нужно
-        
-        # Интегрированное обучение
-        print(f"\n🚀 Запуск интегрированного обучения...")
-        shap_history = shap_trainer.fit_from_scratch(
-            train_X,
-            train_y,
-            epochs=epochs,
-            batch_size=batch_size,
-            lr=shap_config.get('lr', 0.002),
-            X_val=X_real_val_array,
-            y_val=y_real_val_array
-        )
-        
-        results = {
-            'model': model,
-            'training_time': shap_trainer.training_time,
-            'training_time_shap': shap_trainer.training_time,
-            'shap_history': shap_history
-        }
-        
-    else:
-        # ДВУХЭТАПНОЕ ОБУЧЕНИЕ (старый режим) - как в рабочей версии
-        print("\n🛠️  ДВУХЭТАПНОЕ ОБУЧЕНИЕ")
-        print("=" * 80)
-        
-        print("\n🛠️  Этап 1: Обучение базовой ANFIS модели на синтетических данных...")
-        manager = ANFISManager(config)
-        if hasattr(X_train, 'columns'):
-            manager.set_feature_names(X_train.columns)
-        results = manager.train_vanilla_model(X_train_array, y_train_array, X_real_val_array, y_real_val_array)
-        
-        print("\n🧭 Этап 2: SHAP-регуляризация с улучшенной регуляризацией (4 компонента)...")
-        
-        # Используем подвыборку для SHAP обучения, если указано
-        shap_subset = shap_config.get('train_samples')
-        if shap_subset is not None:
-            shap_subset = int(shap_subset)
-            if shap_subset > 0 and shap_subset < len(X_real_shap_array):
-                rng = np.random.default_rng(dataset_config.get('random_state', 42))
-                subset_idx = rng.choice(len(X_real_shap_array), size=shap_subset, replace=False)
-                shap_X_train = X_real_shap_array[subset_idx]
-                shap_y_train = y_real_shap_array[subset_idx]
-                print(f"   ▶️ SHAP будет обучаться на подвыборке {shap_subset} образцов")
-            else:
-                shap_X_train = X_real_shap_array
-                shap_y_train = y_real_shap_array
+    print("\n🛠️  Этап 1: Обучение базовой ANFIS модели на синтетических данных...")
+    manager = ANFISManager(config)
+    if hasattr(X_train, 'columns'):
+        manager.set_feature_names(X_train.columns)
+    results = manager.train_vanilla_model(X_train_array, y_train_array, X_real_val_array, y_real_val_array)
+    
+    print("\n🧭 Этап 2: SHAP-регуляризация с улучшенной регуляризацией (4 компонента)...")
+    
+    # Используем подвыборку для SHAP обучения, если указано
+    shap_subset = shap_config.get('train_samples')
+    if shap_subset is not None:
+        shap_subset = int(shap_subset)
+        if shap_subset > 0 and shap_subset < len(X_real_shap_array):
+            rng = np.random.default_rng(dataset_config.get('random_state', 42))
+            subset_idx = rng.choice(len(X_real_shap_array), size=shap_subset, replace=False)
+            shap_X_train = X_real_shap_array[subset_idx]
+            shap_y_train = y_real_shap_array[subset_idx]
+            print(f"   ▶️ SHAP будет обучаться на подвыборке {shap_subset} образцов")
         else:
             shap_X_train = X_real_shap_array
             shap_y_train = y_real_shap_array
-        
-        shap_trainer = ShapAwareANFISTrainer(
-            results['model'],
-            config,
-            gamma=shap_config.get('gamma', 0.5),
-            verbose=True
-        )
-        
-        shap_history = shap_trainer.fit(
-            shap_X_train,
-            shap_y_train,
-            epochs=shap_config.get('epochs', 25),
-            batch_size=shap_config.get('batch_size', 32),
-            lr=shap_config.get('lr', 0.003)
-        )
-        
-        results['training_time_shap'] = shap_trainer.training_time
-        results['training_time'] += shap_trainer.training_time
-        results['shap_history'] = shap_history
+    else:
+        shap_X_train = X_real_shap_array
+        shap_y_train = y_real_shap_array
+    
+    shap_trainer = ShapAwareANFISTrainer(
+        results['model'],
+        config,
+        gamma=shap_config.get('gamma', 0.5),
+        verbose=True
+    )
+    
+    shap_history = shap_trainer.fit(
+        shap_X_train,
+        shap_y_train,
+        epochs=shap_config.get('epochs', 25),
+        batch_size=shap_config.get('batch_size', 32),
+        lr=shap_config.get('lr', 0.003)
+    )
+    
+    results['shap_history'] = shap_history
     
     # Тестирование на ВСЕХ реальных данных
     print("\n🧪 Финальное тестирование на ВСЕХ реальных данных...")
@@ -399,11 +425,7 @@ def train_and_save(args):
     shap_metrics = manager._calculate_metrics(y_real_test_array, shap_predictions)
     
     # Вычисляем важность признаков на данных для SHAP
-    if integrated_training:
-        # Для интегрированного обучения используем тренировочные данные
-        shap_importance_data = train_X
-    else:
-        shap_importance_data = X_real_shap_array
+    shap_importance_data = X_real_shap_array
     
     shap_importance = shap_trainer.get_global_shap_importance(shap_importance_data)
     
@@ -417,7 +439,7 @@ def train_and_save(args):
     # Сохраняем результаты SHAP
     results['predictions'] = shap_predictions
     results['metrics'] = shap_metrics
-    results['feature_importance_shap'] = shap_importance
+    results['feature_importance_shap'] = np.asarray(shap_importance, dtype=float)
     results['shap_history'] = shap_history
     results['training_time_shap'] = shap_trainer.training_time
     results['training_time'] += shap_trainer.training_time
@@ -441,12 +463,7 @@ def train_and_save(args):
         y_test_denorm = denormalize_predictions(y_real_test_array, SUM_test)
         y_pred_denorm = np.nan_to_num(y_pred_denorm, nan=0.0, posinf=0.0, neginf=0.0)
         y_test_denorm = np.nan_to_num(y_test_denorm, nan=0.0, posinf=0.0, neginf=0.0)
-        metrics_denorm = {
-            'mse': float(mean_squared_error(y_test_denorm, y_pred_denorm, multioutput='uniform_average')),
-            'rmse': float(np.sqrt(mean_squared_error(y_test_denorm, y_pred_denorm, multioutput='uniform_average'))),
-            'mae': float(mean_absolute_error(y_test_denorm, y_pred_denorm, multioutput='uniform_average')),
-            'r2': float(r2_score(y_test_denorm, y_pred_denorm, multioutput='uniform_average'))
-        }
+        metrics_denorm = manager._calculate_metrics(y_test_denorm, y_pred_denorm)
         results['predictions_denorm'] = y_pred_denorm
         results['metrics_denorm'] = metrics_denorm
 
@@ -559,14 +576,15 @@ def train_and_save(args):
     
     # Базовая важность признаков (из vanilla модели)
     if 'feature_importance' in results:
-        fi = pd.Series(results['feature_importance'], index=feature_names)
+        fi = _prepare_feature_importance(results['feature_importance'], feature_names, normalize=False)
         fi_path = os.path.join(results_dir, f"feature_importance_{timestamp}.csv")
         fi.to_csv(fi_path, header=['importance'])
         saved_files['feature_importance'] = os.path.basename(fi_path)
     
     # SHAP важность признаков (основная)
     shap_files = {}
-    shap_fi = pd.Series(results['feature_importance_shap'], index=feature_names)
+    shap_fi = _prepare_feature_importance(results['feature_importance_shap'], feature_names, normalize=True)
+    results['feature_importance_shap'] = shap_fi.to_numpy(dtype=float)
     shap_fi_path = os.path.join(results_dir, f"feature_importance_shap_{timestamp}.csv")
     shap_fi.to_csv(shap_fi_path, header=['importance'])
     shap_files['feature_importance_shap'] = os.path.basename(shap_fi_path)
@@ -605,6 +623,9 @@ def train_and_save(args):
         'train_size': int(X_train.shape[0]),  # Синтетические данные для базовой модели
         'shap_train_size': int(X_real_shap_array.shape[0]),  # Реальные данные для SHAP
         'test_size': int(X_real_test_array.shape[0]),  # Реальные данные для теста
+        'vanilla_train_count': int(X_train.shape[0]),
+        'shap_train_count': int(X_real_shap_array.shape[0]),
+        'real_test_count': int(X_real_test_array.shape[0]),
         'normalize_sum': normalize_sum,
         'metrics': results['metrics'],
         'band_metrics': band_metrics_norm,
@@ -618,22 +639,25 @@ def train_and_save(args):
             'prediction_stats': prediction_stats,
             'target_stats': target_stats,
             'coeff_stats': coeff_stats,
-            'nonfinite_parameters': _to_serializable(results.get('nonfinite_report', {}))
+            'nonfinite_parameters': _to_serializable(results.get('nonfinite_report', {})),
+            'regularization': _summarize_regularization_history(results.get('shap_history'), shap_config),
         },
         'dataset_settings': {
             'train_limit': dataset_config.get('train_limit'),
             'train_fraction': dataset_config.get('train_fraction'),
             'mix_with_real': dataset_config.get('mix_with_real', False),
             'mix_ratio': dataset_config.get('mix_ratio', 0.0),
-            'test_size': 1.0,  # 100% реальных данных для финального теста
+            'synthetic_test_size': dataset_config.get('test_size', 0.25),
+            'test_size': REAL_TEST_FRACTION,  # Фактическая доля реальных данных для финального теста
+            'real_data_split': REAL_DATA_SPLIT,
             'random_state': dataset_config.get('random_state', 42),
             'shap_uses_real_data_only': True,
             'test_uses_real_data_only': True
         }
     }
-    if metrics_denorm:
+    if metrics_denorm is not None:
         summary['metrics_denorm'] = metrics_denorm
-    if band_metrics_denorm:
+    if band_metrics_denorm is not None:
         summary['band_metrics_denorm'] = band_metrics_denorm
     summary['shap_files'] = shap_files
 

@@ -17,7 +17,7 @@ from src.utils.data_loader import (
     split_data,
     denormalize_predictions
 )
-from src.models.shap_trainer import ShapAwareANFISTrainer
+from src.models.shap_trainer_improved import ShapAwareANFISTrainerImproved
 from src.utils.uncertainty_estimation import UncertaintyEstimator
 
 
@@ -96,10 +96,10 @@ class TestANFISManagerEdgeCases(unittest.TestCase):
         self.config = {
             'model': {
                 'num_rules': 5,
-                'mf_class': 'gaussmf',
-                'vanishing_strategy': 'prod',
-                'optim': 'Adam',
-                'optim_params': {'epoch': 5, 'lr': 0.01},
+                'mf_class': 'Gaussian',
+                'vanishing_strategy': 'blend',
+                'optim': 'OriginalPSO',
+                'optim_params': {'epoch': 5, 'pop_size': 5, 'verbose': False},
                 'reg_lambda': 0.01,
                 'seed': 42,
                 'n_workers': 1
@@ -210,7 +210,7 @@ class TestUncertaintyEstimatorEdgeCases(unittest.TestCase):
 
 
 class TestShapTrainerEdgeCases(unittest.TestCase):
-    """Тесты для edge cases в ShapAwareANFISTrainer"""
+    """Тесты для edge cases в текущем SHAP-тренере"""
     
     def setUp(self):
         """Создание минимальной модели и конфигурации"""
@@ -233,11 +233,12 @@ class TestShapTrainerEdgeCases(unittest.TestCase):
         # Создаем простую ANFIS модель
         anfis_model = BioAnfisRegressor(
             num_rules=3,
-            mf_class='gaussmf',
-            optim='Adam',
-            optim_params={'epoch': 1, 'lr': 0.01},
+            mf_class='Gaussian',
+            optim='OriginalPSO',
+            optim_params={'epoch': 1, 'pop_size': 5, 'verbose': False},
             reg_lambda=0.01,
             seed=42,
+            n_workers=1,
             verbose=False
         )
         anfis_model.size_input = 10
@@ -246,7 +247,7 @@ class TestShapTrainerEdgeCases(unittest.TestCase):
         
         model_wrapper.network = anfis_model.network
         
-        self.trainer = ShapAwareANFISTrainer(
+        self.trainer = ShapAwareANFISTrainerImproved(
             model_wrapper,
             self.config,
             gamma=0.5,
@@ -257,7 +258,7 @@ class TestShapTrainerEdgeCases(unittest.TestCase):
         """Тест предсказания на пустых данных"""
         X_empty = np.array([]).reshape(0, 10)
         result = self.trainer.predict(X_empty)
-        self.assertEqual(len(result), 0)
+        self.assertEqual(result.shape[0], 0)
     
     def test_predict_nan_input(self):
         """Тест предсказания на данных с NaN"""
@@ -266,16 +267,13 @@ class TestShapTrainerEdgeCases(unittest.TestCase):
         # Предсказания должны быть валидными (NaN должны быть обработаны)
         self.assertTrue(np.isfinite(result).all() or result.size == 0)
     
-    def test_compute_batch_loss_empty_batch(self):
-        """Тест вычисления потерь на пустом батче"""
-        batch_X = torch.zeros((0, 10))
-        batch_y = torch.zeros((0, 60))
-        baseline = np.zeros(10)
-        loss_fn = torch.nn.MSELoss()
-        
-        result = self.trainer._compute_batch_loss(batch_X, batch_y, baseline, loss_fn)
-        # Должен вернуть None или обработать корректно
-        self.assertTrue(result is None or isinstance(result, tuple))
+    def test_calculate_shap_approximation_finite(self):
+        """SHAP-аппроксимация должна быть конечной для валидного образца"""
+        X_sample = np.random.rand(1, 10)
+        baseline = np.mean(X_sample, axis=0)
+        shap_values = self.trainer._calculate_shap_approximation(X_sample, baseline)
+        self.assertEqual(shap_values.shape, (10,))
+        self.assertTrue(np.all(np.isfinite(shap_values)))
 
 
 class TestIntegrationEdgeCases(unittest.TestCase):
@@ -303,4 +301,3 @@ class TestIntegrationEdgeCases(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

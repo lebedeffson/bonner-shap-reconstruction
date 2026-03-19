@@ -16,10 +16,8 @@ class TestCompleteSystem(unittest.TestCase):
     def test_all_core_modules_import(self):
         """Тест импорта всех основных модулей"""
         modules = [
-            ('src.models.shap_trainer', 'ShapAwareANFISTrainer'),
-            ('src.models.shap_integrated_trainer', 'ShapIntegratedANFISTrainer'),
-            ('src.models.shap_adaptive', 'AdaptiveShapConfig'),
-            ('src.models.shap_metrics', 'ShapMetrics'),
+            ('src.models.shap_trainer_improved', 'ShapAwareANFISTrainerImproved'),
+            ('src.models.shap_trainer_precision_optimized', 'PrecisionOptimizedSHAPRegularization'),
             ('src.models.anfis_manager', 'ANFISManager'),
             ('src.utils.uncertainty_estimation', 'UncertaintyEstimator'),
             ('src.utils.config_loader', 'load_config'),
@@ -44,13 +42,13 @@ class TestCompleteSystem(unittest.TestCase):
         """Тест структуры конфигурации"""
         try:
             from src.utils.config_loader import load_config
-            config = load_config('configs/config.yaml')
+            config = load_config('configs/config_integrated_shap.yaml')
             
             # Проверяем основные секции
             self.assertIn('model', config)
             self.assertIn('dataset', config)
             self.assertIn('shap_reg', config)
-            self.assertIn('uncertainty_estimation', config)
+            self.assertIn('output', config)
             
         except FileNotFoundError:
             self.skipTest("Конфигурационный файл не найден")
@@ -65,10 +63,8 @@ class TestCompleteSystem(unittest.TestCase):
         import ast
         
         modules_to_check = [
-            'src/models/shap_trainer.py',
-            'src/models/shap_integrated_trainer.py',
-            'src/models/shap_adaptive.py',
-            'src/models/shap_metrics.py',
+            'src/models/shap_trainer_improved.py',
+            'src/models/shap_trainer_precision_optimized.py',
             'src/models/anfis_manager.py',
             'src/utils/uncertainty_estimation.py',
             'src/utils/config_loader.py',
@@ -92,4 +88,3 @@ class TestCompleteSystem(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

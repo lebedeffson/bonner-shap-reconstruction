@@ -1,0 +1,166 @@
+{
+  "timestamp": "20260319_190046_strong_components_strong_no_consistency",
+  "tag": "strong_components_strong_no_consistency",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation_study_strong_components_mini_20260319/strong_no_consistency/config.yaml",
+  "model_state": "anfis_model_state_20260319_190046_strong_components_strong_no_consistency.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation_study_strong_components_mini_20260319/strong_no_consistency/anfis_model_state_20260319_190046_strong_components_strong_no_consistency.pt",
+  "train_size": 76,
+  "shap_train_size": 225,
+  "test_size": 75,
+  "vanilla_train_count": 76,
+  "shap_train_count": 225,
+  "real_test_count": 75,
+  "normalize_sum": true,
+  "metrics": {
+    "mse": 0.03154020990462787,
+    "rmse": 0.1775956359391409,
+    "mae": 0.07066288967838094,
+    "r2": 0.5152085835349102,
+    "r2_weighted": 0.5152085835349102,
+    "r2_mean": 0.22071839497569415
+  },
+  "band_metrics": {
+    "band_0_19": {
+      "mse": 0.06052563223251818,
+      "rmse": 0.24601957692939433,
+      "mae": 0.07213325074085447,
+      "r2": -0.3108600679261162
+    },
+    "band_20_39": {
+      "mse": 0.01638490756615172,
+      "rmse": 0.12800354513118659,
+      "mae": 0.07757424619701792,
+      "r2": 0.4497157790245604
+    },
+    "band_40_59": {
+      "mse": 0.017710089915213726,
+      "rmse": 0.13307926177738486,
+      "mae": 0.06228117209727043,
+      "r2": 0.5232994738286383
+    }
+  },
+  "metrics_source": "shap",
+  "shap_config_enabled": true,
+  "shap_applied": true,
+  "training_time_total": 1.8623249530792236,
+  "training_time_shap": 1.697847604751587,
+  "saved_files": {
+    "predictions": "predictions_20260319_190046_strong_components_strong_no_consistency.npy",
+    "targets_test": "targets_test_20260319_190046_strong_components_strong_no_consistency.npy",
+    "predictions_denorm": "predictions_denorm_20260319_190046_strong_components_strong_no_consistency.npy",
+    "targets_denorm": "targets_test_denorm_20260319_190046_strong_components_strong_no_consistency.npy",
+    "metrics_csv": "metrics_20260319_190046_strong_components_strong_no_consistency.csv",
+    "feature_importance": "feature_importance_20260319_190046_strong_components_strong_no_consistency.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260319_190046_strong_components_strong_no_consistency.csv",
+      "history": "shap_history_20260319_190046_strong_components_strong_no_consistency.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.10629001167790394,
+      "std": 0.1683692832021349,
+      "min": -0.17656269669532776,
+      "max": 1.7059128284454346,
+      "zero_fraction": 0.0
+    },
+    "target_stats": {
+      "mean": 0.10642859071275672,
+      "std": 0.27056816024320757,
+      "min": 0.0,
+      "max": 4.5025200567816475
+    },
+    "coeff_stats": {
+      "mean": 0.00962541149497404,
+      "std": 1.0758863100204035,
+      "min": -21.271150588989258,
+      "max": 8.671510696411133,
+      "abs_mean": 0.5350427947869304,
+      "finite_fraction": 1.0,
+      "nonzero": 6600,
+      "total": 6600
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "sparsity",
+        "faithfulness",
+        "stability"
+      ],
+      "shap_contribution": {
+        "mean": 0.00021168685379961976,
+        "last": 0.00026925680382798117,
+        "max": 0.00034659501203956704
+      },
+      "tikhonov_contribution": {
+        "mean": 2.4237272417622082e-05,
+        "last": 3.443434021998352e-05,
+        "max": 3.537227833779374e-05
+      },
+      "regularization_share": {
+        "mean": 0.010901471552726173,
+        "last": 0.014827861892137697,
+        "max": 0.016595593710360176
+      },
+      "shap_scale_factor": {
+        "mean": 0.0043038860130549614,
+        "last": 0.004044144030833083,
+        "max": 0.010418908480010695
+      },
+      "shap_loss_normalized": {
+        "mean": 0.002946781494732325,
+        "last": 0.0026925680227577685,
+        "max": 0.007273374001185099
+      },
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": 96,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 42,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "metrics_denorm": {
+    "mse": 0.03154020990462783,
+    "rmse": 0.17759563593914077,
+    "mae": 0.07066288967838091,
+    "r2": 0.5152085835349102,
+    "r2_weighted": 0.5152085835349102,
+    "r2_mean": 0.22071839497569418
+  },
+  "band_metrics_denorm": {
+    "band_0_19": {
+      "mse": 0.0605256322325181,
+      "rmse": 0.24601957692939416,
+      "mae": 0.07213325074085446,
+      "r2": -0.31086006792611587
+    },
+    "band_20_39": {
+      "mse": 0.016384907566151706,
+      "rmse": 0.12800354513118653,
+      "mae": 0.07757424619701789,
+      "r2": 0.44971577902456045
+    },
+    "band_40_59": {
+      "mse": 0.017710089915213712,
+      "rmse": 0.1330792617773848,
+      "mae": 0.06228117209727041,
+      "r2": 0.5232994738286382
+    }
+  },
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260319_190046_strong_components_strong_no_consistency.csv",
+    "history": "shap_history_20260319_190046_strong_components_strong_no_consistency.json"
+  }
+}

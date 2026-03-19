@@ -26,7 +26,13 @@ from src.utils.data_loader import (
     resolve_target_count,
 )
 from src.utils.uncertainty_estimation import UncertaintyEstimator
-from constants import Ebins_float_IAEA_Comp
+from src.visualization.mpl_style import (
+    COLORS,
+    apply_axis_style,
+    finalize_figure,
+    resolve_energy_axis,
+    setup_publication_style,
+)
 
 
 def parse_args():
@@ -53,33 +59,35 @@ def _parse_input_values(raw: str):
 
 
 def _resolve_x_bins(n_bins: int):
-    if len(Ebins_float_IAEA_Comp) == n_bins + 1:
-        return np.asarray(Ebins_float_IAEA_Comp[:-1], dtype=float)
-    if len(Ebins_float_IAEA_Comp) == n_bins:
-        return np.asarray(Ebins_float_IAEA_Comp, dtype=float)
-    return np.arange(n_bins)
+    return resolve_energy_axis(n_bins)
 
 
 def _plot_uncertainty(base, mean, std, p5, p95, output_path, title="Uncertainty"):
     n_bins = base.shape[-1]
     x_bins = _resolve_x_bins(n_bins)
+    fig, axes = plt.subplots(
+        2,
+        1,
+        figsize=(11.0, 6.6),
+        sharex=True,
+        gridspec_kw={"height_ratios": [3.0, 1.1]},
+    )
+    ax_top, ax_bottom = axes
 
-    plt.figure(figsize=(10, 5))
-    plt.step(x_bins, base, where="post", label="Base", linewidth=2)
-    plt.step(x_bins, mean, where="post", label="Mean", linewidth=2, linestyle="--")
-    plt.fill_between(x_bins, p5, p95, alpha=0.2, label="P5-P95")
-    plt.fill_between(x_bins, mean - std, mean + std, alpha=0.2, label="±1σ")
+    ax_top.fill_between(x_bins, p5, p95, step="mid", alpha=0.18, color=COLORS["fill_pred"], label="P5-P95")
+    ax_top.fill_between(x_bins, mean - std, mean + std, step="mid", alpha=0.20, color=COLORS["fill_true"], label="mean ± 1σ")
+    ax_top.step(x_bins, base, where="mid", label="Базовый спектр", linewidth=2.2, color=COLORS["true"])
+    ax_top.step(x_bins, mean, where="mid", label="Средний спектр", linewidth=2.2, color=COLORS["pred"], linestyle="--")
+    ax_top.set_ylabel("Плотность потока")
+    ax_top.set_title(title)
+    apply_axis_style(ax_top, log_x=bool(len(x_bins) == n_bins and np.all(x_bins > 0)))
+    ax_top.legend(loc="upper right")
 
-    if len(x_bins) == n_bins and np.all(x_bins > 0):
-        plt.xscale("log")
-    plt.xlabel("Energy bin")
-    plt.ylabel("Flux density")
-    plt.title(title)
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close()
+    ax_bottom.step(x_bins, std, where="mid", color=COLORS["error"], linewidth=1.8, label="Std")
+    ax_bottom.set_xlabel("Энергия, эВ")
+    ax_bottom.set_ylabel("Std")
+    apply_axis_style(ax_bottom, log_x=bool(len(x_bins) == n_bins and np.all(x_bins > 0)))
+    finalize_figure(fig, output_path)
 
 def _parse_error_percent_list(args):
     if args.error_percent_list:
@@ -101,6 +109,7 @@ def _parse_error_percent_list(args):
 
 
 def main():
+    setup_publication_style()
     args = parse_args()
     config = load_config(args.config)
     dataset_config = config.get("dataset", {})
@@ -215,19 +224,17 @@ def main():
     summary_df.to_csv(summary_path, index=False)
 
     # График: mean_std, max_std, cv, ci_width vs error
-    plt.figure(figsize=(10, 6))
-    plt.plot(summary_df["error_percent"], summary_df["mean_std"], marker="o", label="mean_std")
-    plt.plot(summary_df["error_percent"], summary_df["max_std"], marker="o", label="max_std")
-    plt.plot(summary_df["error_percent"], summary_df["cv"], marker="o", label="cv")
-    plt.plot(summary_df["error_percent"], summary_df["ci_width"], marker="o", label="ci_width")
-    plt.xlabel("Error percent (%)")
-    plt.ylabel("Uncertainty metric")
-    plt.title(f"Uncertainty vs error (N={args.n_samples})")
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(output_dir / f"uncertainty_summary_{timestamp}.png", dpi=150, bbox_inches="tight")
-    plt.close()
+    fig, ax = plt.subplots(figsize=(10.8, 5.6))
+    ax.plot(summary_df["error_percent"], summary_df["mean_std"], marker="o", linewidth=2.0, color=COLORS["true"], label="mean_std")
+    ax.plot(summary_df["error_percent"], summary_df["max_std"], marker="o", linewidth=2.0, color=COLORS["pred"], label="max_std")
+    ax.plot(summary_df["error_percent"], summary_df["cv"], marker="o", linewidth=2.0, color=COLORS["accent"], label="cv")
+    ax.plot(summary_df["error_percent"], summary_df["ci_width"], marker="o", linewidth=2.0, color=COLORS["violet"], label="ci_width")
+    ax.set_xlabel("Ошибка измерений, %")
+    ax.set_ylabel("Метрика неопределённости")
+    ax.set_title(f"Рост неопределённости при увеличении шума (N={args.n_samples})")
+    apply_axis_style(ax)
+    ax.legend(loc="upper left")
+    finalize_figure(fig, output_dir / f"uncertainty_summary_{timestamp}.png")
 
     print(f"✅ Устойчивость рассчитана. Сводка в {summary_path}")
 

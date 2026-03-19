@@ -8,16 +8,13 @@ import time
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.metrics import (
-    mean_squared_error, 
-    mean_absolute_error, 
-    r2_score
-)
+from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
 from src.utils.logger import get_logger
 
 
 class ShapAwareANFISTrainerImproved:
     """Улучшенный тренер ANFIS с SHAP-регуляризацией для мультирегрессии"""
+    COMPONENT_NAMES = ("consistency", "sparsity", "faithfulness", "stability")
 
     def __init__(self, model, config, gamma=0.5, verbose=True):
         """
@@ -51,6 +48,7 @@ class ShapAwareANFISTrainerImproved:
         self.main_loss_ema = None  # Скользящее среднее main loss
         self.ema_alpha = 0.9  # Коэффициент для экспоненциального скользящего среднего
         self.target_shap_ratio = shap_config.get('target_shap_ratio', 0.2)  # Целевое соотношение SHAP/main
+        self.min_convergence_slowdown = float(shap_config.get('min_convergence_slowdown', 0.0))
         
         # Адаптивный gamma schedule для плавной сходимости
         self.use_adaptive_gamma = shap_config.get('use_adaptive_gamma', True)  # Использовать адаптивный gamma
@@ -69,6 +67,19 @@ class ShapAwareANFISTrainerImproved:
         # Адаптивные веса компонентов
         self.use_adaptive_weights = shap_config.get('use_adaptive_weights', True)
         self.component_weights_history = []  # История весов для анализа
+        self.active_components = self._parse_active_components(shap_config.get('active_components'))
+        self.fixed_component_weights = self._normalize_component_weights({
+            'consistency': float(shap_config.get('gamma_consistency', 0.2)),
+            'sparsity': float(shap_config.get('gamma_sparsity', 0.7)),
+            'faithfulness': float(shap_config.get('gamma_faithfulness', 0.05)),
+            'stability': float(shap_config.get('gamma_stability', 0.05)),
+        })
+        self.fallback_component_weights = self._normalize_component_weights({
+            'consistency': 0.0,
+            'sparsity': float(shap_config.get('gamma_sparsity', 0.7)),
+            'faithfulness': 0.0,
+            'stability': float(shap_config.get('gamma_stability', 0.05)),
+        })
         
         # Улучшенная Sparsity с Gini coefficient
         self.use_gini_sparsity = shap_config.get('use_gini_sparsity', True)
@@ -150,7 +161,12 @@ class ShapAwareANFISTrainerImproved:
             'total_loss': [],
             'main_loss': [],
             'shap_loss': [],
-            'tikhonov_loss': []
+            'shap_loss_normalized': [],
+            'tikhonov_loss': [],
+            'shap_scale_factor': [],
+            'shap_contribution': [],
+            'tikhonov_contribution': [],
+            'regularization_share': [],
         }
 
         if self.verbose:
@@ -169,8 +185,21 @@ class ShapAwareANFISTrainerImproved:
 
         for epoch in range(epochs):
             self.current_epoch = epoch
-            epoch_losses = {'total': [], 'main': [], 'shap': [], 'tikhonov': []}
+            epoch_losses = {
+                'total': [],
+                'main': [],
+                'shap': [],
+                'shap_loss_normalized': [],
+                'tikhonov': [],
+                'shap_scale_factor': [],
+                'shap_contribution': [],
+                'tikhonov_contribution': [],
+                'regularization_share': [],
+            }
             epoch_shap_components = {
+                'consistency': [], 'sparsity': [], 'faithfulness': [], 'stability': []
+            }
+            epoch_shap_weights = {
                 'consistency': [], 'sparsity': [], 'faithfulness': [], 'stability': []
             }
             
@@ -184,12 +213,8 @@ class ShapAwareANFISTrainerImproved:
                     gamma_ratio = progress / warmup_progress
                     current_gamma = self.gamma_start + (self.gamma_end - self.gamma_start) * gamma_ratio
                 else:
-                    # Основная фаза: gamma постепенно увеличивается до gamma_end
-                    remaining_progress = (progress - warmup_progress) / (1.0 - warmup_progress)
-                    current_gamma = self.gamma_start + (self.gamma_end - self.gamma_start) * (
-                        warmup_progress + remaining_progress * (1.0 - warmup_progress)
-                    )
-                    current_gamma = min(current_gamma, self.gamma_end)
+                    # После warmup удерживаем gamma на целевом уровне без скачков.
+                    current_gamma = self.gamma_end
             else:
                 current_gamma = self.gamma
 
@@ -264,6 +289,8 @@ class ShapAwareANFISTrainerImproved:
                     if self.best_main_loss is None or main_loss_detached.item() < self.best_main_loss:
                         self.best_main_loss = main_loss_detached.item()
                 
+                convergence_slowdown = max(convergence_slowdown, self.min_convergence_slowdown)
+                
                 # Адаптивная нормализация SHAP loss
                 if shap_loss_detached > eps and self.main_loss_ema > eps:
                     # Вычисляем текущее соотношение
@@ -296,7 +323,9 @@ class ShapAwareANFISTrainerImproved:
                 # АДАПТИВНАЯ ФУНКЦИЯ ПОТЕРЬ: балансировка двух задач
                 # Используем адаптивный gamma (может меняться в процессе обучения)
                 effective_gamma = current_gamma if self.use_adaptive_gamma else self.gamma
-                total_loss = main_loss + effective_gamma * shap_loss_normalized + self.tikhonov_lambda * tikhonov_loss
+                shap_contribution = effective_gamma * shap_loss_normalized
+                tikhonov_contribution = self.tikhonov_lambda * tikhonov_loss
+                total_loss = main_loss + shap_contribution + tikhonov_contribution
 
                 # Обратное распространение
                 if not torch.isfinite(total_loss):
@@ -312,7 +341,14 @@ class ShapAwareANFISTrainerImproved:
                 epoch_losses['total'].append(float(total_loss.item()))
                 epoch_losses['main'].append(float(main_loss.item()))
                 epoch_losses['shap'].append(float(shap_loss_tensor.item()))
+                epoch_losses['shap_loss_normalized'].append(float(shap_loss_normalized.item()))
                 epoch_losses['tikhonov'].append(float(tikhonov_loss.item()))
+                epoch_losses['shap_scale_factor'].append(float(scale_factor))
+                epoch_losses['shap_contribution'].append(float(shap_contribution.item()))
+                epoch_losses['tikhonov_contribution'].append(float(tikhonov_contribution.item()))
+                epoch_losses['regularization_share'].append(
+                    float((shap_contribution.item() + tikhonov_contribution.item()) / (abs(total_loss.item()) + eps))
+                )
                 
                 # Сохраняем адаптивные параметры для анализа
                 if 'adaptive_gamma' not in epoch_losses:
@@ -323,20 +359,25 @@ class ShapAwareANFISTrainerImproved:
                 epoch_losses['convergence_slowdown'].append(float(convergence_slowdown))
                 
                 # Сохранение компонентов SHAP
-                if 'consistency' in shap_components:
-                    epoch_shap_components['consistency'].append(shap_components.get('consistency', 0.0))
-                if 'sparsity' in shap_components:
-                    epoch_shap_components['sparsity'].append(shap_components.get('sparsity', 0.0))
-                if 'faithfulness' in shap_components:
-                    epoch_shap_components['faithfulness'].append(shap_components.get('faithfulness', 0.0))
-                if 'stability' in shap_components:
-                    epoch_shap_components['stability'].append(shap_components.get('stability', 0.0))
+                for component_name in self.COMPONENT_NAMES:
+                    epoch_shap_components[component_name].append(float(shap_components.get(component_name, 0.0)))
+                    epoch_shap_weights[component_name].append(float(shap_components.get(f'weight_{component_name}', 0.0)))
 
             # Усреднение потерь по эпохе
-            for loss_type in ['total_loss', 'main_loss', 'shap_loss', 'tikhonov_loss']:
-                loss_key = loss_type.split('_')[0]
+            history_sources = {
+                'total_loss': 'total',
+                'main_loss': 'main',
+                'shap_loss': 'shap',
+                'shap_loss_normalized': 'shap_loss_normalized',
+                'tikhonov_loss': 'tikhonov',
+                'shap_scale_factor': 'shap_scale_factor',
+                'shap_contribution': 'shap_contribution',
+                'tikhonov_contribution': 'tikhonov_contribution',
+                'regularization_share': 'regularization_share',
+            }
+            for history_key, loss_key in history_sources.items():
                 values = epoch_losses[loss_key]
-                history[loss_type].append(float(np.mean(values)) if values else float('nan'))
+                history[history_key].append(float(np.mean(values)) if values else float('nan'))
             
             # Сохраняем адаптивные параметры
             if 'adaptive_gamma' in epoch_losses:
@@ -352,16 +393,28 @@ class ShapAwareANFISTrainerImproved:
             # Добавляем компоненты SHAP в историю
             if self.use_improved_shap:
                 for comp_name in epoch_shap_components:
-                    if comp_name not in history:
-                        history[f'shap_{comp_name}'] = []
+                    history_key = f'shap_{comp_name}'
+                    if history_key not in history:
+                        history[history_key] = []
                     comp_values = epoch_shap_components[comp_name]
-                    history[f'shap_{comp_name}'].append(float(np.mean(comp_values)) if comp_values else float('nan'))
+                    history[history_key].append(float(np.mean(comp_values)) if comp_values else float('nan'))
+                for comp_name in epoch_shap_weights:
+                    history_key = f'shap_weight_{comp_name}'
+                    if history_key not in history:
+                        history[history_key] = []
+                    weight_values = epoch_shap_weights[comp_name]
+                    history[history_key].append(float(np.mean(weight_values)) if weight_values else float('nan'))
 
             # Прогресс с адаптивными параметрами
             if self.verbose and (epoch + 1) % 5 == 0:
                 msg = f"   Эпоха {epoch + 1}/{epochs}: Total: {history['total_loss'][-1]:.6f}, Main: {history['main_loss'][-1]:.6f}, SHAP: {history['shap_loss'][-1]:.6f}"
                 if self.tikhonov_enabled and 'tikhonov_loss' in history:
                     msg += f", Tikh: {history['tikhonov_loss'][-1]:.6f}"
+                if 'shap_contribution' in history and 'tikhonov_contribution' in history:
+                    msg += (
+                        f" | Contrib(SHAP): {history['shap_contribution'][-1]:.6f}"
+                        f", Contrib(Tikh): {history['tikhonov_contribution'][-1]:.6f}"
+                    )
                 if self.use_improved_shap and epoch_shap_components['consistency']:
                     msg += f" [C:{np.mean(epoch_shap_components['consistency']):.4f}, S:{np.mean(epoch_shap_components['sparsity']):.4f}, F:{np.mean(epoch_shap_components['faithfulness']):.4f}, St:{np.mean(epoch_shap_components['stability']):.4f}]"
                 if self.use_adaptive_gamma and 'adaptive_gamma' in history:
@@ -455,7 +508,7 @@ class ShapAwareANFISTrainerImproved:
         else:
             current_main_loss = 0.05  # Значение по умолчанию
         
-        if self.use_true_shap:
+        if self._component_enabled('consistency') and self.use_true_shap:
             self.true_shap_batch_count += 1
             
             update_frequency = self.true_shap_update_frequency
@@ -494,8 +547,6 @@ class ShapAwareANFISTrainerImproved:
                 true_shap_normalized = torch.clamp(true_shap_normalized, min=1e-10, max=1.0)
                 
                 # Используем улучшенную математическую формулу
-                from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
-                
                 consistency_result = PrecisionOptimizedSHAPRegularization.compute_precision_aware_consistency(
                     grad_importance_normalized,
                     true_shap_normalized,
@@ -511,50 +562,52 @@ class ShapAwareANFISTrainerImproved:
         # Адаптивная формула, которая не мешает точности модели
         # current_main_loss уже определен выше
         
-        # Используем улучшенную математическую формулу с адаптацией к точности
-        from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
-        
-        sparsity_result = PrecisionOptimizedSHAPRegularization.compute_precision_aware_sparsity(
-            grad_importance_normalized,
-            current_main_loss,
-            target_gini=self.target_gini if self.use_gini_sparsity else 0.4,
-            precision_weight=0.7
-        )
-        
-        sparsity_loss = sparsity_result['sparsity_loss']
-        gini_coefficient = sparsity_result['gini_coefficient']
-        entropy_loss = sparsity_result['entropy']
-        gini_loss = sparsity_result.get('gini_loss', torch.tensor(0.0, device=self.device))
+        if self._component_enabled('sparsity'):
+            # Используем улучшенную математическую формулу с адаптацией к точности
+            sparsity_result = PrecisionOptimizedSHAPRegularization.compute_precision_aware_sparsity(
+                grad_importance_normalized,
+                current_main_loss,
+                target_gini=self.target_gini if self.use_gini_sparsity else 0.4,
+                precision_weight=0.7
+            )
+            
+            sparsity_loss = sparsity_result['sparsity_loss']
+            gini_coefficient = sparsity_result['gini_coefficient']
+            entropy_loss = sparsity_result['entropy']
+            gini_loss = sparsity_result.get('gini_loss', torch.tensor(0.0, device=self.device))
+        else:
+            sparsity_loss = torch.tensor(0.0, device=self.device, requires_grad=True)
+            gini_coefficient = torch.tensor(0.0, device=self.device)
+            entropy_loss = torch.tensor(0.0, device=self.device)
+            gini_loss = torch.tensor(0.0, device=self.device)
         
         # 3. FAITHFULNESS: верность объяснений (МАТЕМАТИЧЕСКИ УЛУЧШЕНО)
-        baseline_tensor = torch.zeros(n_features, device=self.device, dtype=torch.float32, requires_grad=False)
-        baseline_X = baseline_tensor.unsqueeze(0).expand(batch_size, -1)
-        
-        baseline_X.requires_grad_(True)
-        baseline_pred = self.model(baseline_X)
-        
-        # Используем улучшенную математическую формулу
-        from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
-        
-        faithfulness_result = PrecisionOptimizedSHAPRegularization.compute_precision_aware_faithfulness(
-            batch_X,
-            baseline_X,
-            predictions,
-            baseline_pred,
-            self.model,
-            current_main_loss,
-            order=1  # Используем порядок 1 для скорости (можно увеличить до 2 для большей точности)
-        )
-        
-        faithfulness_loss = faithfulness_result['faithfulness_loss']
+        if self._component_enabled('faithfulness'):
+            baseline_tensor = torch.zeros(n_features, device=self.device, dtype=torch.float32, requires_grad=False)
+            baseline_X = baseline_tensor.unsqueeze(0).expand(batch_size, -1)
+            
+            baseline_X.requires_grad_(True)
+            baseline_pred = self.model(baseline_X)
+            
+            faithfulness_result = PrecisionOptimizedSHAPRegularization.compute_precision_aware_faithfulness(
+                batch_X,
+                baseline_X,
+                predictions,
+                baseline_pred,
+                self.model,
+                current_main_loss,
+                order=1
+            )
+            
+            faithfulness_loss = faithfulness_result['faithfulness_loss']
+        else:
+            faithfulness_loss = torch.tensor(0.0, device=self.device, requires_grad=True)
         
         # 4. STABILITY: стабильность объяснений (МАТЕМАТИЧЕСКИ УЛУЧШЕНО)
-        if batch_size > 1:
+        if self._component_enabled('stability') and batch_size > 1:
             importance_per_sample = torch.abs(grad_input) * torch.abs(batch_X)
             
             # Используем улучшенную математическую формулу
-            from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
-            
             stability_result = PrecisionOptimizedSHAPRegularization.compute_precision_aware_stability(
                 importance_per_sample,
                 current_main_loss
@@ -566,11 +619,10 @@ class ShapAwareANFISTrainerImproved:
         
         # УЛУЧШЕННАЯ КОМБИНАЦИЯ КОМПОНЕНТОВ с математически обоснованными адаптивными весами
         # Используем формулу, оптимизированную для максимальной точности
+        component_weights_used = None
         if self.use_true_shap and self.true_shap_importance is not None:
             if self.use_adaptive_weights:
                 # Используем математически обоснованную формулу адаптивных весов
-                from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
-                
                 weights_result = PrecisionOptimizedSHAPRegularization.compute_adaptive_component_weights(
                     current_main_loss,
                     consistency_loss.detach().item(),
@@ -580,10 +632,11 @@ class ShapAwareANFISTrainerImproved:
                     target_main_loss=0.02
                 )
                 
-                adaptive_weights = weights_result['weights']
+                adaptive_weights = self._normalize_component_weights(weights_result['weights'])
                 
                 # Сохраняем веса для анализа
                 self.component_weights_history.append(adaptive_weights)
+                component_weights_used = adaptive_weights
                 
                 shap_loss_tensor = (
                     adaptive_weights['consistency'] * consistency_loss +
@@ -592,17 +645,21 @@ class ShapAwareANFISTrainerImproved:
                     adaptive_weights['stability'] * stability_loss
                 )
             else:
-                # Фиксированные веса, оптимизированные для точности
-                # Больше веса на consistency (помогает точности)
+                # Фиксированные веса берутся из конфигурации и нормализуются до суммы 1.
+                component_weights_used = self.fixed_component_weights
                 shap_loss_tensor = (
-                    0.6 * consistency_loss +
-                    0.25 * sparsity_loss +
-                    0.075 * faithfulness_loss +
-                    0.075 * stability_loss
+                    self.fixed_component_weights['consistency'] * consistency_loss +
+                    self.fixed_component_weights['sparsity'] * sparsity_loss +
+                    self.fixed_component_weights['faithfulness'] * faithfulness_loss +
+                    self.fixed_component_weights['stability'] * stability_loss
                 )
         else:
-            # Если нет true_shap, используем только sparsity и stability
-            shap_loss_tensor = 0.9 * sparsity_loss + 0.1 * stability_loss
+            # Если нет true_shap, используем только активные sparsity/stability компоненты.
+            component_weights_used = self.fallback_component_weights
+            shap_loss_tensor = (
+                self.fallback_component_weights['sparsity'] * sparsity_loss +
+                self.fallback_component_weights['stability'] * stability_loss
+            )
         
         shap_loss_tensor = shap_loss_tensor.requires_grad_(True)
         
@@ -621,16 +678,50 @@ class ShapAwareANFISTrainerImproved:
             shap_components['consistency'] = consistency_loss.detach().item()
             shap_components['mse'] = mse_loss.detach().item()
             shap_components['js'] = js_loss.detach().item()
+        else:
+            shap_components['consistency'] = 0.0
         
-        # Добавляем информацию об адаптивных весах
-        if self.use_adaptive_weights and hasattr(self, 'component_weights_history') and self.component_weights_history:
-            latest_weights = self.component_weights_history[-1]
-            shap_components['weight_consistency'] = latest_weights.get('consistency', 0.0)
-            shap_components['weight_sparsity'] = latest_weights.get('sparsity', 0.0)
-            shap_components['weight_faithfulness'] = latest_weights.get('faithfulness', 0.0)
-            shap_components['weight_stability'] = latest_weights.get('stability', 0.0)
+        # Добавляем именно те веса компонентов, которые использовались для этого батча.
+        if component_weights_used is None:
+            component_weights_used = self.fixed_component_weights
+        shap_components['weight_consistency'] = component_weights_used.get('consistency', 0.0)
+        shap_components['weight_sparsity'] = component_weights_used.get('sparsity', 0.0)
+        shap_components['weight_faithfulness'] = component_weights_used.get('faithfulness', 0.0)
+        shap_components['weight_stability'] = component_weights_used.get('stability', 0.0)
         
         return shap_loss_tensor, shap_components
+
+    def _normalize_component_weights(self, weights):
+        cleaned = {}
+        for key in self.COMPONENT_NAMES:
+            value = weights.get(key, 0.0)
+            try:
+                cleaned[key] = max(float(value), 0.0) if self._component_enabled(key) else 0.0
+            except (TypeError, ValueError):
+                cleaned[key] = 0.0
+
+        total = sum(cleaned.values())
+        if total <= 0:
+            return {key: 0.0 for key in self.COMPONENT_NAMES}
+
+        return {key: value / total for key, value in cleaned.items()}
+
+    def _component_enabled(self, component_name):
+        return component_name in self.active_components
+
+    def _parse_active_components(self, raw_value):
+        if raw_value is None:
+            return set(self.COMPONENT_NAMES)
+
+        if isinstance(raw_value, str):
+            raw_items = [item.strip() for item in raw_value.split(',')]
+        elif isinstance(raw_value, (list, tuple, set)):
+            raw_items = [str(item).strip() for item in raw_value]
+        else:
+            return set(self.COMPONENT_NAMES)
+
+        parsed = {item for item in raw_items if item in self.COMPONENT_NAMES}
+        return parsed if parsed else set(self.COMPONENT_NAMES)
 
     def _compute_simple_shap_regularization(self, batch_X, baseline_values, predictions):
         """Простая SHAP регуляризация (для совместимости)"""
@@ -672,15 +763,41 @@ class ShapAwareANFISTrainerImproved:
         self.model.eval()
         with torch.no_grad():
             X_test_array = np.array(X_test) if not isinstance(X_test, np.ndarray) else X_test
+            X_test_array = np.asarray(X_test_array, dtype=np.float32)
+            if X_test_array.ndim == 1:
+                X_test_array = X_test_array.reshape(1, -1)
+            if X_test_array.size == 0:
+                return np.empty((0, 0), dtype=np.float32)
+            X_test_array = np.nan_to_num(X_test_array, nan=0.0, posinf=0.0, neginf=0.0)
             X_tensor = torch.tensor(X_test_array, dtype=torch.float32, device=self.device)
             predictions = self.model(X_tensor).cpu().numpy()
+            predictions = np.nan_to_num(predictions, nan=0.0, posinf=0.0, neginf=0.0)
             return predictions
 
     def get_global_shap_importance(self, X_sample):
         """Глобальная важность признаков"""
         X_sample_array = np.array(X_sample) if not isinstance(X_sample, np.ndarray) else X_sample
+        X_sample_array = np.asarray(X_sample_array, dtype=np.float32)
+        if X_sample_array.ndim == 1:
+            X_sample_array = X_sample_array.reshape(1, -1)
+        if X_sample_array.size == 0:
+            return np.empty((0,), dtype=float)
+        X_sample_array = np.nan_to_num(X_sample_array, nan=0.0, posinf=0.0, neginf=0.0)
         baseline_values = np.mean(X_sample_array, axis=0)
-        return self._calculate_shap_approximation(X_sample_array, baseline_values)
+        shap_values = self._calculate_shap_approximation(X_sample_array, baseline_values)
+        return self._normalize_global_importance(shap_values)
+
+    @staticmethod
+    def _normalize_global_importance(shap_values):
+        shap_values = np.asarray(shap_values, dtype=float).reshape(-1)
+        if shap_values.size == 0:
+            return shap_values
+        shap_values = np.nan_to_num(shap_values, nan=0.0, posinf=0.0, neginf=0.0)
+        shap_values = np.maximum(shap_values, 0.0)
+        total = float(np.sum(shap_values))
+        if not np.isfinite(total) or total <= 1e-12:
+            return np.full(shap_values.shape, 1.0 / shap_values.size, dtype=float)
+        return shap_values / total
 
     def _calculate_shap_approximation(self, X_batch, baseline):
         """Приближенные SHAP значения"""

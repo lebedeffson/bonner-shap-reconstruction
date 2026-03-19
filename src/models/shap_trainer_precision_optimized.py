@@ -25,8 +25,8 @@ class PrecisionOptimizedSHAPRegularization:
         p = PrecisionOptimizedSHAPRegularization._safe_normalize(p, eps=eps)
         q = PrecisionOptimizedSHAPRegularization._safe_normalize(q, eps=eps)
         m = 0.5 * (p + q)
-        kl_pm = torch.sum(p * torch.log(p / (m + eps) + eps))
-        kl_qm = torch.sum(q * torch.log(q / (m + eps) + eps))
+        kl_pm = torch.sum(p * (torch.log(p + eps) - torch.log(m + eps)))
+        kl_qm = torch.sum(q * (torch.log(q + eps) - torch.log(m + eps)))
         return 0.5 * (kl_pm + kl_qm)
 
     @staticmethod

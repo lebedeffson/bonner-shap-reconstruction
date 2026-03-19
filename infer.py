@@ -25,7 +25,13 @@ from src.utils.data_loader import (
     resolve_target_columns_from_config,
     resolve_target_count,
 )
-from constants import Ebins_float_IAEA_Comp
+from src.visualization.mpl_style import (
+    COLORS,
+    apply_axis_style,
+    finalize_figure,
+    resolve_energy_axis,
+    setup_publication_style,
+)
 
 
 def parse_args():
@@ -48,30 +54,24 @@ def _parse_input_values(raw: str):
 
 
 def _resolve_x_bins(n_bins: int):
-    if len(Ebins_float_IAEA_Comp) == n_bins + 1:
-        return np.asarray(Ebins_float_IAEA_Comp[:-1], dtype=float)
-    if len(Ebins_float_IAEA_Comp) == n_bins:
-        return np.asarray(Ebins_float_IAEA_Comp, dtype=float)
-    return np.arange(n_bins)
+    return resolve_energy_axis(n_bins)
 
 
 def _plot_spectrum(pred, output_path, title="Predicted spectrum"):
     n_bins = pred.shape[-1]
     x_bins = _resolve_x_bins(n_bins)
-    plt.figure(figsize=(10, 5))
-    plt.step(x_bins, pred, where="post", linewidth=2)
-    if len(x_bins) == n_bins and np.all(x_bins > 0):
-        plt.xscale("log")
-    plt.xlabel("Energy bin")
-    plt.ylabel("Flux density")
-    plt.title(title)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close()
+    fig, ax = plt.subplots(figsize=(10.8, 5.4))
+    ax.step(x_bins, pred, where="mid", linewidth=2.4, color=COLORS["pred"])
+    ax.fill_between(x_bins, 0.0, pred, step="mid", alpha=0.16, color=COLORS["fill_pred"])
+    ax.set_xlabel("Энергия, эВ")
+    ax.set_ylabel("Плотность потока")
+    ax.set_title(title)
+    apply_axis_style(ax, log_x=bool(len(x_bins) == n_bins and np.all(x_bins > 0)))
+    finalize_figure(fig, output_path)
 
 
 def main():
+    setup_publication_style()
     args = parse_args()
     config = load_config(args.config)
     dataset_config = config.get("dataset", {})

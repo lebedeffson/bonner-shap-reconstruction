@@ -17,6 +17,16 @@ from src.utils.logger import get_logger
 class ANFISManager:
     """Менеджер для обучения ANFIS моделей восстановления спектра"""
 
+    MF_CLASS_ALIASES = {
+        'gaussmf': 'Gaussian',
+        'gaussian': 'Gaussian',
+        'gbellmf': 'GBell',
+        'bellmf': 'Bell',
+        'trimf': 'Triangular',
+        'trapmf': 'Trapezoidal',
+        'sigmf': 'Sigmoid',
+    }
+
     @staticmethod
     def _sanitize_predictions(y_pred, reference_shape=None, context=""):
         """
@@ -86,7 +96,7 @@ class ANFISManager:
         """
         base_params = {
             'num_rules': self.model_config['num_rules'],
-            'mf_class': self.model_config['mf_class'],
+            'mf_class': self._normalize_mf_class(self.model_config['mf_class']),
             'vanishing_strategy': self.model_config.get('vanishing_strategy', 'prod'),
             'optim': self.model_config['optim'],
             'optim_params': self.model_config['optim_params'],
@@ -106,6 +116,12 @@ class ANFISManager:
             model.build_model()
 
         return model
+
+    @classmethod
+    def _normalize_mf_class(cls, mf_class):
+        if not isinstance(mf_class, str):
+            return mf_class
+        return cls.MF_CLASS_ALIASES.get(mf_class, mf_class)
 
     @staticmethod
     def _log_and_clean_state(model):

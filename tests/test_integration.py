@@ -22,9 +22,9 @@ class TestIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Подготовка для всех тестов"""
-        cls.config_path = "configs/config.yaml"
+        cls.config_path = "configs/config_integrated_shap.yaml"
         if not os.path.exists(cls.config_path):
-            cls.config_path = os.path.join(Path(__file__).parent.parent, "configs", "config.yaml")
+            cls.config_path = os.path.join(Path(__file__).parent.parent, "configs", "config_integrated_shap.yaml")
         
         cls.config = load_config(cls.config_path)
         
@@ -91,4 +91,3 @@ class TestIntegration(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
