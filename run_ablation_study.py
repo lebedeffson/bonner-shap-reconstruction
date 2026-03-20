@@ -129,12 +129,12 @@ def _stronger_shap_updates():
     return {
         "shap_reg": {
             "use_improved_shap": True,
-            "gamma": 0.10,
+            "gamma": 0.099,
             "gamma_start": 0.02,
-            "gamma_end": 0.10,
-            "target_shap_ratio": 0.40,
+            "gamma_end": 0.099,
+            "target_shap_ratio": 0.3895,
             "min_convergence_slowdown": 0.25,
-            "tikhonov": {"enabled": True, "lambda": 0.002},
+            "tikhonov": {"enabled": True, "lambda": 0.001},
         }
     }
 

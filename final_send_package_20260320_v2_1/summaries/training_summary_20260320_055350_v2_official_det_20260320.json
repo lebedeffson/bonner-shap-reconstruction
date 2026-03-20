@@ -1,0 +1,259 @@
+{
+  "timestamp": "20260320_055350_v2_official_det_20260320",
+  "tag": "v2_official_det_20260320",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_integrated_shap_v2.yaml",
+  "model_state": "anfis_model_state_20260320_055350_v2_official_det_20260320.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/anfis_model_state_20260320_055350_v2_official_det_20260320.pt",
+  "train_size": 300,
+  "shap_train_size": 225,
+  "test_size": 75,
+  "vanilla_train_count": 300,
+  "shap_train_count": 225,
+  "real_test_count": 75,
+  "normalize_sum": true,
+  "metrics": {
+    "mse": 0.010563934328997713,
+    "rmse": 0.10278100179020301,
+    "mae": 0.04741353115655829,
+    "r2": 0.837626169823063,
+    "r2_weighted": 0.837626169823063,
+    "r2_mean": 0.5576837690765795
+  },
+  "band_metrics": {
+    "band_0_19": {
+      "mse": 0.004483779057666683,
+      "rmse": 0.0669610264084018,
+      "mae": 0.034598988806822245,
+      "r2": 0.4878716394619225
+    },
+    "band_20_39": {
+      "mse": 0.008163851138641575,
+      "rmse": 0.090354032221266,
+      "mae": 0.05370871171011819,
+      "r2": 0.6773592567380965
+    },
+    "band_40_59": {
+      "mse": 0.019044172790684884,
+      "rmse": 0.13800062605178604,
+      "mae": 0.0539328929527344,
+      "r2": 0.5078204110297194
+    }
+  },
+  "metrics_source": "shap",
+  "shap_config_enabled": true,
+  "shap_applied": true,
+  "training_time_total": 183.74771761894226,
+  "training_time_shap": 58.04102540016174,
+  "saved_files": {
+    "predictions": "predictions_20260320_055350_v2_official_det_20260320.npy",
+    "targets_test": "targets_test_20260320_055350_v2_official_det_20260320.npy",
+    "predictions_denorm": "predictions_denorm_20260320_055350_v2_official_det_20260320.npy",
+    "targets_denorm": "targets_test_denorm_20260320_055350_v2_official_det_20260320.npy",
+    "samples": {
+      "indices": [
+        6,
+        32,
+        47,
+        55,
+        74
+      ],
+      "X": "samples_20260320_055350_v2_official_det_20260320_X.npy",
+      "y": "samples_20260320_055350_v2_official_det_20260320_y.npy",
+      "pred": "samples_20260320_055350_v2_official_det_20260320_pred.npy",
+      "sum": "samples_20260320_055350_v2_official_det_20260320_sum.npy"
+    },
+    "metrics_csv": "metrics_20260320_055350_v2_official_det_20260320.csv",
+    "feature_importance": "feature_importance_20260320_055350_v2_official_det_20260320.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260320_055350_v2_official_det_20260320.csv",
+      "history": "shap_history_20260320_055350_v2_official_det_20260320.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.10725674775103107,
+      "std": 0.2398774278773549,
+      "min": -0.36622822284698486,
+      "max": 4.353009223937988,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.1942222222222222,
+      "negative_count": 874
+    },
+    "target_stats": {
+      "mean": 0.10642859071275672,
+      "std": 0.27056816024320757,
+      "min": 0.0,
+      "max": 4.5025200567816475
+    },
+    "coeff_stats": {
+      "mean": 0.009788976371346451,
+      "std": 1.2400560751409562,
+      "min": -27.518842697143555,
+      "max": 57.38920974731445,
+      "abs_mean": 0.5202449625270665,
+      "finite_fraction": 1.0,
+      "nonzero": 33000,
+      "total": 33000
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "consistency",
+        "sparsity",
+        "faithfulness",
+        "stability"
+      ],
+      "shap_contribution": {
+        "mean": 5.052114120587703e-05,
+        "last": 7.216244193841703e-05,
+        "max": 0.00020823168961214833
+      },
+      "tikhonov_contribution": {
+        "mean": 0.00035088215492289505,
+        "last": 0.0006939436807442689,
+        "max": 0.0007438970533257816
+      },
+      "nonnegativity_contribution": {
+        "mean": 2.6883905207913302e-05,
+        "last": 2.8958903016018667e-05,
+        "max": 0.00013579792766904575
+      },
+      "regularization_share": {
+        "mean": 0.061248948646283746,
+        "last": 0.15673086573992054,
+        "max": 0.1680139868861344
+      },
+      "shap_scale_factor": {
+        "mean": 2557.9280914364354,
+        "last": 2834.0115130176014,
+        "max": 10742.469487851087
+      },
+      "shap_loss_normalized": {
+        "mean": 0.0006124313495820389,
+        "last": 0.0007289135464816354,
+        "max": 0.0021033504308434203
+      },
+      "nonnegativity_loss": {
+        "mean": 0.00537678115843299,
+        "last": 0.005791780691652093,
+        "max": 0.02715958538465202
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.07043670085278185,
+          "last": 0.08433993812650442,
+          "max": 0.1960498671978712
+        },
+        "sparsity": {
+          "mean": 0.7307429250205556,
+          "last": 0.7219640091061592,
+          "max": 0.7584810256958008
+        },
+        "faithfulness": {
+          "mean": 0.0019391458986344305,
+          "last": 0.0016170801027328707,
+          "max": 0.0036015729856444523
+        },
+        "stability": {
+          "mean": 0.00021065634048682115,
+          "last": 0.00020256429343135096,
+          "max": 0.0002636075823829742
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 0.0037229029061936827,
+          "last": 0.002262051597680722,
+          "max": 0.015372882222057791
+        },
+        "sparsity": {
+          "mean": 0.0002507567699804818,
+          "last": 0.00024474182499734044,
+          "max": 0.00031118438794434196
+        },
+        "faithfulness": {
+          "mean": 0.10018183103493913,
+          "last": 0.09970003348868156,
+          "max": 0.16787058932432375
+        },
+        "stability": {
+          "mean": 0.8958445092888868,
+          "last": 0.8977931730886404,
+          "max": 0.9336632951789388
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.00021669800196288326,
+          "last": 0.00019078129178735256,
+          "max": 0.0006167252046945798
+        },
+        "sparsity": {
+          "mean": 0.0001832197796221415,
+          "last": 0.00017669478917103793,
+          "max": 0.00023175086055458936
+        },
+        "faithfulness": {
+          "mean": 0.000193268386848489,
+          "last": 0.00016122294039634782,
+          "max": 0.000399326941520882
+        },
+        "stability": {
+          "mean": 0.0001887324325480919,
+          "last": 0.000181860839754191,
+          "max": 0.000236834356009319
+        }
+      },
+      "dominant_shap_component": "consistency",
+      "dominant_regularizer": "tikhonov"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 42,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "metrics_denorm": {
+    "mse": 0.010563934328997703,
+    "rmse": 0.10278100179020296,
+    "mae": 0.04741353115655826,
+    "r2": 0.837626169823063,
+    "r2_weighted": 0.837626169823063,
+    "r2_mean": 0.5576837690765795
+  },
+  "band_metrics_denorm": {
+    "band_0_19": {
+      "mse": 0.004483779057666679,
+      "rmse": 0.06696102640840176,
+      "mae": 0.03459898880682224,
+      "r2": 0.4878716394619226
+    },
+    "band_20_39": {
+      "mse": 0.008163851138641567,
+      "rmse": 0.09035403222126595,
+      "mae": 0.05370871171011817,
+      "r2": 0.6773592567380964
+    },
+    "band_40_59": {
+      "mse": 0.019044172790684866,
+      "rmse": 0.13800062605178595,
+      "mae": 0.05393289295273439,
+      "r2": 0.5078204110297193
+    }
+  },
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260320_055350_v2_official_det_20260320.csv",
+    "history": "shap_history_20260320_055350_v2_official_det_20260320.json"
+  }
+}

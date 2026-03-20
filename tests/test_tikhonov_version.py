@@ -28,7 +28,9 @@ class TestTikhonovVersion(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         config_path = Path(__file__).parent.parent / "configs" / "config_integrated_shap.yaml"
+        v2_config_path = Path(__file__).parent.parent / "configs" / "config_integrated_shap_v2.yaml"
         cls.official_config = deepcopy(load_config(str(config_path)))
+        cls.official_v2_config = deepcopy(load_config(str(v2_config_path)))
         cls.base_config = deepcopy(cls.official_config)
 
         # Облегчаем модель для быстрых тестов
@@ -68,13 +70,13 @@ class TestTikhonovVersion(unittest.TestCase):
         self.assertEqual(int(tikh['order']), 2)
 
     def test_main_config_uses_stronger_regularization_profile(self):
-        """Основной конфиг должен оставаться в усиленном SHAP+Tikhonov режиме."""
+        """Основной конфиг должен оставаться в актуальном V2 SHAP+Tikhonov режиме."""
         shap = self.official_config['shap_reg']
-        self.assertAlmostEqual(float(shap['gamma']), 0.10, places=8)
+        self.assertAlmostEqual(float(shap['gamma']), 0.099, places=8)
         self.assertAlmostEqual(float(shap['gamma_start']), 0.02, places=8)
-        self.assertAlmostEqual(float(shap['gamma_end']), 0.10, places=8)
+        self.assertAlmostEqual(float(shap['gamma_end']), 0.099, places=8)
         self.assertAlmostEqual(float(shap['gamma_warmup_epochs']), 0.5, places=8)
-        self.assertAlmostEqual(float(shap['target_shap_ratio']), 0.40, places=8)
+        self.assertAlmostEqual(float(shap['target_shap_ratio']), 0.3895, places=8)
         self.assertAlmostEqual(float(shap['min_convergence_slowdown']), 0.25, places=8)
         self.assertTrue(bool(shap['use_true_shap']))
         self.assertTrue(bool(shap['use_adaptive_gamma']))
@@ -83,7 +85,60 @@ class TestTikhonovVersion(unittest.TestCase):
             list(shap['active_components']),
             ['consistency', 'sparsity', 'faithfulness', 'stability'],
         )
-        self.assertAlmostEqual(float(shap['tikhonov']['lambda']), 0.002, places=8)
+        self.assertAlmostEqual(float(shap['tikhonov']['lambda']), 0.001, places=8)
+
+    def test_v2_config_enables_energy_aware_tikhonov_nonnegativity_and_band_scalarization(self):
+        """V2-конфиг должен включать новые физические priors и band-aware scalarization."""
+        shap = self.official_v2_config['shap_reg']
+        self.assertAlmostEqual(float(shap['gamma']), 0.099, places=12)
+        self.assertAlmostEqual(float(shap['gamma_end']), 0.099, places=12)
+        self.assertAlmostEqual(float(shap['target_shap_ratio']), 0.3895, places=12)
+        self.assertEqual(shap['scalarization']['mode'], 'band_weighted')
+        np.testing.assert_allclose(
+            np.asarray(shap['scalarization']['band_weights'], dtype=float),
+            np.asarray([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], dtype=float),
+            rtol=0.0,
+            atol=1e-12,
+        )
+        self.assertTrue(bool(shap['tikhonov']['energy_aware']))
+        self.assertTrue(bool(shap['nonnegativity']['enabled']))
+        self.assertAlmostEqual(float(shap['tikhonov']['lambda']), 0.001, places=12)
+        self.assertAlmostEqual(float(shap['nonnegativity']['lambda']), 0.0038, places=12)
+        self.assertAlmostEqual(float(shap['nonnegativity']['lambda_start']), 0.0, places=12)
+        self.assertAlmostEqual(float(shap['nonnegativity']['lambda_end']), 0.0038, places=12)
+        self.assertAlmostEqual(float(shap['nonnegativity']['warmup_epochs']), 0.40, places=12)
+        self.assertEqual(shap['nonnegativity']['mode'], 'hybrid_mass_softcount')
+        self.assertAlmostEqual(float(shap['nonnegativity']['soft_count_weight']), 0.28, places=12)
+        self.assertAlmostEqual(float(shap['nonnegativity']['soft_count_temperature']), 0.012, places=12)
+
+    def test_shap_stage_is_reproducible_with_fixed_seed(self):
+        """При фиксированном seed SHAP-stage должен быть воспроизводимым."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['model']['num_rules'] = 3
+        cfg['model']['optim_params']['epoch'] = 2
+        cfg['model']['optim_params']['pop_size'] = 5
+        cfg['model']['n_workers'] = 1
+        cfg['shap_reg']['use_gpu'] = False
+        cfg['shap_reg']['use_true_shap'] = False
+        cfg['shap_reg']['epochs'] = 2
+        cfg['shap_reg']['batch_size'] = 8
+        cfg['shap_reg']['lr'] = 0.001
+
+        rng = np.random.default_rng(20260320)
+        X_train = rng.random((16, 10), dtype=np.float32)
+        y_train = rng.random((16, 60), dtype=np.float32)
+
+        trainer_a = self._make_trainer(cfg)
+        history_a = trainer_a.fit(X_train, y_train, epochs=2, batch_size=8, lr=0.001)
+        pred_a = trainer_a.predict(X_train)
+
+        trainer_b = self._make_trainer(cfg)
+        history_b = trainer_b.fit(X_train, y_train, epochs=2, batch_size=8, lr=0.001)
+        pred_b = trainer_b.predict(X_train)
+
+        for key in ['total_loss', 'main_loss', 'shap_loss', 'tikhonov_loss', 'nonnegativity_loss']:
+            np.testing.assert_allclose(history_a[key], history_b[key], rtol=0.0, atol=1e-12)
+        np.testing.assert_allclose(pred_a, pred_b, rtol=0.0, atol=1e-7)
 
     def test_order1_tikhonov_zero_for_constant_spectrum(self):
         """Для константного спектра D1 штраф должен быть нулевым."""
@@ -97,7 +152,9 @@ class TestTikhonovVersion(unittest.TestCase):
 
     def test_order2_tikhonov_zero_for_linear_spectrum(self):
         """Для линейного спектра D2 штраф должен быть нулевым."""
-        trainer = self._make_trainer()
+        cfg = deepcopy(self.base_config)
+        cfg['shap_reg']['tikhonov']['energy_aware'] = False
+        trainer = self._make_trainer(cfg)
         trainer.tikhonov_order = 2
 
         linear = torch.arange(60, dtype=torch.float32, device=trainer.device)
@@ -108,7 +165,9 @@ class TestTikhonovVersion(unittest.TestCase):
 
     def test_order2_tikhonov_positive_for_quadratic_spectrum(self):
         """Для квадратичного спектра D2 штраф должен быть положительным и предсказуемым."""
-        trainer = self._make_trainer()
+        cfg = deepcopy(self.base_config)
+        cfg['shap_reg']['tikhonov']['energy_aware'] = False
+        trainer = self._make_trainer(cfg)
         trainer.tikhonov_order = 2
 
         k = torch.arange(60, dtype=torch.float32, device=trainer.device)
@@ -117,6 +176,118 @@ class TestTikhonovVersion(unittest.TestCase):
 
         # Для y_k = k^2 вторая разность постоянна и равна 2, значит mean(diffs^2)=4.
         self.assertAlmostEqual(float(loss.item()), 4.0, places=5)
+
+    def test_energy_aware_order2_tikhonov_zero_for_log_linear_spectrum(self):
+        """На log-energy оси линейная по log(E) зависимость должна давать нулевой D2-штраф."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['model']['num_rules'] = 3
+        cfg['model']['optim_params']['epoch'] = 2
+        cfg['model']['optim_params']['pop_size'] = 5
+        cfg['model']['n_workers'] = 1
+        cfg['shap_reg']['use_gpu'] = False
+        trainer = self._make_trainer(cfg)
+
+        energies = np.asarray(trainer.energy_axis, dtype=np.float32)
+        self.assertEqual(energies.size, 60)
+        log_linear = torch.tensor(np.log(energies), dtype=torch.float32, device=trainer.device).unsqueeze(0)
+        loss = trainer._compute_tikhonov_loss(log_linear)
+
+        self.assertAlmostEqual(float(loss.item()), 0.0, places=6)
+
+    def test_nonnegativity_penalty_zero_for_nonnegative_predictions(self):
+        """Штраф неотрицательности не должен активироваться на неотрицательном спектре."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['shap_reg']['use_gpu'] = False
+        trainer = self._make_trainer(cfg)
+        predictions = torch.rand((2, 60), dtype=torch.float32, device=trainer.device)
+        loss = trainer._compute_nonnegativity_loss(predictions)
+        self.assertAlmostEqual(float(loss.item()), 0.0, places=8)
+
+    def test_nonnegativity_penalty_positive_for_negative_bins(self):
+        """Штраф неотрицательности должен быть положительным при отрицательных бинах."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['shap_reg']['use_gpu'] = False
+        trainer = self._make_trainer(cfg)
+        predictions = torch.zeros((1, 4), dtype=torch.float32, device=trainer.device) - torch.tensor(
+            [[0.0, 1.0, 2.0, 0.5]], dtype=torch.float32, device=trainer.device
+        )
+        loss = trainer._compute_nonnegativity_loss(predictions)
+        self.assertGreater(float(loss.item()), 0.0)
+
+    def test_hybrid_nonnegativity_penalty_zero_for_nonnegative_predictions(self):
+        """Hybrid nonnegativity не должен штрафовать полностью неотрицательный спектр."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['shap_reg']['use_gpu'] = False
+        cfg['shap_reg']['nonnegativity']['mode'] = 'hybrid_mass_softcount'
+        cfg['shap_reg']['nonnegativity']['soft_count_weight'] = 0.5
+        cfg['shap_reg']['nonnegativity']['soft_count_temperature'] = 0.01
+        trainer = self._make_trainer(cfg)
+        predictions = torch.rand((2, 60), dtype=torch.float32, device=trainer.device)
+        loss = trainer._compute_nonnegativity_loss(predictions)
+        self.assertAlmostEqual(float(loss.item()), 0.0, places=8)
+
+    def test_hybrid_nonnegativity_penalizes_many_small_negative_bins_stronger_than_mass_ratio(self):
+        """Hybrid-режим должен быть чувствительнее mass_ratio к множеству маленьких отрицательных хвостов."""
+        cfg_mass = deepcopy(self.official_v2_config)
+        cfg_mass['shap_reg']['use_gpu'] = False
+        cfg_mass['shap_reg']['nonnegativity']['mode'] = 'mass_ratio'
+        trainer_mass = self._make_trainer(cfg_mass)
+
+        cfg_hybrid = deepcopy(self.official_v2_config)
+        cfg_hybrid['shap_reg']['use_gpu'] = False
+        cfg_hybrid['shap_reg']['nonnegativity']['mode'] = 'hybrid_mass_softcount'
+        cfg_hybrid['shap_reg']['nonnegativity']['soft_count_weight'] = 0.5
+        cfg_hybrid['shap_reg']['nonnegativity']['soft_count_temperature'] = 0.01
+        trainer_hybrid = self._make_trainer(cfg_hybrid)
+
+        predictions = torch.tensor(
+            [[0.8, 0.9, 1.1, 1.0, -0.01, -0.01, -0.01, -0.01]],
+            dtype=torch.float32,
+            device=trainer_mass.device,
+        )
+        mass_loss = trainer_mass._compute_nonnegativity_loss(predictions)
+        hybrid_loss = trainer_hybrid._compute_nonnegativity_loss(predictions)
+        self.assertGreater(float(hybrid_loss.item()), float(mass_loss.item()))
+
+    def test_margin_mass_ratio_tolerance_ignores_small_negative_tail(self):
+        """Margin-версия nonnegativity не должна штрафовать отрицательность ниже допуска."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['shap_reg']['use_gpu'] = False
+        cfg['shap_reg']['nonnegativity']['mode'] = 'margin_mass_ratio'
+        cfg['shap_reg']['nonnegativity']['power'] = 1
+        cfg['shap_reg']['nonnegativity']['tolerance'] = 0.10
+        trainer = self._make_trainer(cfg)
+        predictions = torch.tensor([[1.0, 1.0, -0.05, 1.0]], dtype=torch.float32, device=trainer.device)
+        loss = trainer._compute_nonnegativity_loss(predictions)
+        self.assertAlmostEqual(float(loss.item()), 0.0, places=8)
+
+    def test_margin_mass_ratio_penalizes_only_excess_negative_mass(self):
+        """Margin-версия должна штрафовать только долю отрицательной массы сверх tolerance."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['shap_reg']['use_gpu'] = False
+        cfg['shap_reg']['nonnegativity']['mode'] = 'margin_mass_ratio'
+        cfg['shap_reg']['nonnegativity']['power'] = 1
+        cfg['shap_reg']['nonnegativity']['tolerance'] = 0.10
+        trainer = self._make_trainer(cfg)
+        predictions = torch.tensor([[1.0, 1.0, -0.5, 1.0]], dtype=torch.float32, device=trainer.device)
+        loss = trainer._compute_nonnegativity_loss(predictions)
+        expected_ratio = 0.5 / 3.5 - 0.10
+        self.assertAlmostEqual(float(loss.item()), expected_ratio, places=6)
+
+    def test_band_weighted_scalarization_respects_band_weights(self):
+        """Band-aware scalarization должна корректно агрегировать выход по заданным диапазонам."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['shap_reg']['use_gpu'] = False
+        trainer = self._make_trainer(cfg)
+
+        predictions = torch.cat([
+            torch.full((1, 20), 1.0, dtype=torch.float32, device=trainer.device),
+            torch.full((1, 20), 2.0, dtype=torch.float32, device=trainer.device),
+            torch.full((1, 20), 4.0, dtype=torch.float32, device=trainer.device),
+        ], dim=1)
+        scalar = trainer._scalarize_output_tensor(predictions)
+        expected = (1.0 + 2.0 + 4.0) / 3.0
+        self.assertAlmostEqual(float(scalar.item()), expected, places=6)
 
     def test_training_history_contains_positive_tikhonov_loss(self):
         """В основном тихоновском режиме история обучения должна содержать tikhonov_loss."""
@@ -197,6 +368,42 @@ class TestTikhonovVersion(unittest.TestCase):
             for i in range(len(history['adaptive_gamma']) - 1)
         ))
 
+    def test_regularizer_lambda_warmup_is_monotone_and_plateaus(self):
+        """Tikhonov и nonnegativity должны уметь плавно разогреваться по эпохам."""
+        cfg = deepcopy(self.base_config)
+        cfg['shap_reg']['epochs'] = 4
+        cfg['shap_reg']['use_true_shap'] = False
+        cfg['shap_reg']['use_adaptive_gamma'] = False
+        cfg['shap_reg']['gamma'] = 0.0
+        cfg['shap_reg']['tikhonov']['enabled'] = True
+        cfg['shap_reg']['tikhonov']['lambda'] = 0.4
+        cfg['shap_reg']['tikhonov']['lambda_start'] = 0.0
+        cfg['shap_reg']['tikhonov']['lambda_end'] = 0.4
+        cfg['shap_reg']['tikhonov']['warmup_epochs'] = 0.5
+        cfg['shap_reg']['nonnegativity']['enabled'] = True
+        cfg['shap_reg']['nonnegativity']['lambda'] = 0.2
+        cfg['shap_reg']['nonnegativity']['lambda_start'] = 0.0
+        cfg['shap_reg']['nonnegativity']['lambda_end'] = 0.2
+        cfg['shap_reg']['nonnegativity']['warmup_epochs'] = 0.5
+
+        trainer = self._make_trainer(cfg)
+        rng = np.random.default_rng(1234)
+        X_train = rng.random((8, 10), dtype=np.float32)
+        y_train = rng.random((8, 60), dtype=np.float32)
+
+        history = trainer.fit(X_train, y_train, epochs=4, batch_size=8, lr=0.001)
+
+        np.testing.assert_allclose(history['tikhonov_lambda'], [0.0, 0.2, 0.4, 0.4], rtol=0.0, atol=1e-12)
+        np.testing.assert_allclose(history['nonnegativity_lambda'], [0.0, 0.1, 0.2, 0.2], rtol=0.0, atol=1e-12)
+        self.assertTrue(all(
+            history['tikhonov_lambda'][i] <= history['tikhonov_lambda'][i + 1] + 1e-12
+            for i in range(len(history['tikhonov_lambda']) - 1)
+        ))
+        self.assertTrue(all(
+            history['nonnegativity_lambda'][i] <= history['nonnegativity_lambda'][i + 1] + 1e-12
+            for i in range(len(history['nonnegativity_lambda']) - 1)
+        ))
+
     def test_history_tracks_regularization_contributions(self):
         """История должна хранить не только raw loss, но и вклад регуляризаций в total loss."""
         cfg = deepcopy(self.base_config)
@@ -233,6 +440,34 @@ class TestTikhonovVersion(unittest.TestCase):
         self.assertTrue(all(abs(v) < 1e-12 for v in history['shap_weight_faithfulness']))
         self.assertTrue(all(v >= 0.0 for v in history['shap_weight_stability']))
 
+    def test_v2_history_tracks_nonnegativity_contribution(self):
+        """V2-режим должен логировать вклад nonnegativity-члена в историю обучения."""
+        cfg = deepcopy(self.official_v2_config)
+        cfg['model']['num_rules'] = 3
+        cfg['model']['optim_params']['epoch'] = 2
+        cfg['model']['optim_params']['pop_size'] = 5
+        cfg['model']['n_workers'] = 1
+        cfg['shap_reg']['use_gpu'] = False
+        cfg['shap_reg']['use_true_shap'] = False
+        cfg['shap_reg']['use_adaptive_gamma'] = False
+        cfg['shap_reg']['epochs'] = 2
+        cfg['shap_reg']['batch_size'] = 8
+        cfg['shap_reg']['gamma'] = 0.1
+
+        trainer = self._make_trainer(cfg)
+        rng = np.random.default_rng(2028)
+        X_train = rng.random((24, 10), dtype=np.float32)
+        y_train = rng.random((24, 60), dtype=np.float32)
+
+        history = trainer.fit(X_train, y_train, epochs=2, batch_size=8, lr=0.001)
+
+        self.assertIn('nonnegativity_loss', history)
+        self.assertIn('nonnegativity_contribution', history)
+        self.assertEqual(len(history['nonnegativity_loss']), 2)
+        self.assertEqual(len(history['nonnegativity_contribution']), 2)
+        self.assertTrue(all(np.isfinite(v) for v in history['nonnegativity_loss']))
+        self.assertTrue(all(np.isfinite(v) for v in history['nonnegativity_contribution']))
+
     def test_active_components_mask_disables_unlisted_shap_terms(self):
         """Для абляций должны выключаться только явно убранные SHAP-компоненты."""
         cfg = deepcopy(self.base_config)
@@ -267,8 +502,18 @@ class TestTikhonovTrainPipeline(unittest.TestCase):
         cls.data_path = cls.repo_root / "normalized_data_with_q_375.csv"
         cls.base_config_path = cls.repo_root / "configs" / "config_integrated_shap.yaml"
         cls.base_config = load_config(str(cls.base_config_path))
+        cls.baseline_summary_path = cls.repo_root / "results" / "training_summary_20260319_190809_tikhonov_stronger_20260319.json"
+        cls.v2_previous_summary_path = cls.repo_root / "results" / "training_summary_20260320_031650_v2_official_20260320.json"
+        cls.v2_official_summary_path = cls.repo_root / "results" / "training_summary_20260320_055350_v2_official_det_20260320.json"
+        cls.v2_1_light_summary_path = cls.repo_root / "results" / "training_summary_20260320_062903_v2_1_light_nonneg_20260320.json"
 
-    def _write_smoke_config(self, results_dir: Path) -> Path:
+    def _write_smoke_config(
+        self,
+        results_dir: Path,
+        *,
+        save_model: bool = True,
+        save_predictions: bool = True,
+    ) -> Path:
         config_text = f"""dataset:
   train_data: {self.data_path}
   validation_data: {self.data_path}
@@ -326,8 +571,8 @@ shap_reg:
 
 output:
   results_dir: {results_dir}
-  save_model: true
-  save_predictions: true
+  save_model: {'true' if save_model else 'false'}
+  save_predictions: {'true' if save_predictions else 'false'}
   save_plots: false
   save_samples: false
 """
@@ -484,6 +729,95 @@ output:
                 places=8,
             )
 
+    def test_train_py_reports_prediction_stats_without_saving_predictions_and_respects_save_model(self):
+        """Диагностика не должна зависеть от save_predictions, а save_model=false не должен тихо писать файл."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            results_dir = tmp_path / "results_no_artifacts"
+            results_dir.mkdir(parents=True, exist_ok=True)
+            config_path = self._write_smoke_config(
+                results_dir,
+                save_model=False,
+                save_predictions=False,
+            )
+
+            args = SimpleNamespace(
+                config=str(config_path),
+                train_limit=32,
+                train_fraction=None,
+                tag="pytest_smoke_no_saved_predictions"
+            )
+
+            model_state_path, summary_path = train_and_save(args)
+
+            self.assertIsNone(model_state_path)
+            self.assertTrue(Path(summary_path).exists())
+
+            summary = json.loads(Path(summary_path).read_text(encoding="utf-8"))
+            prediction_stats = summary["diagnostics"]["prediction_stats"]
+            self.assertIn("negative_fraction", prediction_stats)
+            self.assertIn("negative_count", prediction_stats)
+            self.assertTrue(np.isfinite(prediction_stats["mean"]))
+            self.assertTrue(np.isfinite(prediction_stats["std"]))
+            self.assertGreaterEqual(prediction_stats["negative_fraction"], 0.0)
+            self.assertGreaterEqual(prediction_stats["negative_count"], 0)
+
+            self.assertIsNone(summary["model_state"])
+            self.assertIsNone(summary["model_state_path"])
+            self.assertNotIn("predictions", summary["saved_files"])
+
+    def test_official_v2_artifact_outperforms_baselines_on_primary_metrics(self):
+        """Официальный V2 run должен быть лучше и V1 baseline, и предыдущего V2 run."""
+        self.assertTrue(self.baseline_summary_path.exists())
+        self.assertTrue(self.v2_previous_summary_path.exists())
+        self.assertTrue(self.v2_official_summary_path.exists())
+
+        baseline = json.loads(self.baseline_summary_path.read_text(encoding="utf-8"))
+        previous_v2 = json.loads(self.v2_previous_summary_path.read_text(encoding="utf-8"))
+        v2 = json.loads(self.v2_official_summary_path.read_text(encoding="utf-8"))
+
+        baseline_metrics = baseline["metrics"]
+        previous_v2_metrics = previous_v2["metrics"]
+        v2_metrics = v2["metrics"]
+
+        self.assertLess(v2_metrics["mse"], baseline_metrics["mse"])
+        self.assertLess(v2_metrics["rmse"], baseline_metrics["rmse"])
+        self.assertLess(v2_metrics["mae"], baseline_metrics["mae"])
+        self.assertGreater(v2_metrics["r2_weighted"], baseline_metrics["r2_weighted"])
+        self.assertGreater(v2_metrics["r2_mean"], baseline_metrics["r2_mean"])
+
+        self.assertLess(v2_metrics["mse"], previous_v2_metrics["mse"])
+        self.assertLess(v2_metrics["rmse"], previous_v2_metrics["rmse"])
+        self.assertLess(v2_metrics["mae"], previous_v2_metrics["mae"])
+        self.assertGreater(v2_metrics["r2_weighted"], previous_v2_metrics["r2_weighted"])
+        self.assertGreater(v2_metrics["r2_mean"], previous_v2_metrics["r2_mean"])
+
+        prediction_stats = v2["diagnostics"]["prediction_stats"]
+        self.assertIn("negative_fraction", prediction_stats)
+        self.assertIn("negative_count", prediction_stats)
+        self.assertGreaterEqual(prediction_stats["negative_fraction"], 0.0)
+        self.assertGreaterEqual(prediction_stats["negative_count"], 0)
+
+    def test_v2_1_light_candidate_improves_primary_metrics_and_reduces_negative_fraction(self):
+        """Лёгкий V2.1 должен улучшать primary metrics и заметно уменьшать долю отрицательных бинов."""
+        self.assertTrue(self.v2_official_summary_path.exists())
+        self.assertTrue(self.v2_1_light_summary_path.exists())
+
+        official = json.loads(self.v2_official_summary_path.read_text(encoding="utf-8"))
+        candidate = json.loads(self.v2_1_light_summary_path.read_text(encoding="utf-8"))
+
+        official_metrics = official["metrics"]
+        candidate_metrics = candidate["metrics"]
+
+        for metric in ["mse", "rmse", "mae"]:
+            self.assertLess(candidate_metrics[metric], official_metrics[metric])
+        self.assertGreater(candidate_metrics["r2_weighted"], official_metrics["r2_weighted"])
+
+        official_neg = official["diagnostics"]["prediction_stats"]["negative_fraction"]
+        candidate_neg = candidate["diagnostics"]["prediction_stats"]["negative_fraction"]
+        self.assertLess(candidate_neg, official_neg)
+        self.assertLess(candidate_neg, official_neg - 0.05)
+
 
 class TestAblationStudyUtilities(unittest.TestCase):
     """Тесты утилит абляционного анализа."""
@@ -523,11 +857,11 @@ class TestAblationStudyUtilities(unittest.TestCase):
         self.assertIn("strong_no_stability", variants)
 
         strong_no_sparsity = variants["strong_no_sparsity"]["shap_reg"]
-        self.assertAlmostEqual(strong_no_sparsity["gamma"], 0.10, places=8)
-        self.assertAlmostEqual(strong_no_sparsity["gamma_end"], 0.10, places=8)
-        self.assertAlmostEqual(strong_no_sparsity["target_shap_ratio"], 0.40, places=8)
+        self.assertAlmostEqual(strong_no_sparsity["gamma"], 0.099, places=8)
+        self.assertAlmostEqual(strong_no_sparsity["gamma_end"], 0.099, places=8)
+        self.assertAlmostEqual(strong_no_sparsity["target_shap_ratio"], 0.3895, places=8)
         self.assertAlmostEqual(strong_no_sparsity["min_convergence_slowdown"], 0.25, places=8)
-        self.assertAlmostEqual(strong_no_sparsity["tikhonov"]["lambda"], 0.002, places=8)
+        self.assertAlmostEqual(strong_no_sparsity["tikhonov"]["lambda"], 0.001, places=8)
         self.assertEqual(
             strong_no_sparsity["active_components"],
             ["consistency", "faithfulness", "stability"],

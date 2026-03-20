@@ -31,47 +31,61 @@ model:
 
 shap_reg:
   enabled: true
-  # ГИБРИДНЫЙ РЕЖИМ (Hybrid Two-Stage XAI):
-  # 1. Сначала запускается Vanilla PSO (внешний вызов) -> R2 ~ 0.85
-  # 2. Затем запускается SHAP Fine-tuning (300 эпох) -> R2 ~ 0.84 + Объяснимость
-  # integrated_training: false переключает train.py в этот надежный режим.
-  integrated_training: false 
+  # ОФИЦИАЛЬНАЯ ОСНОВНАЯ КОНФИГУРАЦИЯ V2:
+  # two-stage режим + band-aware SHAP scalarization
+  # + log-energy-aware Tikhonov + nonnegativity penalty.
+  integrated_training: false
   training_mode: real_only
-  
-  # Параметры встроенной инициализации (не используются в Hybrid режиме, но оставим для истории)
+
   use_pso_init: false
   pso_epochs: 150
-  
-  epochs: 300 # 300 эпох тонкой настройки с SHAP
+
+  epochs: 300
   batch_size: 32
   lr: 0.001
-  
-  # SHAP параметры - усиленный режим после абляционного анализа
-  gamma: 0.10
+
+  gamma: 0.099
   gamma_start: 0.02
-  gamma_end: 0.10
+  gamma_end: 0.099
   gamma_warmup_epochs: 0.5
-  
+
   use_adaptive_gamma: true
-  target_shap_ratio: 0.40
+  target_shap_ratio: 0.3895
   min_convergence_slowdown: 0.25
   use_adaptive_weights: true
   use_true_shap: true
   active_components: [consistency, sparsity, faithfulness, stability]
-  
-  # Улучшенная регуляризация (Consistency, Sparsity, Faithfulness, Stability)
-  # При use_adaptive_weights=false эти коэффициенты используются как фиксированные веса компонентов.
+
   use_improved_shap: true
   gamma_sparsity: 0.7
   gamma_consistency: 0.2
   gamma_faithfulness: 0.05
   gamma_stability: 0.05
 
-  # Тихоновская регуляризация (гладкость спектра)
+  scalarization:
+    mode: band_weighted
+    band_slices:
+      - [0, 20]
+      - [20, 40]
+      - [40, 60]
+    band_weights: [0.3333333333333333, 0.3333333333333333, 0.3333333333333333]
+
   tikhonov:
     enabled: true
-    lambda: 0.002
+    lambda: 0.001
     order: 2
+    energy_aware: true
+
+  nonnegativity:
+    enabled: true
+    lambda: 0.0038
+    lambda_start: 0.0
+    lambda_end: 0.0038
+    warmup_epochs: 0.40
+    power: 2
+    mode: hybrid_mass_softcount
+    soft_count_weight: 0.28
+    soft_count_temperature: 0.012
 
 output:
   results_dir: results

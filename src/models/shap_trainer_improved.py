@@ -4,10 +4,12 @@
 Работает в двухэтапном режиме: сначала vanilla ANFIS, потом SHAP регуляризация
 """
 
+import random
 import time
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
+from constants import Ebins_float_IAEA_Comp
 from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
 from src.utils.logger import get_logger
 
@@ -34,6 +36,15 @@ class ShapAwareANFISTrainerImproved:
         self.training_time = 0
         shap_config = config.get('shap_reg', {})
         self.grad_clip = float(shap_config.get('grad_clip', 1.0))
+        self.random_seed = int(
+            shap_config.get(
+                'seed',
+                config.get('model', {}).get(
+                    'seed',
+                    config.get('dataset', {}).get('random_state', 42)
+                )
+            )
+        )
         
         # Параметры для использования настоящих Shapley values
         self.use_true_shap = shap_config.get('use_true_shap', True)
@@ -90,6 +101,47 @@ class ShapAwareANFISTrainerImproved:
         self.tikhonov_lambda = float(tikhonov_config.get('lambda', 0.0))
         self.tikhonov_order = int(tikhonov_config.get('order', 2))
         self.tikhonov_enabled = bool(tikhonov_config.get('enabled', self.tikhonov_lambda > 0.0))
+        self.tikhonov_lambda_start = float(tikhonov_config.get('lambda_start', self.tikhonov_lambda))
+        self.tikhonov_lambda_end = float(tikhonov_config.get('lambda_end', self.tikhonov_lambda))
+        self.tikhonov_warmup_epochs = float(tikhonov_config.get('warmup_epochs', 0.0))
+        self.tikhonov_energy_aware = bool(
+            tikhonov_config.get('energy_aware', False) or
+            tikhonov_config.get('log_energy_aware', False)
+        )
+        self.energy_axis = self._resolve_energy_axis(
+            int(config.get('dataset', {}).get('target_count', 0) or 0)
+        )
+
+        # Мягкий штраф неотрицательности спектра
+        nonneg_config = shap_config.get('nonnegativity', {})
+        self.nonnegativity_lambda = float(nonneg_config.get('lambda', 0.0))
+        self.nonnegativity_enabled = bool(
+            nonneg_config.get('enabled', self.nonnegativity_lambda > 0.0)
+        )
+        self.nonnegativity_lambda_start = float(nonneg_config.get('lambda_start', self.nonnegativity_lambda))
+        self.nonnegativity_lambda_end = float(nonneg_config.get('lambda_end', self.nonnegativity_lambda))
+        self.nonnegativity_warmup_epochs = float(nonneg_config.get('warmup_epochs', 0.0))
+        self.nonnegativity_power = max(int(nonneg_config.get('power', 2)), 1)
+        self.nonnegativity_mode = str(nonneg_config.get('mode', 'power_mean')).strip().lower()
+        self.nonnegativity_tolerance = max(float(nonneg_config.get('tolerance', 0.0)), 0.0)
+        self.nonnegativity_soft_count_weight = float(nonneg_config.get('soft_count_weight', 0.0))
+        self.nonnegativity_soft_count_weight = min(max(self.nonnegativity_soft_count_weight, 0.0), 1.0)
+        self.nonnegativity_soft_count_temperature = max(
+            float(nonneg_config.get('soft_count_temperature', 1e-2)),
+            1e-8,
+        )
+
+        # Способ скаляризации выхода для SHAP-компонент
+        scalarization_config = shap_config.get('scalarization', {})
+        self.scalarization_mode = str(scalarization_config.get('mode', 'mean')).strip().lower()
+        self.scalarization_bands = self._parse_band_slices(
+            scalarization_config.get('band_slices'),
+            config.get('dataset', {}).get('target_count')
+        )
+        self.scalarization_weights = self._parse_band_weights(
+            scalarization_config.get('band_weights'),
+            len(self.scalarization_bands)
+        )
         
         # Логгер (создаем до использования)
         self.logger = get_logger("anfis_shap.shap_trainer_improved")
@@ -113,6 +165,19 @@ class ShapAwareANFISTrainerImproved:
             else:
                 self.logger.info(f"Используется устройство: {self.device}")
 
+    @staticmethod
+    def _compute_regularizer_lambda(lambda_start, lambda_end, warmup_epochs, progress):
+        """Плавный разогрев коэффициента регуляризации по доле обучения."""
+        warmup = float(max(warmup_epochs, 0.0))
+        if warmup <= 0.0:
+            return float(lambda_end)
+        if progress <= 0.0:
+            return float(lambda_start)
+        if progress >= warmup:
+            return float(lambda_end)
+        ratio = progress / warmup
+        return float(lambda_start + (lambda_end - lambda_start) * ratio)
+
     def fit(self, X_train, y_train, epochs=25, batch_size=32, lr=0.005):
         """
         Обучение с улучшенной SHAP-регуляризацией
@@ -128,6 +193,7 @@ class ShapAwareANFISTrainerImproved:
             dict: История потерь
         """
         start_time = time.time()
+        self._seed_training()
         
         # Инициализация для адаптивного gamma
         self.total_epochs = epochs
@@ -146,7 +212,12 @@ class ShapAwareANFISTrainerImproved:
         y_tensor = torch.nan_to_num(y_tensor)
         
         training_dataset = TensorDataset(X_tensor, y_tensor)
-        data_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=True)
+        data_loader = DataLoader(
+            training_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            generator=self._make_dataloader_generator()
+        )
 
         # Базовые значения для SHAP
         baseline_values = np.mean(X_train_array, axis=0)
@@ -163,9 +234,13 @@ class ShapAwareANFISTrainerImproved:
             'shap_loss': [],
             'shap_loss_normalized': [],
             'tikhonov_loss': [],
+            'nonnegativity_loss': [],
+            'tikhonov_lambda': [],
+            'nonnegativity_lambda': [],
             'shap_scale_factor': [],
             'shap_contribution': [],
             'tikhonov_contribution': [],
+            'nonnegativity_contribution': [],
             'regularization_share': [],
         }
 
@@ -181,7 +256,22 @@ class ShapAwareANFISTrainerImproved:
             if self.use_convergence_smoothing:
                 self.logger.info(f"   Плавная сходимость: включена (patience: {self.convergence_patience})")
             if self.tikhonov_enabled and self.tikhonov_lambda > 0:
-                self.logger.info(f"   Тихонов: порядок D{self.tikhonov_order}, lambda={self.tikhonov_lambda}")
+                energy_mode = "log-energy" if self.tikhonov_energy_aware else "uniform-index"
+                self.logger.info(
+                    f"   Тихонов: порядок D{self.tikhonov_order}, "
+                    f"lambda={self.tikhonov_lambda_start} → {self.tikhonov_lambda_end}, "
+                    f"warmup={self.tikhonov_warmup_epochs*100:.0f}%, mode={energy_mode}"
+                )
+            if self.nonnegativity_enabled and self.nonnegativity_lambda > 0:
+                self.logger.info(
+                    f"   Неотрицательность: lambda={self.nonnegativity_lambda_start} → "
+                    f"{self.nonnegativity_lambda_end}, warmup={self.nonnegativity_warmup_epochs*100:.0f}%, "
+                    f"power={self.nonnegativity_power}, mode={self.nonnegativity_mode}, "
+                    f"tolerance={self.nonnegativity_tolerance:.4f}, "
+                    f"soft_count_weight={self.nonnegativity_soft_count_weight:.3f}, "
+                    f"soft_count_temperature={self.nonnegativity_soft_count_temperature:.4g}"
+                )
+            self.logger.info(f"   SHAP scalarization: {self.scalarization_mode}")
 
         for epoch in range(epochs):
             self.current_epoch = epoch
@@ -191,9 +281,13 @@ class ShapAwareANFISTrainerImproved:
                 'shap': [],
                 'shap_loss_normalized': [],
                 'tikhonov': [],
+                'nonnegativity': [],
+                'tikhonov_lambda': [],
+                'nonnegativity_lambda': [],
                 'shap_scale_factor': [],
                 'shap_contribution': [],
                 'tikhonov_contribution': [],
+                'nonnegativity_contribution': [],
                 'regularization_share': [],
             }
             epoch_shap_components = {
@@ -218,6 +312,20 @@ class ShapAwareANFISTrainerImproved:
             else:
                 current_gamma = self.gamma
 
+            progress = epoch / self.total_epochs if self.total_epochs else 0.0
+            current_tikhonov_lambda = self._compute_regularizer_lambda(
+                self.tikhonov_lambda_start,
+                self.tikhonov_lambda_end,
+                self.tikhonov_warmup_epochs,
+                progress,
+            )
+            current_nonnegativity_lambda = self._compute_regularizer_lambda(
+                self.nonnegativity_lambda_start,
+                self.nonnegativity_lambda_end,
+                self.nonnegativity_warmup_epochs,
+                progress,
+            )
+
             for batch_X, batch_y in data_loader:
                 batch_X = torch.nan_to_num(batch_X)
                 batch_y = torch.nan_to_num(batch_y)
@@ -239,10 +347,15 @@ class ShapAwareANFISTrainerImproved:
                 main_loss = loss_function(predictions, batch_y)
 
                 # Тихоновская регуляризация (гладкость спектра)
-                if self.tikhonov_enabled and self.tikhonov_lambda > 0:
+                if self.tikhonov_enabled and current_tikhonov_lambda > 0:
                     tikhonov_loss = self._compute_tikhonov_loss(predictions)
                 else:
                     tikhonov_loss = torch.tensor(0.0, device=self.device)
+
+                if self.nonnegativity_enabled and current_nonnegativity_lambda > 0:
+                    nonnegativity_loss = self._compute_nonnegativity_loss(predictions)
+                else:
+                    nonnegativity_loss = torch.tensor(0.0, device=self.device)
 
                 # Улучшенная SHAP регуляризация
                 if self.use_improved_shap:
@@ -324,8 +437,9 @@ class ShapAwareANFISTrainerImproved:
                 # Используем адаптивный gamma (может меняться в процессе обучения)
                 effective_gamma = current_gamma if self.use_adaptive_gamma else self.gamma
                 shap_contribution = effective_gamma * shap_loss_normalized
-                tikhonov_contribution = self.tikhonov_lambda * tikhonov_loss
-                total_loss = main_loss + shap_contribution + tikhonov_contribution
+                tikhonov_contribution = current_tikhonov_lambda * tikhonov_loss
+                nonnegativity_contribution = current_nonnegativity_lambda * nonnegativity_loss
+                total_loss = main_loss + shap_contribution + tikhonov_contribution + nonnegativity_contribution
 
                 # Обратное распространение
                 if not torch.isfinite(total_loss):
@@ -343,11 +457,21 @@ class ShapAwareANFISTrainerImproved:
                 epoch_losses['shap'].append(float(shap_loss_tensor.item()))
                 epoch_losses['shap_loss_normalized'].append(float(shap_loss_normalized.item()))
                 epoch_losses['tikhonov'].append(float(tikhonov_loss.item()))
+                epoch_losses['nonnegativity'].append(float(nonnegativity_loss.item()))
+                epoch_losses['tikhonov_lambda'].append(float(current_tikhonov_lambda))
+                epoch_losses['nonnegativity_lambda'].append(float(current_nonnegativity_lambda))
                 epoch_losses['shap_scale_factor'].append(float(scale_factor))
                 epoch_losses['shap_contribution'].append(float(shap_contribution.item()))
                 epoch_losses['tikhonov_contribution'].append(float(tikhonov_contribution.item()))
+                epoch_losses['nonnegativity_contribution'].append(float(nonnegativity_contribution.item()))
                 epoch_losses['regularization_share'].append(
-                    float((shap_contribution.item() + tikhonov_contribution.item()) / (abs(total_loss.item()) + eps))
+                    float(
+                        (
+                            shap_contribution.item()
+                            + tikhonov_contribution.item()
+                            + nonnegativity_contribution.item()
+                        ) / (abs(total_loss.item()) + eps)
+                    )
                 )
                 
                 # Сохраняем адаптивные параметры для анализа
@@ -370,9 +494,13 @@ class ShapAwareANFISTrainerImproved:
                 'shap_loss': 'shap',
                 'shap_loss_normalized': 'shap_loss_normalized',
                 'tikhonov_loss': 'tikhonov',
+                'nonnegativity_loss': 'nonnegativity',
+                'tikhonov_lambda': 'tikhonov_lambda',
+                'nonnegativity_lambda': 'nonnegativity_lambda',
                 'shap_scale_factor': 'shap_scale_factor',
                 'shap_contribution': 'shap_contribution',
                 'tikhonov_contribution': 'tikhonov_contribution',
+                'nonnegativity_contribution': 'nonnegativity_contribution',
                 'regularization_share': 'regularization_share',
             }
             for history_key, loss_key in history_sources.items():
@@ -410,11 +538,15 @@ class ShapAwareANFISTrainerImproved:
                 msg = f"   Эпоха {epoch + 1}/{epochs}: Total: {history['total_loss'][-1]:.6f}, Main: {history['main_loss'][-1]:.6f}, SHAP: {history['shap_loss'][-1]:.6f}"
                 if self.tikhonov_enabled and 'tikhonov_loss' in history:
                     msg += f", Tikh: {history['tikhonov_loss'][-1]:.6f}"
+                if self.nonnegativity_enabled and 'nonnegativity_loss' in history:
+                    msg += f", NonNeg: {history['nonnegativity_loss'][-1]:.6f}"
                 if 'shap_contribution' in history and 'tikhonov_contribution' in history:
                     msg += (
                         f" | Contrib(SHAP): {history['shap_contribution'][-1]:.6f}"
                         f", Contrib(Tikh): {history['tikhonov_contribution'][-1]:.6f}"
                     )
+                    if 'nonnegativity_contribution' in history:
+                        msg += f", Contrib(NonNeg): {history['nonnegativity_contribution'][-1]:.6f}"
                 if self.use_improved_shap and epoch_shap_components['consistency']:
                     msg += f" [C:{np.mean(epoch_shap_components['consistency']):.4f}, S:{np.mean(epoch_shap_components['sparsity']):.4f}, F:{np.mean(epoch_shap_components['faithfulness']):.4f}, St:{np.mean(epoch_shap_components['stability']):.4f}]"
                 if self.use_adaptive_gamma and 'adaptive_gamma' in history:
@@ -426,8 +558,22 @@ class ShapAwareANFISTrainerImproved:
         self.training_time = time.time() - start_time
         if self.verbose:
             self.logger.info(f"✅ Обучение завершено за {self.training_time:.2f} сек")
-
+        
         return history
+
+    def _seed_training(self):
+        """Фиксируем генераторы для воспроизводимого SHAP-stage."""
+        seed = int(self.random_seed)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+
+    def _make_dataloader_generator(self):
+        generator = torch.Generator()
+        generator.manual_seed(int(self.random_seed))
+        return generator
 
     def _compute_tikhonov_loss(self, predictions):
         """
@@ -438,7 +584,9 @@ class ShapAwareANFISTrainerImproved:
             predictions = predictions.unsqueeze(0)
 
         n_bins = predictions.shape[1]
-        if self.tikhonov_order == 1:
+        if self.tikhonov_energy_aware:
+            diffs = self._compute_energy_aware_tikhonov_diffs(predictions)
+        elif self.tikhonov_order == 1:
             if n_bins < 2:
                 return torch.tensor(0.0, device=self.device)
             diffs = predictions[:, 1:] - predictions[:, :-1]
@@ -450,6 +598,67 @@ class ShapAwareANFISTrainerImproved:
             raise ValueError(f"Неподдерживаемый порядок Тихонова: {self.tikhonov_order} (ожидается 1 или 2)")
 
         return torch.mean(diffs ** 2)
+
+    def _compute_energy_aware_tikhonov_diffs(self, predictions):
+        n_bins = predictions.shape[1]
+        energy_axis = self.energy_axis
+        if energy_axis is None or len(energy_axis) != n_bins or np.any(np.asarray(energy_axis) <= 0):
+            if self.tikhonov_order == 1:
+                return predictions[:, 1:] - predictions[:, :-1]
+            if self.tikhonov_order == 2:
+                return predictions[:, 2:] - 2.0 * predictions[:, 1:-1] + predictions[:, :-2]
+            raise ValueError(f"Неподдерживаемый порядок Тихонова: {self.tikhonov_order} (ожидается 1 или 2)")
+
+        xi = torch.tensor(
+            np.log(np.asarray(energy_axis, dtype=np.float64)),
+            dtype=predictions.dtype,
+            device=predictions.device
+        )
+        delta_xi = torch.clamp(xi[1:] - xi[:-1], min=1e-12)
+
+        if self.tikhonov_order == 1:
+            return (predictions[:, 1:] - predictions[:, :-1]) / delta_xi.unsqueeze(0)
+        if self.tikhonov_order == 2:
+            if n_bins < 3:
+                return torch.zeros((predictions.shape[0], 0), device=predictions.device, dtype=predictions.dtype)
+            slopes = (predictions[:, 1:] - predictions[:, :-1]) / delta_xi.unsqueeze(0)
+            return slopes[:, 1:] - slopes[:, :-1]
+        raise ValueError(f"Неподдерживаемый порядок Тихонова: {self.tikhonov_order} (ожидается 1 или 2)")
+
+    def _compute_nonnegativity_loss(self, predictions):
+        negative_part = torch.relu(-predictions)
+        if self.nonnegativity_mode in {'mass_softcount', 'hybrid_mass_softcount', 'softcount_mass_ratio'}:
+            if self.nonnegativity_power == 1:
+                negative_mass = torch.sum(negative_part, dim=1)
+                total_mass = torch.sum(torch.abs(predictions), dim=1) + 1e-8
+            else:
+                negative_mass = torch.sum(negative_part ** self.nonnegativity_power, dim=1)
+                total_mass = torch.sum(torch.abs(predictions) ** self.nonnegativity_power, dim=1) + 1e-8
+            mass_ratio = negative_mass / total_mass
+            temperature = torch.tensor(
+                self.nonnegativity_soft_count_temperature,
+                device=predictions.device,
+                dtype=predictions.dtype,
+            )
+            soft_fraction = torch.mean(negative_part / (negative_part + temperature), dim=1)
+            blend = self.nonnegativity_soft_count_weight
+            return torch.mean((1.0 - blend) * mass_ratio + blend * soft_fraction)
+        if self.nonnegativity_mode in {'mass_ratio', 'relative_mass', 'margin_mass_ratio', 'excess_mass_ratio'}:
+            if self.nonnegativity_power == 1:
+                negative_mass = torch.sum(negative_part, dim=1)
+                total_mass = torch.sum(torch.abs(predictions), dim=1) + 1e-8
+            else:
+                negative_mass = torch.sum(negative_part ** self.nonnegativity_power, dim=1)
+                total_mass = torch.sum(torch.abs(predictions) ** self.nonnegativity_power, dim=1) + 1e-8
+            ratio = negative_mass / total_mass
+            if self.nonnegativity_mode in {'margin_mass_ratio', 'excess_mass_ratio'}:
+                ratio = torch.relu(ratio - self.nonnegativity_tolerance)
+                if self.nonnegativity_power > 1:
+                    ratio = ratio ** self.nonnegativity_power
+            return torch.mean(ratio)
+        if self.nonnegativity_power == 1:
+            return torch.mean(negative_part)
+        return torch.mean(negative_part ** self.nonnegativity_power)
 
     def _compute_improved_shap_regularization(self, batch_X, baseline_values, predictions, main_loss_value=None):
         """
@@ -471,13 +680,10 @@ class ShapAwareANFISTrainerImproved:
         # Вычисляем gradient-based importance (дифференцируемо!)
         batch_X.requires_grad_(True)
         
-        output_dim = predictions.shape[1] if predictions.ndim > 1 else 1
-        grad_outputs = torch.ones_like(predictions) / output_dim
-        
         grad_input = torch.autograd.grad(
-            outputs=predictions,
+            outputs=self._scalarize_output_tensor(predictions),
             inputs=batch_X,
-            grad_outputs=grad_outputs,
+            grad_outputs=torch.ones(batch_size, device=self.device, dtype=predictions.dtype),
             create_graph=True,
             retain_graph=True,
             only_inputs=True
@@ -596,7 +802,8 @@ class ShapAwareANFISTrainerImproved:
                 baseline_pred,
                 self.model,
                 current_main_loss,
-                order=1
+                order=1,
+                scalarize_fn=self._scalarize_output_tensor,
             )
             
             faithfulness_loss = faithfulness_result['faithfulness_loss']
@@ -729,13 +936,10 @@ class ShapAwareANFISTrainerImproved:
         n_features = batch_X.shape[1]
         
         batch_X.requires_grad_(True)
-        output_dim = predictions.shape[1] if predictions.ndim > 1 else 1
-        grad_outputs = torch.ones_like(predictions) / output_dim
-        
         grad_input = torch.autograd.grad(
-            outputs=predictions,
+            outputs=self._scalarize_output_tensor(predictions),
             inputs=batch_X,
-            grad_outputs=grad_outputs,
+            grad_outputs=torch.ones(batch_size, device=self.device, dtype=predictions.dtype),
             create_graph=True,
             retain_graph=True,
             only_inputs=True
@@ -811,10 +1015,9 @@ class ShapAwareANFISTrainerImproved:
             if X_tensor.ndim == 1:
                 X_tensor = X_tensor.unsqueeze(0)
             
-            original_predictions = self.model(X_tensor).detach().cpu().numpy()
-
-            if original_predictions.ndim > 1:
-                original_predictions = np.mean(original_predictions, axis=1)
+            original_predictions = self._scalarize_output_tensor(
+                self.model(X_tensor)
+            ).detach().cpu().numpy()
 
             shap_values = []
             X_numpy = X_tensor.cpu().numpy()
@@ -824,10 +1027,9 @@ class ShapAwareANFISTrainerImproved:
                 X_masked[:, feature_index] = baseline[feature_index]
 
                 X_masked_tensor = torch.tensor(X_masked, dtype=torch.float32, device=self.device)
-                masked_predictions = self.model(X_masked_tensor).detach().cpu().numpy()
-
-                if masked_predictions.ndim > 1:
-                    masked_predictions = np.mean(masked_predictions, axis=1)
+                masked_predictions = self._scalarize_output_tensor(
+                    self.model(X_masked_tensor)
+                ).detach().cpu().numpy()
 
                 if np.isscalar(original_predictions) and np.isscalar(masked_predictions):
                     feature_importance = abs(float(original_predictions) - float(masked_predictions))
@@ -837,3 +1039,80 @@ class ShapAwareANFISTrainerImproved:
                 shap_values.append(feature_importance)
 
         return np.asarray(shap_values, dtype=float)
+
+    @staticmethod
+    def _resolve_energy_axis(target_count):
+        n_bins = int(target_count) if target_count else 0
+        if n_bins <= 0:
+            return None
+        axis = np.asarray(Ebins_float_IAEA_Comp, dtype=float)
+        if axis.size == n_bins + 1:
+            axis = axis[:-1]
+        elif axis.size != n_bins:
+            return None
+        axis = np.nan_to_num(axis, nan=0.0, posinf=0.0, neginf=0.0)
+        if np.any(axis <= 0):
+            return None
+        return axis
+
+    @staticmethod
+    def _parse_band_slices(raw_bands, target_count):
+        n_bins = int(target_count) if target_count else 0
+        default = [(0, 20), (20, 40), (40, 60)] if n_bins <= 0 or n_bins == 60 else [(0, n_bins)]
+        if not raw_bands:
+            return default
+
+        parsed = []
+        for band in raw_bands:
+            if not isinstance(band, (list, tuple)) or len(band) != 2:
+                continue
+            start, stop = int(band[0]), int(band[1])
+            if n_bins > 0:
+                start = max(start, 0)
+                stop = min(stop, n_bins)
+            if stop > start:
+                parsed.append((start, stop))
+        return parsed or default
+
+    @staticmethod
+    def _parse_band_weights(raw_weights, n_bands):
+        if n_bands <= 0:
+            return np.asarray([], dtype=float)
+        if raw_weights is None:
+            return np.full(n_bands, 1.0 / n_bands, dtype=float)
+        weights = np.asarray(raw_weights, dtype=float).reshape(-1)
+        weights = np.nan_to_num(weights, nan=0.0, posinf=0.0, neginf=0.0)
+        weights = np.maximum(weights, 0.0)
+        if weights.size != n_bands or np.sum(weights) <= 0:
+            return np.full(n_bands, 1.0 / n_bands, dtype=float)
+        return weights / np.sum(weights)
+
+    def _scalarize_output_tensor(self, predictions):
+        if predictions.ndim == 1:
+            return predictions
+        if predictions.ndim != 2:
+            return torch.mean(predictions.view(predictions.shape[0], -1), dim=1)
+
+        if self.scalarization_mode == 'band_weighted':
+            band_means = []
+            valid_weights = []
+            for idx, (start, stop) in enumerate(self.scalarization_bands):
+                start = max(int(start), 0)
+                stop = min(int(stop), predictions.shape[1])
+                if stop <= start:
+                    continue
+                band_means.append(torch.mean(predictions[:, start:stop], dim=1))
+                valid_weights.append(float(self.scalarization_weights[idx]))
+            if band_means and np.sum(valid_weights) > 0:
+                weights = torch.tensor(
+                    np.asarray(valid_weights, dtype=np.float32) / np.sum(valid_weights),
+                    device=predictions.device,
+                    dtype=predictions.dtype,
+                )
+                stacked = torch.stack(band_means, dim=1)
+                return torch.sum(stacked * weights.unsqueeze(0), dim=1)
+
+        if self.scalarization_mode == 'sum':
+            return torch.sum(predictions, dim=1)
+
+        return torch.mean(predictions, dim=1)

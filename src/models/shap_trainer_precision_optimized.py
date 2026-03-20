@@ -114,6 +114,7 @@ class PrecisionOptimizedSHAPRegularization:
         model,
         current_main_loss: float,
         order: int = 1,
+        scalarize_fn=None,
     ) -> dict:
         """
         Faithfulness: compare true output change with first-order approximation.
@@ -123,8 +124,12 @@ class PrecisionOptimizedSHAPRegularization:
             order = 1
 
         # Scalarized outputs for a stable, comparable signal
-        pred_mean = torch.mean(predictions, dim=1)
-        baseline_mean = torch.mean(baseline_pred, dim=1)
+        if scalarize_fn is None:
+            pred_mean = torch.mean(predictions, dim=1)
+            baseline_mean = torch.mean(baseline_pred, dim=1)
+        else:
+            pred_mean = scalarize_fn(predictions)
+            baseline_mean = scalarize_fn(baseline_pred)
 
         grad_input = torch.autograd.grad(
             outputs=pred_mean,
