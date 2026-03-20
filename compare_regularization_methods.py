@@ -38,12 +38,29 @@ def load_json(path: Path):
 
 def load_predictions(summary_path: Path, summary: dict):
     saved = summary.get("saved_files", {})
-    pred = np.load(summary_path.parent / saved["predictions"])
-    true = np.load(summary_path.parent / saved["targets_test"])
+    pred_rel = saved.get("predictions")
+    true_rel = saved.get("targets_test")
+    if not pred_rel or not true_rel:
+        return None, None
+
+    pred_path = summary_path.parent / pred_rel
+    true_path = summary_path.parent / true_rel
+    if not pred_path.exists() or not true_path.exists():
+        return None, None
+
+    pred = np.load(pred_path)
+    true = np.load(true_path)
     return np.asarray(pred, dtype=float), np.asarray(true, dtype=float)
 
 
 def compute_smoothness(predictions: np.ndarray, targets: np.ndarray | None = None):
+    if predictions is None:
+        return {
+            "d1_mean_sq": float("nan"),
+            "d2_mean_sq": float("nan"),
+            "d1_error_sq": float("nan"),
+            "d2_error_sq": float("nan"),
+        }
     predictions = np.asarray(predictions, dtype=float)
     if predictions.ndim != 2 or predictions.shape[1] < 3:
         return {
@@ -106,6 +123,9 @@ def collect_methods(method_args):
                 "regularization_share_mean": float(reg.get("regularization_share", {}).get("mean", 0.0)),
                 "shap_contribution_mean": float(reg.get("shap_contribution", {}).get("mean", 0.0)),
                 "tikhonov_contribution_mean": float(reg.get("tikhonov_contribution", {}).get("mean", 0.0)),
+                "nonnegativity_contribution_mean": float(reg.get("nonnegativity_contribution", {}).get("mean", 0.0)),
+                "negative_fraction": float(summary.get("diagnostics", {}).get("prediction_stats", {}).get("negative_fraction", np.nan)),
+                "negative_count": float(summary.get("diagnostics", {}).get("prediction_stats", {}).get("negative_count", np.nan)),
                 "dominant_regularizer": reg.get("dominant_regularizer", "none"),
                 "dominant_shap_component": reg.get("dominant_shap_component", "none"),
             }
@@ -137,7 +157,7 @@ def plot_method_tradeoff(df: pd.DataFrame, output_path: Path):
     panels = [
         (axes[0, 0], "mse", "MSE", COLORS["error"]),
         (axes[0, 1], "r2_weighted", "R² weighted", COLORS["true"]),
-        (axes[1, 0], "d2_error_sq", "Ошибка кривизны (D2 error)", COLORS["accent"]),
+        (axes[1, 0], "negative_fraction", "Доля отрицательных бинов", COLORS["accent"]),
         (axes[1, 1], "training_time_total", "Время обучения, с", COLORS["pred"]),
     ]
     for ax, key, title, color in panels:
@@ -214,12 +234,12 @@ def write_summary(df: pd.DataFrame, output_dir: Path):
     ]
     best_mse = df.loc[df["mse"].idxmin(), "label"]
     best_r2 = df.loc[df["r2_weighted"].idxmax(), "label"]
-    best_smooth = df.loc[df["d2_error_sq"].idxmin(), "label"]
+    best_nonneg = df.loc[df["negative_fraction"].idxmin(), "label"]
     lines.extend(
         [
             f"- Лучший по MSE: `{best_mse}`",
             f"- Лучший по R² weighted: `{best_r2}`",
-            f"- Лучший по совпадению кривизны спектра (D2 error): `{best_smooth}`",
+            f"- Лучший по доле неотрицательных бинов: `{best_nonneg}`",
             "",
             "## Таблица",
             "",

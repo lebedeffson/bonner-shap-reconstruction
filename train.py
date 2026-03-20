@@ -148,9 +148,11 @@ def _summarize_regularization_history(shap_history, shap_config):
     for key in [
         'shap_contribution',
         'tikhonov_contribution',
+        'nonnegativity_contribution',
         'regularization_share',
         'shap_scale_factor',
         'shap_loss_normalized',
+        'nonnegativity_loss',
     ]:
         stats = _stats(shap_history.get(key))
         if stats is not None:
@@ -195,12 +197,15 @@ def _summarize_regularization_history(shap_history, shap_config):
 
     shap_mean = summary.get('shap_contribution', {}).get('mean', 0.0)
     tikh_mean = summary.get('tikhonov_contribution', {}).get('mean', 0.0)
-    if shap_mean > tikh_mean:
-        summary['dominant_regularizer'] = 'shap'
-    elif tikh_mean > shap_mean:
-        summary['dominant_regularizer'] = 'tikhonov'
-    else:
+    nonneg_mean = summary.get('nonnegativity_contribution', {}).get('mean', 0.0)
+    dominant = max(
+        [('shap', shap_mean), ('tikhonov', tikh_mean), ('nonnegativity', nonneg_mean)],
+        key=lambda item: item[1]
+    )
+    if dominant[1] <= 0:
         summary['dominant_regularizer'] = 'balanced'
+    else:
+        summary['dominant_regularizer'] = dominant[0]
 
     return summary
 
@@ -481,24 +486,43 @@ def train_and_save(args):
     timestamp_base = datetime.now().strftime("%Y%m%d_%H%M%S")
     timestamp = f"{timestamp_base}_{args.tag}" if args.tag else timestamp_base
 
+    save_model = bool(output_config.get('save_model', True))
     model_state_path = os.path.join(results_dir, f"anfis_model_state_{timestamp}.pt")
 
-    print(f"\n💾 Сохранение модели: {model_state_path}")
-    torch.save(results['model'].network.state_dict(), model_state_path)
+    if save_model:
+        print(f"\n💾 Сохранение модели: {model_state_path}")
+        torch.save(results['model'].network.state_dict(), model_state_path)
+    else:
+        print("\n💾 Сохранение модели отключено конфигом")
+        model_state_path = None
 
     saved_files = {}
 
     # Сохранение предсказаний и эталонов
-    prediction_stats = {}
-    target_stats = {}
+    predictions_array = np.asarray(results['predictions'], dtype=float)
+    targets_array = np.asarray(y_test_array, dtype=float)
+
+    predictions_array = np.nan_to_num(predictions_array, nan=0.0, posinf=0.0, neginf=0.0)
+    targets_array = np.nan_to_num(targets_array, nan=0.0, posinf=0.0, neginf=0.0)
+
+    prediction_stats = {
+        'mean': float(np.nanmean(predictions_array)),
+        'std': float(np.nanstd(predictions_array)),
+        'min': float(np.nanmin(predictions_array)),
+        'max': float(np.nanmax(predictions_array)),
+        'zero_fraction': float(np.mean(np.isclose(predictions_array, 0.0))),
+        'negative_fraction': float(np.mean(predictions_array < 0.0)),
+        'negative_count': int(np.sum(predictions_array < 0.0)),
+    }
+
+    target_stats = {
+        'mean': float(np.nanmean(targets_array)),
+        'std': float(np.nanstd(targets_array)),
+        'min': float(np.nanmin(targets_array)),
+        'max': float(np.nanmax(targets_array))
+    }
 
     if output_config.get('save_predictions', False):
-        predictions_array = np.asarray(results['predictions'], dtype=float)
-        targets_array = np.asarray(y_test_array, dtype=float)
-
-        predictions_array = np.nan_to_num(predictions_array, nan=0.0, posinf=0.0, neginf=0.0)
-        targets_array = np.nan_to_num(targets_array, nan=0.0, posinf=0.0, neginf=0.0)
-
         predictions_path = os.path.join(results_dir, f"predictions_{timestamp}.npy")
         np.save(predictions_path, predictions_array)
         saved_files['predictions'] = os.path.basename(predictions_path)
@@ -506,21 +530,6 @@ def train_and_save(args):
         targets_test_path = os.path.join(results_dir, f"targets_test_{timestamp}.npy")
         np.save(targets_test_path, targets_array)
         saved_files['targets_test'] = os.path.basename(targets_test_path)
-
-        prediction_stats = {
-            'mean': float(np.nanmean(predictions_array)),
-            'std': float(np.nanstd(predictions_array)),
-            'min': float(np.nanmin(predictions_array)),
-            'max': float(np.nanmax(predictions_array)),
-            'zero_fraction': float(np.mean(np.isclose(predictions_array, 0.0)))
-        }
-
-        target_stats = {
-            'mean': float(np.nanmean(targets_array)),
-            'std': float(np.nanstd(targets_array)),
-            'min': float(np.nanmin(targets_array)),
-            'max': float(np.nanmax(targets_array))
-        }
 
         if 'predictions_denorm' in results:
             predictions_denorm_path = os.path.join(results_dir, f"predictions_denorm_{timestamp}.npy")
@@ -618,7 +627,7 @@ def train_and_save(args):
         'timestamp': timestamp,
         'tag': args.tag,
         'config_path': os.path.abspath(config_path),
-        'model_state': os.path.basename(model_state_path),
+        'model_state': os.path.basename(model_state_path) if model_state_path else None,
         'model_state_path': model_state_path,
         'train_size': int(X_train.shape[0]),  # Синтетические данные для базовой модели
         'shap_train_size': int(X_real_shap_array.shape[0]),  # Реальные данные для SHAP
