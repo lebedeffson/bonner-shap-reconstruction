@@ -1,15 +1,19 @@
 # Method Comparison
 
-Сравнение методов по качеству, гладкости и регуляризации.
+Сравнение методов по качеству, гладкости, регуляризации и доле отрицательных бинов.
 
-- Лучший по MSE: `V2.1 SHAP+Tikh`
-- Лучший по R² weighted: `V2.1 SHAP+Tikh`
+- Лучший по `MSE`: `V2.1 SHAP+Tikh`
+- Лучший по `R² weighted`: `V2.1 SHAP+Tikh`
 - Лучший по доле неотрицательных бинов: `V2.1 SHAP+Tikh`
+- Лучший по `MAE`: `Vanilla`
+- Лучший по `R² mean`: `SHAP-only`
+
+Компактные JSON summaries для всех сравниваемых режимов сохранены в `final_send_package_20260320_v2_1/summaries/`.
 
 ## Таблица
 
 label,summary_path,training_time_total,training_time_shap,mse,rmse,mae,r2_weighted,r2_mean,band_0_19_r2,band_20_39_r2,band_40_59_r2,regularization_share_mean,shap_contribution_mean,tikhonov_contribution_mean,nonnegativity_contribution_mean,negative_fraction,negative_count,dominant_regularizer,dominant_shap_component,d1_mean_sq,d2_mean_sq,d1_error_sq,d2_error_sq
-V2.1 SHAP+Tikh,/home/lebedeffson/Code/bonner-shap-reconstruction/results/training_summary_20260320_062903_v2_1_light_nonneg_20260320.json,231.055145,71.216526,0.010518,0.102556,0.047411,0.838337,0.556426,0.484344,0.678263,0.506669,0.063968,0.000050,0.000351,0.000049,0.112889,508.000000,tikhonov,consistency,0.069640,0.206883,0.008912,0.019164
-SHAP-only,/home/lebedeffson/Code/bonner-shap-reconstruction/results/training_summary_20260319_210638_shap_only_full_20260319.json,189.220366,54.927922,0.010596,0.102935,0.048590,0.837138,0.558447,0.481895,0.675309,0.518137,0.011345,0.000058,0.000000,0.000000,,,shap,consistency,,,,
-Tikhonov-only,/home/lebedeffson/Code/bonner-shap-reconstruction/results/training_summary_20260319_210248_tikhonov_only_full_20260319.json,187.137932,37.383773,0.010630,0.103101,0.048674,0.836615,0.555909,0.472943,0.677606,0.517176,0.058075,0.000000,0.000423,0.000000,,,tikhonov,sparsity,,,,
-Vanilla,/home/lebedeffson/Code/bonner-shap-reconstruction/results/vanilla_full_20260319/training_summary_20260319_202741_vanilla_full_20260319.json,117.587705,0.000000,0.011327,0.106429,0.046521,0.825896,0.549700,0.496667,0.655848,0.496585,0.000000,0.000000,0.000000,0.000000,,,none,none,0.063561,0.189654,0.009004,0.019491
+V2.1 SHAP+Tikh,final_send_package_20260320_v2_1/summaries/training_summary_20260320_062903_v2_1_light_nonneg_20260320.json,231.05514478683472,71.21652626991272,0.0105177072697203,0.1025558738918466,0.0474106598183982,0.8383367066778863,0.5564255056108489,0.4843438714769635,0.6782632419982225,0.5066694033573607,0.0639680546064818,5.0057610062215946e-05,0.0003508216906278,4.865246291506272e-05,0.1128888888888888,508.0,tikhonov,consistency,0.0696400543515254,0.2068828643429451,0.0089117545217994,0.0191643466094678
+SHAP-only,final_send_package_20260320_v2_1/summaries/training_summary_20260319_210638_shap_only_full_20260319.json,189.22036623954773,54.92792248725891,0.0105956650324268,0.1029352467934423,0.0485898995777336,0.8371384504100543,0.5584470339420383,0.4818947208659095,0.6753091746396213,0.5181372063205837,0.011345063385924,5.7599065171226965e-05,0.0,0.0,,,shap,consistency,,,,
+Tikhonov-only,final_send_package_20260320_v2_1/summaries/training_summary_20260319_210248_tikhonov_only_full_20260319.json,187.13793182373047,37.38377285003662,0.0106297481216488,0.1031006698409321,0.0486735018496412,0.8366145734557977,0.5559086242170115,0.472943485239554,0.6776059185027107,0.5171764689087701,0.05807548790531,0.0,0.0004228965174387,0.0,,,tikhonov,sparsity,,,,
+Vanilla,final_send_package_20260320_v2_1/summaries/training_summary_20260319_202741_vanilla_full_20260319.json,117.58770513534546,0.0,0.0113270895030293,0.1064288001578018,0.046521430580051,0.8258960298233556,0.5496999001315808,0.4966673022877009,0.6558477233532641,0.4965846747537775,0.0,0.0,0.0,0.0,,,none,none,0.0635608989969777,0.1896536246717782,0.0090038700559305,0.019491054959031
