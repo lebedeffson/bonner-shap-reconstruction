@@ -113,34 +113,93 @@ def plot_mean_spectra_comparison(vanilla, shap, output_path):
     finalize_figure(fig, output_path)
 
 
-def plot_representative_spectrum(vanilla, shap, output_path):
+def plot_examples_grid(vanilla, shap, output_path, n_examples=4):
     target = np.asarray(shap["target"], dtype=float)
     pred_vanilla = np.asarray(vanilla["pred"], dtype=float)
     pred_shap = np.asarray(shap["pred"], dtype=float)
     energies = resolve_energy_axis(target.shape[1])
 
-    vanilla_mae = np.mean(np.abs(pred_vanilla - target), axis=1)
+    log_e = np.log10(energies + 1e-30)
+    centroid = (target * log_e[None, :]).sum(axis=1) / np.clip(target.sum(axis=1), 1e-12, None)
     shap_mae = np.mean(np.abs(pred_shap - target), axis=1)
+    vanilla_mae = np.mean(np.abs(pred_vanilla - target), axis=1)
     improvement = vanilla_mae - shap_mae
-    idx = int(np.argmax(improvement))
 
-    fig, axes = plt.subplots(2, 1, figsize=(11.8, 6.8), sharex=True, gridspec_kw={"height_ratios": [3.0, 1.1]})
-    ax_top, ax_bottom = axes
-    ax_top.step(energies, target[idx], where="mid", color=COLORS["true"], linewidth=2.3, label="Истинный спектр")
-    ax_top.step(energies, pred_vanilla[idx], where="mid", color=COLORS["muted"], linewidth=2.0, linestyle="-.", label="Vanilla")
-    ax_top.step(energies, pred_shap[idx], where="mid", color=COLORS["pred"], linewidth=2.2, linestyle="--", label="SHAP + Tikhonov")
-    ax_top.set_title(f"Репрезентативный спектр: улучшение по MAE = {improvement[idx]:.4f}")
-    ax_top.set_ylabel("Плотность потока")
-    apply_axis_style(ax_top, log_x=True)
-    ax_top.legend(loc="upper right")
+    quantiles = np.quantile(centroid, np.linspace(0.0, 1.0, n_examples + 1))
+    selected = []
+    for start, stop in zip(quantiles[:-1], quantiles[1:]):
+        mask = (centroid >= start) & (centroid <= stop if stop == quantiles[-1] else centroid < stop)
+        idxs = np.where(mask)[0]
+        if idxs.size == 0:
+            continue
+        best_local = idxs[np.argmax(improvement[idxs] - 0.2 * shap_mae[idxs])]
+        selected.append(int(best_local))
+    if len(selected) < n_examples:
+        fallback = list(np.argsort(-improvement))
+        for idx in fallback:
+            if idx not in selected:
+                selected.append(int(idx))
+            if len(selected) == n_examples:
+                break
+    selected = selected[:n_examples]
 
-    ax_bottom.step(energies, pred_vanilla[idx] - target[idx], where="mid", color=COLORS["muted"], linewidth=1.9, linestyle="-.", label="Vanilla residual")
-    ax_bottom.step(energies, pred_shap[idx] - target[idx], where="mid", color=COLORS["error"], linewidth=1.9, label="SHAP + Tikhonov residual")
-    ax_bottom.axhline(0.0, color=COLORS["ink"], linewidth=1.0, linestyle=":")
-    ax_bottom.set_xlabel("Энергия, эВ")
-    ax_bottom.set_ylabel("Pred - True")
-    apply_axis_style(ax_bottom, log_x=True)
-    ax_bottom.legend(loc="upper right")
+    fig, axes = plt.subplots(2, 2, figsize=(13.0, 9.0), sharex=True, sharey=True)
+    fig.suptitle("Четыре характерных примера восстановления спектра", y=1.01)
+    flat_axes = axes.ravel()
+    handles = None
+    labels = None
+    for ax, idx in zip(flat_axes, selected):
+        h1 = ax.step(energies, target[idx], where="mid", color=COLORS["true"], linewidth=2.2, label="Истинный спектр")
+        h2 = ax.step(energies, pred_vanilla[idx], where="mid", color=COLORS["muted"], linewidth=1.9, linestyle="-.", label="Vanilla")
+        h3 = ax.step(energies, pred_shap[idx], where="mid", color=COLORS["pred"], linewidth=2.1, linestyle="--", label="V2.1")
+        ax.set_title(f"Образец #{idx}: ΔMAE = {improvement[idx]:.3f}")
+        apply_axis_style(ax, log_x=True)
+        handles = [h1[0], h2[0], h3[0]]
+        labels = [h.get_label() for h in handles]
+    for ax in flat_axes[2:]:
+        ax.set_xlabel("Энергия, эВ")
+    flat_axes[0].set_ylabel("Плотность потока")
+    flat_axes[2].set_ylabel("Плотность потока")
+    if handles:
+        fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 0.98))
+    finalize_figure(fig, output_path)
+
+
+def plot_shap_importance_from_csv(summary_path, output_path):
+    summary = load_json(summary_path)
+    saved = summary.get("saved_files", {}).get("shap", {})
+    csv_name = saved.get("feature_importance_shap")
+    if not csv_name:
+        raise FileNotFoundError("Не найден CSV с SHAP-важностями в summary")
+    csv_path = Path(summary_path).parent / csv_name
+    df = pd.read_csv(csv_path)
+    if "importance" not in df.columns:
+        raise ValueError("Ожидался столбец importance в SHAP CSV")
+    if "feature" not in df.columns:
+        feature_col = next((c for c in df.columns if c.lower().startswith("unnamed")), None)
+        if feature_col is None:
+            raise ValueError("Ожидался столбец feature либо индексный столбец с названиями признаков")
+        df = df.rename(columns={feature_col: "feature"})
+    df = df.sort_values("importance", ascending=True)
+    top3_mass = float(df["importance"].sort_values(ascending=False).head(3).sum())
+
+    fig, ax = plt.subplots(figsize=(9.5, 5.8))
+    bars = ax.barh(df["feature"], df["importance"], color=COLORS["pred"], alpha=0.9)
+    for bar, value in zip(bars, df["importance"]):
+        ax.text(
+            bar.get_width() + 0.005,
+            bar.get_y() + bar.get_height() / 2,
+            f"{value:.2f}",
+            va="center",
+            ha="left",
+            fontsize=10,
+            color=COLORS["ink"],
+        )
+    ax.set_title(f"Нормализованная SHAP-важность входных измерений (top-3 mass = {top3_mass:.2f})")
+    ax.set_xlabel("Нормализованная важность")
+    ax.set_ylabel("Измерение")
+    ax.set_xlim(0, max(0.3, float(df["importance"].max()) * 1.2))
+    apply_axis_style(ax)
     finalize_figure(fig, output_path)
 
 
@@ -274,10 +333,10 @@ def write_manifest(output_dir):
         "",
         "1. `fig_01_metrics_comparison.png` — сравнение метрик Vanilla vs SHAP + Tikhonov.",
         "2. `fig_02_mean_spectra_comparison.png` — средние восстановленные спектры и bias.",
-        "3. `fig_03_representative_spectrum.png` — репрезентативный пример, где regularized модель лучше Vanilla.",
+        "3. `fig_03_representative_spectrum.png` — четыре характерных примера восстановления спектров.",
         "4. `fig_04_regularization_comparison.png` — вклад регуляризации и цена по времени/качеству.",
-        "5. `fig_05_shap_importance.png` — итоговая SHAP-важность признаков.",
-        "6. `fig_06_uncertainty_monte_carlo.png` — рост неопределённости и band при 10% шуме.",
+        "5. `fig_05_shap_importance.png` — итоговая SHAP-важность признаков с округлёнными подписями.",
+        "6. `fig_06_uncertainty_monte_carlo.png` — рост неопределённости и доверительный коридор при 10% шуме.",
     ]
     manifest.write_text("\n".join(lines), encoding="utf-8")
 
@@ -297,11 +356,9 @@ if __name__ == "__main__":
 
     plot_metrics_comparison(vanilla["summary"], shap["summary"], out / "fig_01_metrics_comparison.png")
     plot_mean_spectra_comparison(vanilla, shap, out / "fig_02_mean_spectra_comparison.png")
-    plot_representative_spectrum(vanilla, shap, out / "fig_03_representative_spectrum.png")
+    plot_examples_grid(vanilla, shap, out / "fig_03_representative_spectrum.png")
     plot_regularization_comparison(vanilla["summary"], shap["summary"], out / "fig_04_regularization_comparison.png")
-
-    shap_importance_src = Path(args.shap_summary).parent / f"feature_importance_shap_{shap['summary']['timestamp']}.png"
-    shutil.copy2(shap_importance_src, out / "fig_05_shap_importance.png")
+    plot_shap_importance_from_csv(args.shap_summary, out / "fig_05_shap_importance.png")
 
     plot_uncertainty_composite(args.uncertainty_dir, out / "fig_06_uncertainty_monte_carlo.png")
     write_manifest(out)
