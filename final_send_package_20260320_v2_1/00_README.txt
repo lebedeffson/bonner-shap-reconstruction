@@ -9,3 +9,5 @@ Recommended files to send first:
 
 Figures are in ./figures
 Summaries are in ./summaries
+
+TeX sources are in ./tex_sources

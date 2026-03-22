@@ -1,0 +1,490 @@
+\section{Введение}
+
+Многошаровой спектрометр Боннера (МСБ) остаётся одним из наиболее востребованных инструментов для диагностики нейтронных полей, поскольку позволяет восстанавливать энергетические распределения в диапазоне более чем десяти порядков величины: от тепловых энергий до сотен МэВ \cite{chizhov2025tsvd,Compen_IAEA}. Физический принцип работы МСБ основан на регистрации нейтронов детектором тепловых нейтронов, окружённым шарами-замедлителями различного диаметра. Для каждого выбора шара измеряется скорость счёта детектора, и в результате формируется вектор измерений
+\begin{equation}
+\mathbf{Q} = (Q_1,\dots,Q_M)^\top,
+\end{equation}
+связанный с искомым спектром $\phi(E)$ системой интегральных уравнений Фредгольма первого рода
+\begin{equation}
+Q_j = \int_{E_{\min}}^{E_{\max}} R_j(E)\phi(E)\,dE,
+\qquad j=1,\dots,M,
+\end{equation}
+где $R_j(E)$ --- функция чувствительности $j$-го шара-замедлителя.
+
+Из-за широкого диапазона энергий удобно перейти к переменной летаргии $u=\log_{10}(E/E_{\min})$ и искать спектр в форме $\varphi(u)=\phi(u)E(u)$. После дискретизации получаем систему линейных алгебраических уравнений
+\begin{equation}
+\mathbf{A}\boldsymbol{\varphi}=\mathbf{Q}, \qquad \boldsymbol{\varphi}\ge 0,
+\end{equation}
+где плохо обусловленная матрица отклика $\mathbf{A}$ делает задачу некорректно поставленной \cite{chizhov_optimization_2024,Tikhonov1990}. Малые ошибки во входных измерениях $\mathbf{Q}$ могут вызывать паразитные осцилляции и физически некорректные отрицательные значения в восстановленном спектре.
+
+Для решения этой задачи традиционно используются итерационные методы, регуляризация Тихонова, усечённое сингулярное разложение и максимальная энтропия \cite{chizhov2025tsvd,borshchevmaxed2026}. В последние годы активно развиваются и методы машинного обучения для развертки спектров, включая классические нейронные сети, сверточные модели, радиально-базисные сети, байесовские нейросети и объяснимые методы \cite{ortiz2014neutron,bouhadida2023neutron,zhou2025bayesian,chizhov_random_2025}. В данной работе мы используем адаптивную нейро-нечёткую систему вывода (Adaptive Neuro-Fuzzy Inference System, ANFIS), а также дополняем её SHapley Additive exPlanations (SHAP)-регуляризацией и тихоновским штрафом гладкости спектра \cite{Bonneranfis2026}.
+
+Эксперименты проведены для 10-шарового детектора GSF \cite{Compen_IAEA}. На вход модели подаются 10 измерений с различными шарами-замедлителями, то есть скорости счёта детектора при выбранном шаре: без замедлителя, а также для шаров диаметром 2, 3, 5, 6, 8, 10, 12, 15 и 18 дюймов. Подробный математический вывод формул и их соответствие коду вынесены в отдельное техническое приложение, оформленное как supplementary appendix к статье.
+
+\section{Постановка задачи}
+
+Пусть $\mathbf{x} \in \mathbb{R}^{n}$ --- вектор измерений МСБ, то есть скоростей счёта детектора при десяти различных шарах-замедлителях, а $\mathbf{y} \in \mathbb{R}^{m}$ --- дискретизированный энергетический спектр нейтронов. В текущей постановке используются $n=10$ входных измерений и $m=60$ энергетических бинов. Требуется построить отображение
+\begin{equation}
+\hat{\mathbf{y}} = f_{\theta}(\mathbf{x}),
+\end{equation}
+где $f_{\theta}$ --- адаптивная нейро-нечёткая система вывода ANFIS с параметрами $\theta$.
+
+При работе с нормализованными измерениями применяется нормировка по сумме:
+\begin{equation}
+S = \sum_{j=1}^{n} x_j, \qquad \mathbf{x}' = \frac{\mathbf{x}}{S}, \qquad \mathbf{y}' = \frac{\mathbf{y}}{S}.
+\end{equation}
+Инференс и обучение выполняются в нормализованном пространстве, а при необходимости восстановленный спектр денормализуется как
+\begin{equation}
+\hat{\mathbf{y}} = S \hat{\mathbf{y}}'.
+\end{equation}
+
+\section{Модель реконструкции}
+
+Используется ANFIS Sugeno-типа с $R=50$ правилами и гауссовскими функциями принадлежности. Для $r$-го правила имеем
+\begin{equation}
+\text{IF } x_1 \text{ is } A_{r1} \text{ AND } \dots \text{ AND } x_n \text{ is } A_{rn}
+\text{ THEN } \hat{\mathbf{y}}_r = \mathbf{a}_r^{\top}\mathbf{x} + \mathbf{b}_r.
+\end{equation}
+Сила срабатывания правила задаётся произведением функций принадлежности,
+\begin{equation}
+w_r(\mathbf{x}) = \prod_{j=1}^{n} \mu_{rj}(x_j),
+\qquad
+\bar{w}_r(\mathbf{x}) = \frac{w_r(\mathbf{x})}{\sum_{s=1}^{R} w_s(\mathbf{x}) + \varepsilon},
+\end{equation}
+а итоговый выход модели записывается как
+\begin{equation}
+\hat{\mathbf{y}} = \sum_{r=1}^{R} \bar{w}_r(\mathbf{x}) \left(\mathbf{a}_r^{\top}\mathbf{x} + \mathbf{b}_r\right).
+\end{equation}
+
+\section{Двухэтапная схема обучения}
+
+Основная рабочая версия метода использует двухэтапную схему.
+
+На первом этапе выполняется базовая оптимизация параметров модели по среднеквадратичной ошибке:
+\begin{equation}
+\mathcal{L}_{\mathrm{main}} = \frac{1}{Bm} \sum_{i=1}^{B} \sum_{k=1}^{m} (\hat{y}_{ik} - y_{ik})^2.
+\end{equation}
+Это и есть среднеквадратичная ошибка (Mean Squared Error, MSE), усреднённая по батчу и по всем выходным бинам. Для устойчивой инициализации структуры применяется глобальная оптимизация методом роя частиц (Particle Swarm Optimization, PSO).
+
+На втором этапе модель донастраивается на реальных измерениях с SHAP-штрафом интерпретируемости и тихоновским штрафом гладкости спектра. В текущем основном пайплайне 375 реальных измерений делятся в отношении $60\%:20\%:20\%$, что соответствует разбиению $225/75/75$ на обучающую, валидационную и тестовую части. Первая стадия использует 300 объектов для базовой инициализации, а финальная оценка всех версий проводится на одинаковом тестовом наборе из 75 измерений.
+
+\section{SHAP-регуляризация второй стадии}
+
+Во второй стадии используется SHAP-регуляризация. Важно, что в коде реализован не точный перебор всех коалиций признаков, а дифференцируемая proxy-схема, согласованная с текущим многовыходным ANFIS-пайплайном.
+
+\subsection{Градиентная proxy-оценка важности}
+
+Для мини-батча $\mathbf{X} \in \mathbb{R}^{B \times n}$ вводится скаляризованный отклик
+\begin{equation}
+s_i = \frac{1}{m}\sum_{k=1}^{m} \hat{y}_{ik},
+\qquad
+ g_{ij} = \frac{\partial s_i}{\partial x_{ij}},
+\qquad
+u_{ij} = |g_{ij}|\,|x_{ij}|.
+\end{equation}
+После усреднения по батчу получаем вектор важности
+\begin{equation}
+v_j = \frac{1}{B}\sum_{i=1}^{B} u_{ij},
+\qquad
+\tilde{v}_j = \max\!\left(v_j, 10^{-6}\max_{\ell} v_{\ell}\right),
+\qquad
+p_j = \frac{\tilde{v}_j}{\sum_{\ell=1}^{n} \tilde{v}_{\ell} + \varepsilon}.
+\end{equation}
+Вектор $\mathbf{p} = (p_1,\dots,p_n)^\top$ используется как дифференцируемая proxy-оценка глобальной важности входных измерений.
+
+\subsection{Компоненты SHAP-регуляризации}
+
+Итоговый SHAP-штраф задаётся как
+\begin{equation}
+\mathcal{L}_{\mathrm{SHAP}} = w_{\mathrm{cons}} R_{\mathrm{cons}} + w_{\mathrm{spar}} R_{\mathrm{spar}} + w_{\mathrm{faith}} R_{\mathrm{faith}} + w_{\mathrm{stab}} R_{\mathrm{stab}},
+\end{equation}
+где веса $w_{\cdot}$ в основной конфигурации вычисляются адаптивно и нормируются по текущим значениям компонент.
+
+\paragraph{Согласованность.}
+Для батча строится средний входной вектор $\bar{\mathbf{x}}$ и маскирующая reference-оценка $\mathbf{q}$, где $j$-й компонент определяется через замену $j$-го признака на среднее значение по SHAP-обучающей выборке:
+\begin{equation}
+q_j = \frac{\max(\psi_j, 0)}{\sum_{\ell=1}^{n} \max(\psi_{\ell}, 0) + \varepsilon},
+\qquad
+\psi_j = \left|\bar{f}(\bar{\mathbf{x}}) - \bar{f}(\bar{\mathbf{x}}^{(j \leftarrow b_j)})\right|,
+\end{equation}
+где $\bar{f}(\mathbf{x}) = \frac{1}{m}\sum_{k=1}^{m} f_{\theta,k}(\mathbf{x})$. Тогда
+\begin{equation}
+R_{\mathrm{cons}} = \frac{\operatorname{MSE}(\mathbf{p},\mathbf{q}) + \lambda_{\mathrm{JS}} \operatorname{JS}(\mathbf{p}\|\mathbf{q})}{1 + \mathcal{L}_{\mathrm{main}}},
+\qquad \lambda_{\mathrm{JS}} = 0.5.
+\end{equation}
+Здесь верхний индекс $(j \leftarrow b_j)$ означает, что в среднем векторе батча $\bar{\mathbf{x}}$ $j$-й признак заменяется на baseline-значение $b_j$, равное среднему значению этого признака на SHAP-обучающей выборке. Слагаемое $\operatorname{JS}$ --- это дивергенция Йенсена--Шеннона (Jensen--Shannon, JS). Коэффициент $\lambda_{\mathrm{JS}}=0.5$ выбран как симметричный компромисс: он делает JS-член заметным, но не позволяет ему доминировать над квадратическим рассогласованием $\operatorname{MSE}(\mathbf{p},\mathbf{q})$.
+
+\paragraph{Разреженность.}
+Разреженность поощряет концентрацию важности на небольшом наборе каналов:
+\begin{equation}
+H(\mathbf{p}) = -\frac{1}{\log n}\sum_{j=1}^{n} p_j \log(p_j + \varepsilon),
+\end{equation}
+\begin{equation}
+G(\mathbf{p}) = \frac{2\sum_{j=1}^{n} j p_{(j)}}{n\sum_{j=1}^{n} p_{(j)} + \varepsilon} - \frac{n+1}{n},
+\end{equation}
+\begin{equation}
+R_{\mathrm{spar}} = \left(H(\mathbf{p}) + \max(0, G_{\star} - G(\mathbf{p}))^2\right)
+\left(\rho\frac{1}{1 + \mathcal{L}_{\mathrm{main}}} + 1 - \rho\right),
+\end{equation}
+где в основной конфигурации используются $G_{\star}=0.3$ и $\rho=0.7$.
+
+Этот член нужен не только для ``красивой'' интерпретации. Физически у МСБ разные шары имеют различную чувствительность к разным областям энергии, поэтому для конкретной формы спектра обычно существует ограниченное ядро наиболее информативных измерений. Штраф разреженности препятствует размазыванию важности по всем каналам сразу и делает объяснение более устойчивым и физически интерпретируемым.
+
+\paragraph{Достоверность объяснений.}
+Faithfulness сравнивает реальное изменение усреднённого выхода модели с его линейной градиентной аппроксимацией относительно нулевого baseline:
+\begin{equation}
+s_i = \frac{1}{m}\sum_{k=1}^{m}\hat{y}_{ik},
+\qquad
+s_i^{(0)} = \frac{1}{m}\sum_{k=1}^{m} f_{\theta,k}(\mathbf{0}),
+\qquad
+a_i = \sum_{j=1}^{n} g_{ij} x_{ij},
+\end{equation}
+\begin{equation}
+R_{\mathrm{faith}} = \frac{1}{1 + \mathcal{L}_{\mathrm{main}}}
+\cdot
+\frac{1}{B}\sum_{i=1}^{B} \left((s_i - s_i^{(0)}) - a_i\right)^2.
+\end{equation}
+Здесь нулевой baseline --- это не ``плоский спектр'', а нулевой входной вектор нормализованных измерений $\mathbf{0}\in\mathbb{R}^n$. Иными словами, член faithfulness сравнивает реальное изменение среднего выхода модели с его линейной градиентной аппроксимацией относительно нулевых входных счётов.
+
+\paragraph{Стабильность.}
+В текущей реализации стабильность задаётся через внутрибатчевую дисперсию карты важности:
+\begin{equation}
+\bar{u}_j = \frac{1}{B}\sum_{i=1}^{B} u_{ij},
+\qquad
+R_{\mathrm{stab}} = \frac{1}{1 + \mathcal{L}_{\mathrm{main}}}
+\cdot
+\frac{1}{Bn}\sum_{i=1}^{B}\sum_{j=1}^{n}(u_{ij} - \bar{u}_j)^2.
+\end{equation}
+
+\subsection{Адаптивная балансировка SHAP-члена}
+
+Чтобы SHAP-регуляризация не доминировала над основной задачей, в коде используются экспоненциальное скользящее среднее (Exponential Moving Average, EMA) основной ошибки $M_t$, целевое отношение SHAP/main и мягкое расписание внешнего коэффициента $\gamma_t$:
+\begin{equation}
+M_t = 0.9 M_{t-1} + 0.1\mathcal{L}_{\mathrm{main}}^{(t)},
+\qquad
+\eta_t = \eta_0(0.5 + 0.5p_t),
+\qquad
+\eta_0 = 0.4,
+\end{equation}
+где $p_t = t/T$ --- относительный прогресс по эпохам второй стадии. Нормированный SHAP-член имеет вид
+\begin{equation}
+\widetilde{\mathcal{L}}_{\mathrm{SHAP}}^{(t)} = c_t s_t \mathcal{L}_{\mathrm{SHAP}}^{(t)},
+\end{equation}
+где множитель $s_t$ удерживает отношение SHAP/main в целевом диапазоне, а $c_t \ge 0.25$ замедляет давление SHAP при отсутствии улучшения основной ошибки. Внешний коэффициент задаётся расписанием
+\begin{equation}
+\gamma_t =
+\begin{cases}
+\gamma_{\mathrm{start}} + (\gamma_{\mathrm{end}} - \gamma_{\mathrm{start}})\dfrac{p_t}{r_{\mathrm{warm}}}, & p_t < r_{\mathrm{warm}},\\[8pt]
+\gamma_{\mathrm{end}}, & p_t \ge r_{\mathrm{warm}},
+\end{cases}
+\end{equation}
+где $\gamma_{\mathrm{start}}=0.02$, $\gamma_{\mathrm{end}}=0.10$, $r_{\mathrm{warm}}=0.5$.
+
+\section{Тихоновская регуляризация гладкости спектра и неотрицательность}
+
+Для подавления нефизичных локальных осцилляций по энергетической оси в V2 используется тихоновская регуляризация второго порядка в логарифмической шкале энергии. Обозначим $\xi_k=\log E_k$. Для одного предсказанного спектра $\hat{\mathbf{y}}_i$ вводится оператор
+\begin{equation}
+\left(D^{\log}_2\hat{\mathbf{y}}_i\right)_k =
+\frac{\hat{y}_{i,k+2}-\hat{y}_{i,k+1}}{\Delta \xi_{k+1}}
+-
+\frac{\hat{y}_{i,k+1}-\hat{y}_{i,k}}{\Delta \xi_k},
+\qquad k=1,\dots,m-2,
+\end{equation}
+где
+\begin{equation}
+\Delta \xi_k = \xi_{k+1}-\xi_k
+\end{equation}
+--- шаг логарифмической энергетической сетки между соседними бинами. Соответствующий штраф по батчу записывается как
+\begin{equation}
+R_{\mathrm{Tikh}} = \frac{1}{B(m-2)}\sum_{i=1}^{B}\sum_{k=1}^{m-2}
+\left(
+\frac{\hat{y}_{i,k+2}-\hat{y}_{i,k+1}}{\Delta \xi_{k+1}}
+-
+\frac{\hat{y}_{i,k+1}-\hat{y}_{i,k}}{\Delta \xi_k}
+\right)^2.
+\end{equation}
+
+Для дополнительного подавления нефизичных отрицательных значений в текущей основной версии V2.1 используется гибридный мягкий штраф. Обозначим отрицательную часть предсказания
+\begin{equation}
+n_{ik} = \max(0,-\hat{y}_{ik}).
+\end{equation}
+Тогда квадратичная относительная отрицательная масса записывается как
+\begin{equation}
+R_{\mathrm{mass}} =
+\frac{1}{B}\sum_{i=1}^{B}
+\frac{\sum_{k=1}^{m} n_{ik}^{2}}{\sum_{k=1}^{m}|\hat{y}_{ik}|^{2}+\varepsilon},
+\end{equation}
+а мягкая ``доля отрицательных бинов'' задаётся выражением
+\begin{equation}
+R_{\mathrm{soft}} =
+\frac{1}{B}\sum_{i=1}^{B}\frac{1}{m}\sum_{k=1}^{m}
+\frac{n_{ik}}{n_{ik}+\tau},
+\qquad \tau = 0.012.
+\end{equation}
+Итоговый гибридный член определяется как выпуклая комбинация
+\begin{equation}
+R_{+}^{\mathrm{hyb}} = (1-\beta)R_{\mathrm{mass}} + \beta R_{\mathrm{soft}},
+\qquad \beta = 0.28.
+\end{equation}
+Во внешнем функционале второй стадии используется
+\begin{equation}
+\mathcal{L}_{\mathrm{total}}^{(t)} = \mathcal{L}_{\mathrm{main}}^{(t)} + \gamma_t \widetilde{\mathcal{L}}_{\mathrm{SHAP}}^{(t)} + \lambda_{\mathrm{Tikh}} R_{\mathrm{Tikh}}^{(t)} + \lambda_{+}R_{+}^{\mathrm{hyb},(t)},
+\qquad
+\lambda_{\mathrm{Tikh}} = 10^{-3},
+\qquad
+\lambda_{+}=3.8\cdot 10^{-3}.
+\end{equation}
+Таким образом, итоговая модель реализует компромисс между точностью восстановления, интерпретируемостью входных каналов и физически правдоподобной гладкостью спектра.
+
+\section{Практическая реализация}
+
+Кодовая база поддерживает конфигурируемый выбор входных и выходных колонок через параметры \texttt{feature\_columns}, \texttt{target\_columns}, \texttt{feature\_prefix}/\texttt{feature\_count}, \texttt{target\_prefix}/\texttt{target\_count}, а также через индексные диапазоны и регулярные выражения. Это позволяет переносить тот же пайплайн на другие спектрометры и другие схемы дискретизации без модификации логики загрузчика данных.
+
+Для практического применения подготовлены два сервисных сценария: инференс обученной модели по заданному вектору измерений с сохранением восстановленного спектра в виде массива и рисунка, а также Monte Carlo-анализ чувствительности к шумам входных каналов. Поскольку инференс реализован через стандартный тензорный forward-pass PyTorch, модель в принципе может быть экспортирована и в формат ONNX; в текущем репозитории основным артефактом остаётся checkpoint PyTorch, а ONNX-экспорт рассматривается как инженерный deployment-шаг.
+
+\section{Экспериментальные результаты}
+
+\subsection{Сравнение режимов регуляризации}
+
+Чтобы понять реальную роль каждой регуляризации, были отдельно обучены четыре полные версии на одном и том же тестовом наборе из 75 измерений: \textit{Vanilla ANFIS}, \textit{Tikhonov-only}, \textit{SHAP-only} и текущая основная версия \textit{V2.1 SHAP + Tikhonov + Hybrid Nonnegativity}. Сравнение итоговых метрик приведено в табл.~\ref{tab:metrics-comparison}. Здесь RMSE --- корень из среднеквадратичной ошибки (Root Mean Squared Error), а MAE --- средняя абсолютная ошибка (Mean Absolute Error).
+
+\begin{table}[htbp]
+\centering
+\small
+\resizebox{\linewidth}{!}{
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+Метрика & Vanilla & Tikhonov-only & SHAP-only & V2.1 SHAP + Tikhonov \\
+\hline
+MSE & 0.0113 & 0.0106 & 0.0106 & \textbf{0.0105} \\
+RMSE & 0.106 & 0.103 & 0.103 & \textbf{0.103} \\
+MAE & \textbf{0.0465} & 0.0487 & 0.0486 & 0.0474 \\
+$R^2_{\mathrm{weighted}}$ & 0.826 & 0.837 & 0.837 & \textbf{0.838} \\
+$R^2_{\mathrm{mean}}$ & 0.550 & 0.556 & \textbf{0.558} & 0.556 \\
+\hline
+\end{tabular}}
+\caption{Полное сравнение режимов регуляризации на одинаковом тестовом наборе. Для компактности числа округлены.}
+\label{tab:metrics-comparison}
+\end{table}
+
+Новая версия V2.1 становится лучшей по \textit{MSE}, \textit{RMSE} и $R^2_{\mathrm{weighted}}$ на основном real-test наборе. При этом \textit{Vanilla} всё ещё даёт минимальный \textit{MAE}, а \textit{SHAP-only} сохраняет небольшое преимущество по $R^2_{\mathrm{mean}}$. Поэтому комбинированная версия не является безусловным победителем по каждому отдельному критерию, но выступает как наиболее сильный общий компромисс между точностью, физической гладкостью и контролем отрицательных значений.
+
+Отдельно важно сравнить V2.1 с предыдущей официальной V2-конфигурацией. Переход к гибридной nonnegativity-регуляризации улучшает четыре из пяти ключевых метрик:
+\begin{equation}
+\operatorname{MSE}: 0.01056393 \rightarrow 0.01051771,\qquad
+\operatorname{RMSE}: 0.10278100 \rightarrow 0.10255587,
+\end{equation}
+\begin{equation}
+\operatorname{MAE}: 0.04741353 \rightarrow 0.04741066,\qquad
+R^2_{\mathrm{weighted}}: 0.83762617 \rightarrow 0.83833671,
+\end{equation}
+одновременно снижая долю отрицательных бинов
+\begin{equation}
+\mathrm{negative\_fraction}: 0.1942 \rightarrow 0.1129.
+\end{equation}
+Единственный небольшой компромисс связан с усреднённым по бинам $R^2_{\mathrm{mean}}$, который меняется с $0.55768$ до $0.55643$.
+
+По энергетическим диапазонам V2.1 показывает $R^2=0.48$ на бинах $[0,19]$, $0.68$ на бинах $[20,39]$ и $0.51$ на бинах $[40,59]$. \textit{Vanilla} остаётся чуть сильнее в низкоэнергетической области, \textit{SHAP-only} --- в высокоэнергетической, а V2.1 даёт наилучший результат в среднем диапазоне и наиболее сбалансированное поведение по всему спектру. Это согласуется с физической интуицией: разные priors по-разному помогают в разных диапазонах энергии, и именно поэтому комбинированная схема оказывается полезной.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.97\linewidth]{results/method_comparison_20260320_v2_1/fig_method_tradeoff.png}
+\caption{Сравнение четырёх режимов по качеству, доле отрицательных бинов и вычислительной цене.}
+\label{fig:method-tradeoff}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{results/method_comparison_20260320_v2_1/fig_band_quality.png}
+\caption{Сравнение качества по трём диапазонам энергетических бинов.}
+\label{fig:band-quality}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.97\linewidth]{results/final_figures_20260320_v2_1/fig_03_representative_spectrum.png}
+\caption{Четыре характерных примера спектров из тестового набора. В каждом случае V2.1 даёт более гладкое и физически правдоподобное восстановление, сохраняя близость к истинному спектру.}
+\label{fig:representative-spectrum}
+\end{figure}
+
+\subsection{Вклад регуляризации и интерпретируемость}
+
+Для основного запуска \texttt{v2\_1\_light\_nonneg\_20260320} средние вклады регуляризаторов в полный функционал составили
+\begin{equation}
+\mathbb{E}\bigl[\gamma_t \widetilde{\mathcal{L}}_{\mathrm{SHAP}}^{(t)}\bigr] = 5.01 \cdot 10^{-5},
+\qquad
+\mathbb{E}\bigl[\lambda_{\mathrm{Tikh}} R_{\mathrm{Tikh}}^{(t)}\bigr] = 3.51 \cdot 10^{-4},
+\qquad
+\mathbb{E}\bigl[\lambda_{+} R_{+}^{\mathrm{hyb},(t)}\bigr] = 4.87 \cdot 10^{-5},
+\end{equation}
+а средняя доля регуляризации в полном loss достигла
+\begin{equation}
+\mathbb{E}\left[
+\frac{\gamma_t \widetilde{\mathcal{L}}_{\mathrm{SHAP}}^{(t)} + \lambda_{\mathrm{Tikh}}R_{\mathrm{Tikh}}^{(t)} + \lambda_{+}R_{+}^{\mathrm{hyb},(t)}}{\mathcal{L}_{\mathrm{total}}^{(t)}}
+\right]
+= 0.0640.
+\end{equation}
+Доминирующим внешним регуляризатором остаётся Tikhonov-член, что естественно для задачи подавления локальной кривизны спектра. При этом SHAP-вклад остаётся заметным, а гибридный nonnegativity-член уже перестаёт быть символическим: по сравнению с официальной V2 его средний вклад вырос примерно с $2.69\cdot 10^{-5}$ до $4.87\cdot 10^{-5}$, и именно это сопровождается резким уменьшением доли отрицательных бинов.
+
+Адаптивная схема весов выравнивает не сами сырые коэффициенты компонент, а их эффективные взвешенные сигналы. Для \textit{consistency}, \textit{sparsity}, \textit{faithfulness} и \textit{stability} в V2.1 получены средние сигналы порядка $2.30\cdot10^{-4}$, $1.94\cdot10^{-4}$, $2.03\cdot10^{-4}$ и $2.00\cdot10^{-4}$ соответственно. Поэтому каждый компонент участвует в формировании итогового SHAP-штрафа содержательно, а не добавлен в модель формально.
+
+Отдельный reduced ablation для сильного SHAP-режима показывает, что не все компоненты одинаково критичны. Удаление \textit{sparsity} сильнее всего ухудшает качество ($R^2_{\mathrm{weighted}}: 0.5133 \rightarrow 0.5115$).
+
+Удаление \textit{consistency} почти не меняет accuracy, но делает карту важности заметно более схлопнутой: доля top-3 каналов растёт с $0.600$ до $0.662$, а энтропия падает с $0.886$ до $0.847$. Поэтому \textit{sparsity} и \textit{consistency} можно интерпретировать как ядро SHAP-регуляризации, тогда как \textit{faithfulness} и \textit{stability} играют вспомогательную роль.
+
+Нормализованная глобальная SHAP-важность образует распределение с единичной суммой. Пять наиболее значимых входных каналов имеют веса
+\begin{equation}
+Q3 = 0.26,\qquad
+Q5 = 0.21,\qquad
+Q6 = 0.14,\qquad
+Q4 = 0.10,\qquad
+Q1 = 0.08.
+\end{equation}
+Это подтверждает, что модель выделяет устойчивое ядро информативных детекторов, а не размывает важность равномерно по всем 10 входным измерениям.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.97\linewidth]{results/final_figures_20260320_v2_1/fig_04_regularization_comparison.png}
+\caption{Сравнение регуляризационного вклада и цены по качеству между Vanilla и основной версией V2.1.}
+\label{fig:regularization-comparison}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/final_figures_20260320_v2_1/fig_05_shap_importance.png}
+\caption{Итоговая нормализованная SHAP-важность входных измерений для основной версии V2.1. Значения на диаграмме округлены до двух знаков после запятой.}
+\label{fig:shap-importance}
+\end{figure}
+
+\subsection{Monte Carlo-анализ устойчивости}
+
+Для основной версии V2.1 был проведён Monte Carlo-анализ на репрезентативном входном векторе с $T=1000$ прогонами и относительным гауссовым шумом $0.5\%$, $1\%$, $2\%$, $5\%$ и $10\%$ на входных каналах. С ростом уровня шума средняя неопределённость восстановленного спектра возрастает монотонно:
+\begin{equation}
+\operatorname{mean\_std} = 3.95\cdot 10^{-5},\ 7.90\cdot 10^{-5},\ 1.58\cdot 10^{-4},\ 3.96\cdot 10^{-4},\ 7.77\cdot 10^{-4},
+\end{equation}
+а максимальная неопределённость по бинам увеличивается от
+\begin{equation}
+2.15\cdot 10^{-4} \quad \text{при } 0.5\% \text{ шуме}
+\end{equation}
+до
+\begin{equation}
+4.16\cdot 10^{-3} \quad \text{при } 10\% \text{ шуме}.
+\end{equation}
+Коэффициент вариации также растёт гладко, достигая $0.0417$ при $10\%$ шуме. Таким образом, модель сохраняет контролируемую устойчивость даже при существенном ухудшении точности входных измерений.
+
+Однако ещё важнее межмодельное сравнение на одинаковых 75 реальных тестовых измерениях при $300$ Monte Carlo-прогонах на каждый уровень шума. Здесь минимальную чувствительность к входному шуму по-прежнему показывает \textit{Vanilla ANFIS}: при $10\%$ шуме получено $\operatorname{mean\_std}=9.94\cdot10^{-4}$ и $\operatorname{max\_std}=9.70\cdot10^{-2}$. Для regularized-версий эти величины выше: $1.2167\cdot10^{-3}$ и $1.2520\cdot10^{-1}$ у \textit{Tikhonov-only}, $1.2266\cdot10^{-3}$ и $1.2837\cdot10^{-1}$ у \textit{SHAP-only}, $1.2165\cdot10^{-3}$ и $1.2767\cdot10^{-1}$ у \textit{V2.1 SHAP + Tikhonov}. Следовательно, V2.1 заметно устойчивее, чем \textit{SHAP-only}, практически совпадает с \textit{Tikhonov-only} по среднему уровню неопределённости, но всё ещё уступает \textit{Vanilla} по робастности к входному шуму. Иными словами, модель устойчива, но за это мы всё ещё платим умеренным проигрышем по noise-robustness относительно чистой базовой версии.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.97\linewidth]{results/final_figures_20260320_v2_1/fig_06_uncertainty_monte_carlo.png}
+\caption{Monte Carlo-оценка устойчивости основной версии V2.1: рост неопределённости реконструкции и доверительный коридор для случая 10\% шума.}
+\label{fig:uncertainty-monte-carlo}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.97\linewidth]{results/method_comparison_20260320_v2_1/fig_uncertainty_methods.png}
+\caption{Сравнение Monte Carlo-устойчивости всех полных режимов на одинаковом наборе real-test измерений.}
+\label{fig:uncertainty-methods}
+\end{figure}
+
+\subsection{Дозовая функциональная метрика}
+
+Для прикладных задач радиационной защиты полезно дополнительно оценивать не только побиновые ошибки, но и расхождение в интегральной дозовой характеристике. Если $h_k$ --- коэффициенты перевода флюенса в дозу для соответствующих энергетических бинов \cite{ICRP116}, то для $i$-го спектра можно ввести
+\begin{equation}
+D_i = \sum_{k=1}^{m} h_k y_{ik},
+\qquad
+\hat{D}_i = \sum_{k=1}^{m} h_k \hat{y}_{ik},
+\end{equation}
+и среднюю по выборке относительную разность доз
+\begin{equation}
+\delta_D = \frac{1}{N}\sum_{i=1}^{N}\frac{|\hat{D}_i-D_i|}{D_i+\varepsilon}.
+\end{equation}
+В текущем репозитории коэффициенты ICRP-116 не включены как отдельный табличный файл, поэтому в статье мы ограничиваемся формулой этой метрики и используем её как следующий естественный шаг прикладной валидации.
+
+\section{Пределы применимости и направления улучшения}
+
+С практической точки зрения обе регуляризации разумно применять для спектров, полученных тем же спектрометром и в той же схеме признаков, что использовалась при обучении. Tikhonov-член кодирует физически осмысленный prior гладкости по энергии и потому переносится на реальные измерения достаточно естественно.
+
+SHAP-регуляризация более чувствительна к домену данных, так как формирует предпочтительную структуру важности каналов. Поэтому её лучше рассматривать как вспомогательный, а не доминирующий prior.
+
+Даже после перехода к гибридному nonnegativity-члену на held-out real-test наборе остаётся заметная доля отрицательных бинов: у текущей основной версии это около $11.3\%$ всех значений. Это уже существенно лучше предыдущей official V2-конфигурации ($19.4\%$), но всё ещё далеко от физически идеального поведения, так что перед переходом к широкому применению на настоящих спектрах желательно дожать неотрицательность жёстче.
+
+С математической точки зрения следующими естественными улучшениями выглядят три направления.
+
+\paragraph{Неотрицательная параметризация выхода.}
+Самый прямой путь к физически корректному спектру --- заменить штраф только на уровне loss более жёстким ограничением в самой параметризации выхода, например через
+\begin{equation}
+\hat{y}_{ik} = \operatorname{softplus}(z_{ik})
+\quad \text{или} \quad
+\hat{y}_{ik} = z_{ik}^{2}.
+\end{equation}
+Тогда отрицательные значения будут исключены конструктивно, а не только штрафоваться постфактум.
+
+\paragraph{Энергетически зависимые веса регуляризации.}
+Сейчас Tikhonov- и nonnegativity-члены действуют глобально по всему спектру. Более гибким вариантом может быть
+\begin{equation}
+\mathcal{L}_{\mathrm{reg}} =
+\sum_{b=1}^{B_{\mathrm{band}}}
+\lambda_b^{(\mathrm{Tikh})} R_{\mathrm{Tikh}}^{(b)}
++
+\sum_{b=1}^{B_{\mathrm{band}}}
+\lambda_b^{(+)} R_{+}^{(b)},
+\end{equation}
+где коэффициенты $\lambda_b$ различаются по диапазонам энергии. Это особенно уместно, если мы хотим сильнее давить отрицательность или локальную кривизну только в определённых областях спектра.
+
+\paragraph{Адаптивные band-weights в SHAP-скаляризации.}
+Текущая версия использует равные веса $(1/3,1/3,1/3)$ для трёх диапазонов энергии. Следующим шагом может быть либо физически мотивированный выбор весов, либо их адаптация в процессе обучения:
+\begin{equation}
+s_i^{(\alpha)} =
+\sum_{b=1}^{3}
+\alpha_b
+\frac{1}{|I_b|}
+\sum_{k\in I_b}\hat{y}_{ik},
+\qquad
+\alpha_b \ge 0,\qquad \sum_b \alpha_b = 1.
+\end{equation}
+Это позволит точнее балансировать explainability-prior между тепловой, промежуточной и быстрой областями спектра.
+
+\section{Выводы}
+
+Полученные результаты показывают, что универсального победителя по всем критериям здесь по-прежнему нет, однако текущая версия V2.1 стала наиболее сильным общим компромиссом. Она даёт лучшие значения \textit{MSE}, \textit{RMSE} и $R^2_{\mathrm{weighted}}$ на основном real-test наборе, существенно уменьшает долю отрицательных бинов относительно предыдущей official V2-конфигурации и сохраняет физически мотивированный prior гладкости по энергии.
+
+При этом честная интерпретация остаётся важной. \textit{Vanilla ANFIS} всё ещё выигрывает по \textit{MAE} и по устойчивости к входному шуму. \textit{SHAP-only} остаётся лучшей конфигурацией по $R^2_{\mathrm{mean}}$. \textit{Tikhonov-only} остаётся наиболее робастным среди regularized-вариантов. Поэтому SHAP и Tikhonov в нашей схеме нужны не ``просто так'', а как два разных priors: SHAP сильнее помогает качеству и структуре объяснений, Tikhonov --- гладкости и робастности, а гибридная nonnegativity-регуляризация делает связку заметно ближе к физически правдоподобному спектру.
+
+\begin{thebibliography}{99}
+
+\bibitem{chizhov2025tsvd}
+Chizhov A., Chizhov K. TSVD-based neutron spectra unfolding by Bonner multi-sphere spectrometer readings with iteration procedure // The International Conference ``Distributed Computing and Grid-technologies in Science and Education''. 2025.
+
+\bibitem{Compen_IAEA}
+Compendium of Neutron Spectra and Detector Responses for Radiation Protection Purposes. Technical Reports Series No. 403. Vienna: International Atomic Energy Agency, 2001.
+
+\bibitem{chizhov_optimization_2024}
+Chizhov K., Chizhov A. Optimization of the Neutron Spectrum Unfolding Algorithm Based on Tikhonov Regularization and Shifted Legendre Polynomials // MMCP 2024. 2024. P. 74.
+
+\bibitem{Tikhonov1990}
+Tikhonov A.N., Goncharsky A.V., Stepanov V.V., Yagola A.G. Numerical Methods for Solving Ill-Posed Problems. Moscow: Nauka, 1990.
+
+\bibitem{borshchevmaxed2026}
+Borshchev D., Akimochkina M., Chizhov K. A hybrid method for neutron spectrum unfolding based on Tikhonov regularization and the MAXED algorithm. 2026.
+
+\bibitem{ortiz2014neutron}
+Ortiz-Rodriguez J.M., Alfaro A. Reyes, Haro A. Reyes et al. A neutron spectrum unfolding computer code based on artificial neural networks // Radiation Physics and Chemistry. 2014. Vol. 95. P. 428--431.
+
+\bibitem{bouhadida2023neutron}
+Bouhadida M., Mazzi A., Brovchenko M. et al. Neutron spectrum unfolding using two architectures of convolutional neural networks // Nuclear Engineering and Technology. 2023. Vol. 55. No. 6. P. 2276--2282.
+
+\bibitem{zhou2025bayesian}
+Zhou B., Hu Z., Zhong M. et al. Bayesian Neural Networks for the Neutron Spectrum Unfolding in the EAST Tokamak // IEEE Transactions on Instrumentation and Measurement. 2025.
+
+\bibitem{chizhov_random_2025}
+Chizhov K. Random forest regression and Shapley additive explanation for effective dose rate estimation in high-energy neutron fields based on Bonner spectrometer measurements // Industry 4.0. 2025.
+
+\bibitem{Bonneranfis2026}
+Chizhov K., Lebedev A.D., Trofimov Yu.V., Ilyin A.S., Lebedev M.D. Interpretable neutron spectrum reconstruction based on two-stage ANFIS learning with SHAP regularization // 33rd International Conference ``Mathematics. Computer. Education''. 2026.
+
+\bibitem{ICRP116}
+Petoussi-Henss N. et al. Conversion coefficients for radiological protection quantities for external radiation exposures // Annals of the ICRP. 2010. Vol. 40. No. 2--5. P. 1--257.
+
+\end{thebibliography}
