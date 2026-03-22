@@ -8,6 +8,10 @@ This package contains the current main `V2.1 ANFIS + SHAP + log-energy-aware Tik
 - Main run tag: `v2_1_light_nonneg_20260320`
 
 ## Main Artifacts
+- TeX sources:
+  - `tex_sources/article_math.tex`
+  - `tex_sources/article_math_full.tex`
+  - `tex_sources/math.tex`
 - Main article PDF:
   - `01_article_full.pdf`
 - Technical appendix PDF:
