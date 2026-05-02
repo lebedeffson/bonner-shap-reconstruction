@@ -5,6 +5,8 @@ import argparse
 import json
 import os
 import sys
+import copy
+import hashlib
 from pathlib import Path
 from datetime import datetime
 
@@ -12,6 +14,7 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
+from sklearn.ensemble import ExtraTreesRegressor
 
 # Добавляем путь к модулям
 sys.path.insert(0, str(Path(__file__).parent))
@@ -28,11 +31,6 @@ from src.utils.data_loader import (
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
-ENERGY_BANDS = [
-    ("band_0_19", slice(0, 20)),
-    ("band_20_39", slice(20, 40)),
-    ("band_40_59", slice(40, 60)),
-]
 REAL_TEST_FRACTION = 0.2
 REAL_VALIDATION_FRACTION_OF_TEMP = 0.25
 REAL_DATA_SPLIT = {
@@ -99,6 +97,28 @@ def _compute_band_metrics(y_true, y_pred, bands):
             'r2': float(r2)
         }
     return metrics
+
+
+def _resolve_output_bands(n_outputs):
+    n_outputs = int(n_outputs)
+    if n_outputs <= 0:
+        return []
+    if n_outputs == 60:
+        return [
+            ("band_0_19", slice(0, 20)),
+            ("band_20_39", slice(20, 40)),
+            ("band_40_59", slice(40, 60)),
+        ]
+    if n_outputs <= 3:
+        return [("all_outputs", slice(0, n_outputs))]
+
+    step = max(n_outputs // 3, 1)
+    bands = [
+        ("band_0", slice(0, step)),
+        ("band_1", slice(step, min(2 * step, n_outputs))),
+        ("band_2", slice(min(2 * step, n_outputs), n_outputs)),
+    ]
+    return [(name, sl) for name, sl in bands if sl.stop > sl.start]
 
 
 def _prepare_feature_importance(values, feature_names, *, normalize=False):
@@ -247,6 +267,11 @@ def train_and_save(args):
     config_path = args.config
     print(f"\n⚙️  Конфигурация: {config_path}")
     config = load_config(config_path)
+    config_text = Path(config_path).read_text(encoding="utf-8")
+    config_sha256 = hashlib.sha256(config_text.encode("utf-8")).hexdigest()
+    effective_config_sha256 = hashlib.sha256(
+        json.dumps(_to_serializable(config), ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     dataset_config = config['dataset']
     normalize_sum = dataset_config.get('normalize_sum', False)
 
@@ -261,6 +286,7 @@ def train_and_save(args):
     # В проекте поддерживается только основной двухэтапный режим:
     # vanilla PSO на train-данных -> SHAP + Tikhonov fine-tune на real train split.
     shap_config = config.get('shap_reg', {})
+    run_meta = config.get('_run_meta', {})
     if shap_config.get('integrated_training', False):
         raise ValueError(
             "integrated_training больше не поддерживается в текущем train.py. "
@@ -374,6 +400,25 @@ def train_and_save(args):
     if hasattr(X_train, 'columns'):
         manager.set_feature_names(X_train.columns)
     results = manager.train_vanilla_model(X_train_array, y_train_array, X_real_val_array, y_real_val_array)
+
+    # Сохраняем веса vanilla-этапа, чтобы откатиться при деградации после SHAP.
+    vanilla_state_dict = None
+    if hasattr(results.get('model'), 'network') and results['model'].network is not None:
+        vanilla_state_dict = copy.deepcopy(results['model'].network.state_dict())
+
+    # Базовые метрики vanilla на финальном test (20% real test) для сравнения с SHAP.
+    X_real_test_array = np.array(X_real_test) if not isinstance(X_real_test, np.ndarray) else X_real_test
+    y_real_test_array = np.array(y_real_test) if not isinstance(y_real_test, np.ndarray) else y_real_test
+    X_real_test_array = np.nan_to_num(X_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
+    y_real_test_array = np.nan_to_num(y_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
+
+    vanilla_test_predictions = results['model'].predict(X_real_test_array)
+    vanilla_test_predictions = manager._sanitize_predictions(
+        vanilla_test_predictions,
+        reference_shape=y_real_test_array.shape,
+        context="vanilla_final_test"
+    )
+    vanilla_test_metrics = manager._calculate_metrics(y_real_test_array, vanilla_test_predictions)
     
     print("\n🧭 Этап 2: SHAP-регуляризация с улучшенной регуляризацией (4 компонента)...")
     
@@ -400,24 +445,51 @@ def train_and_save(args):
         gamma=shap_config.get('gamma', 0.5),
         verbose=True
     )
+
+    teacher_targets_train = None
+    teacher_cfg = shap_config.get('teacher_distill', {})
+    if teacher_cfg.get('enabled', False):
+        n_estimators = int(teacher_cfg.get('n_estimators', 600))
+        random_state = int(teacher_cfg.get('random_state', dataset_config.get('random_state', 42)))
+        min_samples_leaf = int(teacher_cfg.get('min_samples_leaf', 1))
+        max_depth = teacher_cfg.get('max_depth', None)
+        if max_depth is not None:
+            max_depth = int(max_depth)
+        print(
+            f"   ▶️ Teacher distillation: ExtraTrees(n_estimators={n_estimators}, "
+            f"min_samples_leaf={min_samples_leaf}, max_depth={max_depth})"
+        )
+        teacher_model = ExtraTreesRegressor(
+            n_estimators=n_estimators,
+            random_state=random_state,
+            n_jobs=-1,
+            min_samples_leaf=min_samples_leaf,
+            max_depth=max_depth,
+        )
+        teacher_model.fit(shap_X_train, shap_y_train)
+        teacher_targets_train = teacher_model.predict(shap_X_train)
+        teacher_val_pred = teacher_model.predict(X_real_val_array)
+        teacher_val_metrics = manager._calculate_metrics(y_real_val_array, teacher_val_pred)
+        print(
+            f"   ▶️ Teacher val R²: {teacher_val_metrics.get('r2', float('nan')):.6f} "
+            f"(для ориентира SHAP-stage)"
+        )
     
     shap_history = shap_trainer.fit(
         shap_X_train,
         shap_y_train,
         epochs=shap_config.get('epochs', 25),
         batch_size=shap_config.get('batch_size', 32),
-        lr=shap_config.get('lr', 0.003)
+        lr=shap_config.get('lr', 0.003),
+        X_val=X_real_val_array,
+        y_val=y_real_val_array,
+        y_teacher_train=teacher_targets_train,
     )
     
     results['shap_history'] = shap_history
     
     # Тестирование на ВСЕХ реальных данных
     print("\n🧪 Финальное тестирование на ВСЕХ реальных данных...")
-    # Преобразуем все реальные данные для финального теста
-    X_real_test_array = np.array(X_real_test) if not isinstance(X_real_test, np.ndarray) else X_real_test
-    y_real_test_array = np.array(y_real_test) if not isinstance(y_real_test, np.ndarray) else y_real_test
-    X_real_test_array = np.nan_to_num(X_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
-    y_real_test_array = np.nan_to_num(y_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
     
     # Предсказания и метрики
     shap_predictions = shap_trainer.predict(X_real_test_array)
@@ -428,6 +500,8 @@ def train_and_save(args):
     )
     
     shap_metrics = manager._calculate_metrics(y_real_test_array, shap_predictions)
+    results['vanilla_metrics'] = vanilla_test_metrics
+    results['shap_metrics_raw'] = shap_metrics
     
     # Вычисляем важность признаков на данных для SHAP
     shap_importance_data = X_real_shap_array
@@ -441,21 +515,40 @@ def train_and_save(args):
         print("⚠️  SHAP-регуляризация дала некорректные значения (NaN/Inf).")
         raise ValueError("SHAP обучение завершилось с ошибкой: NaN/Inf в метриках")
     
-    # Сохраняем результаты SHAP
-    results['predictions'] = shap_predictions
-    results['metrics'] = shap_metrics
+    # Safety gate: если SHAP резко ухудшил R² на финальном test, откатываемся к vanilla.
+    shap_config = config.get('shap_reg', {})
+    min_delta_r2 = float(shap_config.get('acceptance_min_delta_r2', -0.02))
+    vanilla_r2 = float(vanilla_test_metrics.get('r2', float('-inf')))
+    shap_r2 = float(shap_metrics.get('r2', float('-inf')))
+    use_shap = (shap_r2 - vanilla_r2) >= min_delta_r2
+
+    if use_shap:
+        results['predictions'] = shap_predictions
+        results['metrics'] = shap_metrics
+        results['metrics_source'] = 'shap'
+    else:
+        print(
+            f"⚠️  SHAP отклонен: R² ухудшился с {vanilla_r2:.6f} до {shap_r2:.6f}. "
+            f"Порог: {min_delta_r2:+.4f}. Использую vanilla."
+        )
+        if vanilla_state_dict is not None and hasattr(results.get('model'), 'network'):
+            results['model'].network.load_state_dict(vanilla_state_dict)
+        results['predictions'] = vanilla_test_predictions
+        results['metrics'] = vanilla_test_metrics
+        results['metrics_source'] = 'vanilla_fallback'
+
     results['feature_importance_shap'] = np.asarray(shap_importance, dtype=float)
     results['shap_history'] = shap_history
     results['training_time_shap'] = shap_trainer.training_time
     results['training_time'] += shap_trainer.training_time
-    results['metrics_source'] = 'shap'
     
     # Обновляем тестовые данные на реальные
     y_test_array = y_real_test_array
     X_test_array = X_real_test_array
     SUM_test = SUM_real_test
 
-    band_metrics_norm = _compute_band_metrics(y_test_array, np.asarray(results['predictions']), ENERGY_BANDS)
+    output_bands = _resolve_output_bands(y_test_array.shape[1])
+    band_metrics_norm = _compute_band_metrics(y_test_array, np.asarray(results['predictions']), output_bands)
 
     # Денормализация метрик
     metrics_denorm = None
@@ -475,7 +568,7 @@ def train_and_save(args):
     band_metrics_denorm = _compute_band_metrics(
         y_test_denorm if y_test_denorm is not None else None,
         y_pred_denorm if y_pred_denorm is not None else None,
-        ENERGY_BANDS
+        output_bands
     )
 
     # Папка результатов и артефакты
@@ -627,6 +720,9 @@ def train_and_save(args):
         'timestamp': timestamp,
         'tag': args.tag,
         'config_path': os.path.abspath(config_path),
+        'config_sha256': config_sha256,
+        'effective_config_sha256': effective_config_sha256,
+        'run_meta': _to_serializable(run_meta),
         'model_state': os.path.basename(model_state_path) if model_state_path else None,
         'model_state_path': model_state_path,
         'train_size': int(X_train.shape[0]),  # Синтетические данные для базовой модели
@@ -637,10 +733,32 @@ def train_and_save(args):
         'real_test_count': int(X_real_test_array.shape[0]),
         'normalize_sum': normalize_sum,
         'metrics': results['metrics'],
+        'vanilla_metrics': results.get('vanilla_metrics'),
+        'shap_metrics': results.get('shap_metrics_raw'),
         'band_metrics': band_metrics_norm,
-        'metrics_source': 'shap',
+        'metrics_source': results.get('metrics_source', 'shap'),
         'shap_config_enabled': True,
-        'shap_applied': True,
+        'shap_applied': results.get('metrics_source', 'shap') == 'shap',
+        'shap_rejected': results.get('metrics_source') == 'vanilla_fallback',
+        'effective_ea_config': {
+            'autonomous_error_shap': bool(shap_config.get('autonomous_error_shap', False)),
+            'error_importance_mode': shap_config.get('error_importance_mode', 'baseline'),
+            'error_importance_ema_beta': shap_config.get('error_importance_ema_beta'),
+            'grad_importance_ema_beta': shap_config.get('grad_importance_ema_beta'),
+            'error_target_rho': shap_config.get('error_target_rho'),
+            'ea_alignment_loss': shap_config.get('ea_alignment_loss'),
+            'ea_alignment_alpha': shap_config.get('ea_alignment_alpha'),
+            'ea_warmup_fraction': shap_config.get('ea_warmup_fraction'),
+            'ea_bypass_legacy_normalization': bool(shap_config.get('ea_bypass_legacy_normalization', False)),
+            'ea_use_grad_balance': bool(shap_config.get('ea_use_grad_balance', False)),
+            'ea_target_grad_ratio': shap_config.get('ea_target_grad_ratio'),
+            'ea_scale_min': shap_config.get('ea_scale_min'),
+            'ea_scale_max': shap_config.get('ea_scale_max'),
+            'debug_grad_norms': bool(shap_config.get('debug_grad_norms', False)),
+            'grad_norm_interval': shap_config.get('grad_norm_interval'),
+            'fast_mode': bool(run_meta.get('fast_mode', False)),
+            'inprocess_mode': bool(run_meta.get('inprocess_mode', False)),
+        },
         'training_time_total': results.get('training_time'),
         'training_time_shap': results.get('training_time_shap'),
         'saved_files': saved_files,

@@ -6,7 +6,9 @@
 
 import random
 import time
+import copy
 import torch
+import torch.nn.functional as F
 import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 from constants import Ebins_float_IAEA_Comp
@@ -36,6 +38,81 @@ class ShapAwareANFISTrainerImproved:
         self.training_time = 0
         shap_config = config.get('shap_reg', {})
         self.grad_clip = float(shap_config.get('grad_clip', 1.0))
+        self.train_output_only = bool(shap_config.get('train_output_only', True))
+        self.early_stopping_patience = int(shap_config.get('early_stopping_patience', 8))
+        self.early_stopping_min_delta = float(shap_config.get('early_stopping_min_delta', 1e-4))
+        self.restore_best_state = bool(shap_config.get('restore_best_state', True))
+        guard_cfg = shap_config.get('accuracy_guard', {})
+        self.accuracy_guard_enabled = bool(guard_cfg.get('enabled', True))
+        self.accuracy_guard_margin = float(guard_cfg.get('margin', 0.02))
+        self.accuracy_guard_weight = float(guard_cfg.get('weight', 10.0))
+        self.max_shap_ratio = float(shap_config.get('max_shap_ratio', 0.15))
+        self.max_guard_ratio = float(shap_config.get('max_guard_ratio', 0.20))
+        self.use_distill_anchor = bool(shap_config.get('use_distill_anchor', True))
+        self.distill_weight = float(shap_config.get('distill_weight', 0.15))
+        self.max_distill_ratio = float(shap_config.get('max_distill_ratio', 0.20))
+        self.quality_first = bool(shap_config.get('quality_first', True))
+        self.reject_on_val_degrade = bool(shap_config.get('reject_on_val_degrade', True))
+        self.quality_tolerance = float(shap_config.get('quality_tolerance', 0.0))
+        self.lr_backoff = float(shap_config.get('lr_backoff', 0.5))
+        self.min_lr = float(shap_config.get('min_lr', 1e-6))
+        self.max_coeff_delta_ratio = float(shap_config.get('max_coeff_delta_ratio', 0.10))
+        self.use_feature_gates = bool(shap_config.get('use_feature_gates', True))
+        self.gate_init = float(shap_config.get('gate_init', 0.9))
+        self.gate_min = float(shap_config.get('gate_min', 0.0))
+        self.gate_max = float(shap_config.get('gate_max', 1.0))
+        self.autonomous_error_shap = bool(shap_config.get('autonomous_error_shap', True))
+        self.error_mse_weight = float(shap_config.get('error_mse_weight', 0.5))
+        self.error_js_weight = float(shap_config.get('error_js_weight', 1.0))
+        self.gate_js_weight = float(shap_config.get('gate_js_weight', 1.0))
+        self.noise_weight = float(shap_config.get('noise_weight', 0.2))
+        self.rule_stability_weight = float(shap_config.get('rule_stability_weight', 0.1))
+        self.error_importance_ema_beta = float(shap_config.get('error_importance_ema_beta', 0.9))
+        self.error_importance_mode = str(shap_config.get('error_importance_mode', 'permute')).strip().lower()
+        self.error_importance_target = str(shap_config.get('error_importance_target', 'train')).strip().lower()
+        if self.error_importance_target not in {'train', 'val'}:
+            self.error_importance_target = 'train'
+        self.error_importance_val_batch_size = int(shap_config.get('error_importance_val_batch_size', 0))
+        self.error_importance_ema = None
+        self.prev_error_importance_raw = None
+        self.last_qerr_entropy = float('nan')
+        self.last_qerr_gini = float('nan')
+        self.last_qerr_corr = float('nan')
+        self.last_p_q_corr = float('nan')
+        self.last_eta_mean = float('nan')
+        self.last_eta_std = float('nan')
+        self.last_rank_pairs_count = 0.0
+        self.last_rank_violations_count = 0.0
+        self._last_rank_loss_tensor = None
+        self.grad_importance_ema = None
+        self.grad_importance_ema_beta = float(shap_config.get('grad_importance_ema_beta', 0.9))
+        self.error_target_rho = float(shap_config.get('error_target_rho', 1.0))
+        self.error_target_rho = min(max(self.error_target_rho, 0.0), 1.0)
+        self.ea_alignment_loss = str(shap_config.get('ea_alignment_loss', 'cosine_mse')).strip().lower()
+        self.ea_alignment_alpha = float(shap_config.get('ea_alignment_alpha', 0.5))
+        self.ea_alignment_alpha = min(max(self.ea_alignment_alpha, 0.0), 1.0)
+        self.ea_rank_weight = float(shap_config.get('ea_rank_weight', 0.0))
+        self.ea_rank_type = str(shap_config.get('ea_rank_type', 'hinge_allpairs')).strip().lower()
+        self.ea_rank_margin = float(shap_config.get('ea_rank_margin', 0.01))
+        self.ea_rank_delta = float(shap_config.get('ea_rank_delta', 1e-4))
+        self.ea_rank_tau = float(shap_config.get('ea_rank_tau', 0.2))
+        self.ea_rank_top_k = int(shap_config.get('ea_rank_top_k', 3))
+        self.ea_rank_bottom_k = int(shap_config.get('ea_rank_bottom_k', 3))
+        self.ea_warmup_fraction = float(shap_config.get('ea_warmup_fraction', 0.25))
+        self.ea_warmup_fraction = min(max(self.ea_warmup_fraction, 0.0), 0.95)
+        self.ea_bypass_legacy_normalization = bool(shap_config.get('ea_bypass_legacy_normalization', True))
+        self.debug_grad_norms = bool(shap_config.get('debug_grad_norms', False))
+        self.grad_norm_interval = max(int(shap_config.get('grad_norm_interval', 20)), 1)
+        self.ea_use_grad_balance = bool(shap_config.get('ea_use_grad_balance', False))
+        self.ea_target_grad_ratio = float(shap_config.get('ea_target_grad_ratio', 0.005))
+        self.ea_scale_min = float(shap_config.get('ea_scale_min', 0.1))
+        self.ea_scale_max = float(shap_config.get('ea_scale_max', 1e4))
+        self.ea_scale_min = max(self.ea_scale_min, 1e-6)
+        self.ea_scale_max = max(self.ea_scale_max, self.ea_scale_min)
+        self.last_ea_scale = 1.0
+        self.feature_gate_logits = None
+        self.gate_anchor_weight = float(shap_config.get('gate_anchor_weight', 0.05))
+        self.gate_blend_warmup_epochs = float(shap_config.get('gate_blend_warmup_epochs', 0.4))
         self.random_seed = int(
             shap_config.get(
                 'seed',
@@ -79,6 +156,10 @@ class ShapAwareANFISTrainerImproved:
         self.use_adaptive_weights = shap_config.get('use_adaptive_weights', True)
         self.component_weights_history = []  # История весов для анализа
         self.active_components = self._parse_active_components(shap_config.get('active_components'))
+        if not self.use_true_shap and 'consistency' in self.active_components:
+            self.active_components.discard('consistency')
+        if not any(c in self.active_components for c in ('sparsity', 'faithfulness', 'stability')):
+            self.active_components.add('sparsity')
         self.fixed_component_weights = self._normalize_component_weights({
             'consistency': float(shap_config.get('gamma_consistency', 0.2)),
             'sparsity': float(shap_config.get('gamma_sparsity', 0.7)),
@@ -164,6 +245,8 @@ class ShapAwareANFISTrainerImproved:
                 self.logger.warning("GPU запрошен, но недоступен. Используется CPU.")
             else:
                 self.logger.info(f"Используется устройство: {self.device}")
+        if self.train_output_only:
+            self.logger.info("SHAP fine-tune: train_output_only=true (обновляются только coeffs)")
 
     @staticmethod
     def _compute_regularizer_lambda(lambda_start, lambda_end, warmup_epochs, progress):
@@ -178,7 +261,240 @@ class ShapAwareANFISTrainerImproved:
         ratio = progress / warmup
         return float(lambda_start + (lambda_end - lambda_start) * ratio)
 
-    def fit(self, X_train, y_train, epochs=25, batch_size=32, lr=0.005):
+    def _current_gate_probs(self):
+        if self.feature_gate_logits is None:
+            return None
+        gate = torch.sigmoid(self.feature_gate_logits)
+        gate = torch.clamp(gate, min=self.gate_min, max=self.gate_max)
+        return gate
+
+    def _gate_blend_alpha(self):
+        warmup = max(float(self.gate_blend_warmup_epochs), 0.0)
+        if warmup <= 0.0 or self.total_epochs is None or self.total_epochs <= 0:
+            return 1.0
+        progress = float(self.current_epoch + 1) / float(max(self.total_epochs, 1))
+        return float(min(1.0, progress / warmup))
+
+    def _apply_feature_gates(self, x_tensor):
+        gate = self._current_gate_probs()
+        if gate is None:
+            return x_tensor
+        alpha = self._gate_blend_alpha() if self.model.training else 1.0
+        blended = (1.0 - alpha) + alpha * gate
+        return x_tensor * blended.unsqueeze(0)
+
+    @staticmethod
+    def _js_divergence(p, q, eps=1e-10):
+        p = torch.clamp(p, min=eps)
+        q = torch.clamp(q, min=eps)
+        p = p / torch.sum(p)
+        q = q / torch.sum(q)
+        m = 0.5 * (p + q)
+        kl_pm = torch.sum(p * (torch.log(p) - torch.log(m)))
+        kl_qm = torch.sum(q * (torch.log(q) - torch.log(m)))
+        return 0.5 * (kl_pm + kl_qm)
+
+    def _compute_gate_distribution(self, gate_probs, batch_x):
+        feature_mass = torch.mean(torch.abs(batch_x), dim=0)
+        raw = torch.clamp(gate_probs, min=0.0) * torch.clamp(feature_mass, min=1e-10)
+        return raw / (torch.sum(raw) + 1e-10)
+
+    @staticmethod
+    def _compute_gini(dist):
+        x = torch.clamp(dist, min=1e-12)
+        x = x / (torch.sum(x) + 1e-12)
+        sorted_x, _ = torch.sort(x)
+        n = sorted_x.numel()
+        idx = torch.arange(1, n + 1, device=sorted_x.device, dtype=sorted_x.dtype)
+        # Gini for non-negative distribution
+        return torch.sum((2.0 * idx - n - 1.0) * sorted_x) / (n + 1e-12)
+
+    @staticmethod
+    def _vector_corr(a, b):
+        a = a - torch.mean(a)
+        b = b - torch.mean(b)
+        denom = torch.sqrt(torch.sum(a * a) * torch.sum(b * b)) + 1e-12
+        return torch.sum(a * b) / denom
+
+    def _compute_alignment_loss(self, p, q):
+        p = torch.clamp(p, min=1e-10)
+        q = torch.clamp(q, min=1e-10)
+        p = p / (torch.sum(p) + 1e-10)
+        q = q / (torch.sum(q) + 1e-10)
+        js = self._js_divergence(p, q)
+        mse = torch.mean((p - q) ** 2)
+        cosine = 1.0 - F.cosine_similarity(
+            p.unsqueeze(0), q.unsqueeze(0), dim=1, eps=1e-8
+        ).squeeze(0)
+        mode = self.ea_alignment_loss
+        a = self.ea_alignment_alpha
+        if mode == 'js':
+            loss = js
+        elif mode == 'mse':
+            loss = mse
+        elif mode == 'cosine':
+            loss = cosine
+        elif mode == 'js_mse':
+            loss = a * js + (1.0 - a) * mse
+        else:  # cosine_mse
+            loss = a * cosine + (1.0 - a) * mse
+        return loss, js, mse, cosine
+
+    def _reg_warmup_factor(self):
+        if self.total_epochs is None or self.total_epochs <= 0:
+            return 1.0
+        warmup_epochs = int(self.ea_warmup_fraction * self.total_epochs)
+        if warmup_epochs <= 0:
+            return 1.0
+        if self.current_epoch < warmup_epochs:
+            return 0.0
+        ramp = max(1, warmup_epochs)
+        factor = float(self.current_epoch - warmup_epochs + 1) / float(ramp)
+        return float(min(max(factor, 0.0), 1.0))
+
+    @staticmethod
+    def _compute_rank_loss_hinge_allpairs(p, q, margin=0.01, delta=1e-4):
+        p = torch.clamp(p, min=1e-10)
+        q = torch.clamp(q, min=1e-10)
+        p = p / (torch.sum(p) + 1e-10)
+        q = q / (torch.sum(q) + 1e-10)
+        diff_q = q.unsqueeze(1) - q.unsqueeze(0)
+        pair_mask = diff_q > float(max(delta, 0.0))
+        pairs_count = int(torch.count_nonzero(pair_mask).item())
+        if pairs_count == 0:
+            z = torch.tensor(0.0, device=p.device, dtype=p.dtype)
+            return z, 0.0, 0.0
+        diff_p = p.unsqueeze(1) - p.unsqueeze(0)
+        losses = torch.relu(float(max(margin, 0.0)) - diff_p)
+        violations = int(torch.count_nonzero(losses[pair_mask] > 0).item())
+        return torch.mean(losses[pair_mask]), float(pairs_count), float(violations)
+
+    @staticmethod
+    def _compute_rank_loss_ranknet_allpairs(p, q, tau=0.2, delta=0.0):
+        p = torch.clamp(p, min=1e-10)
+        q = torch.clamp(q, min=1e-10)
+        p = p / (torch.sum(p) + 1e-10)
+        q = q / (torch.sum(q) + 1e-10)
+        s = torch.log(p + 1e-10)
+        diff_q = q.unsqueeze(1) - q.unsqueeze(0)
+        pair_mask = diff_q > float(max(delta, 0.0))
+        pairs_count = int(torch.count_nonzero(pair_mask).item())
+        if pairs_count == 0:
+            z = torch.tensor(0.0, device=p.device, dtype=p.dtype)
+            return z, 0.0, 0.0
+        abs_dq = torch.abs(diff_q[pair_mask])
+        w = abs_dq / (torch.mean(abs_dq) + 1e-10)
+        w = torch.clamp(w, min=0.0, max=1.0)
+        tau_safe = float(max(tau, 1e-6))
+        diff_s = (s.unsqueeze(1) - s.unsqueeze(0))[pair_mask]
+        losses = F.softplus(-diff_s / tau_safe)
+        weighted = w * losses
+        violations = int(torch.count_nonzero(diff_s <= 0).item())
+        return torch.mean(weighted), float(pairs_count), float(violations)
+
+    @staticmethod
+    def _compute_rank_loss_topbottom_ranknet(p, q, top_k=3, bottom_k=3, tau=0.2):
+        p = torch.clamp(p, min=1e-10)
+        q = torch.clamp(q, min=1e-10)
+        p = p / (torch.sum(p) + 1e-10)
+        q = q / (torch.sum(q) + 1e-10)
+        n = int(p.shape[0])
+        tk = int(max(1, min(top_k, n)))
+        bk = int(max(1, min(bottom_k, n)))
+        top_idx = torch.argsort(q, descending=True)[:tk]
+        bottom_idx = torch.argsort(q, descending=False)[:bk]
+        s = torch.log(p + 1e-10)
+        s_top = s[top_idx].unsqueeze(1)  # [tk,1]
+        s_bottom = s[bottom_idx].unsqueeze(0)  # [1,bk]
+        tau_safe = float(max(tau, 1e-6))
+        diff = (s_top - s_bottom) / tau_safe
+        losses = F.softplus(-diff)
+        violations = int(torch.count_nonzero(diff <= 0).item())
+        pairs_count = int(losses.numel())
+        return torch.mean(losses), float(pairs_count), float(violations)
+
+    @staticmethod
+    def _compute_loss_grad_stats(loss_tensor, params):
+        grads = torch.autograd.grad(
+            outputs=loss_tensor,
+            inputs=params,
+            retain_graph=True,
+            create_graph=False,
+            allow_unused=True,
+        )
+        sq_sum = None
+        used = 0
+        for g in grads:
+            if g is None:
+                continue
+            used += 1
+            v = torch.sum(g.detach() ** 2)
+            sq_sum = v if sq_sum is None else (sq_sum + v)
+        if sq_sum is None:
+            return 0.0, 0, len(params)
+        norm = float(torch.sqrt(sq_sum + 1e-20).item())
+        return norm, used, len(params)
+
+    def _compute_error_aware_importance(self, batch_x_raw, batch_y, batch_main_loss, baseline_values, loss_function):
+        n_features = batch_x_raw.shape[1]
+        base_loss = float(batch_main_loss.detach().item())
+        eta = torch.zeros(n_features, device=self.device, dtype=batch_x_raw.dtype)
+        with torch.no_grad():
+            for j in range(n_features):
+                masked = batch_x_raw.detach().clone()
+                if self.error_importance_mode == 'permute':
+                    idx = torch.randperm(masked.shape[0], device=masked.device)
+                    masked[:, j] = masked[idx, j]
+                elif self.error_importance_mode == 'noise':
+                    std = torch.std(masked[:, j])
+                    noise = torch.randn_like(masked[:, j]) * (0.1 * std + 1e-8)
+                    masked[:, j] = masked[:, j] + noise
+                else:
+                    masked[:, j] = float(baseline_values[j])
+                masked_in = self._apply_feature_gates(masked)
+                pred_masked = torch.nan_to_num(self.model(masked_in))
+                if pred_masked.shape != batch_y.shape:
+                    min_dim = min(pred_masked.shape[-1], batch_y.shape[-1])
+                    pred_masked = pred_masked[..., :min_dim]
+                    y_ref = batch_y[..., :min_dim]
+                else:
+                    y_ref = batch_y
+                masked_loss = float(loss_function(pred_masked, y_ref).item())
+                eta[j] = max(0.0, masked_loss - base_loss)
+        eta_sum = torch.sum(eta) + 1e-10
+        q_err = eta / eta_sum
+        self.last_eta_mean = float(torch.mean(eta).item())
+        self.last_eta_std = float(torch.std(eta).item())
+        q_err_safe = torch.clamp(q_err, min=1e-10)
+        q_err_safe = q_err_safe / (torch.sum(q_err_safe) + 1e-10)
+        self.last_qerr_entropy = float((-q_err_safe * torch.log(q_err_safe)).sum().item())
+        self.last_qerr_gini = float(self._compute_gini(q_err_safe).item())
+        if self.prev_error_importance_raw is None:
+            self.last_qerr_corr = float('nan')
+        else:
+            self.last_qerr_corr = float(self._vector_corr(q_err_safe, self.prev_error_importance_raw).item())
+        self.prev_error_importance_raw = q_err_safe.detach().clone()
+        if self.error_importance_ema is None:
+            self.error_importance_ema = q_err.detach().clone()
+        else:
+            self.error_importance_ema = (
+                self.error_importance_ema_beta * self.error_importance_ema
+                + (1.0 - self.error_importance_ema_beta) * q_err.detach()
+            )
+            self.error_importance_ema = self.error_importance_ema / (torch.sum(self.error_importance_ema) + 1e-10)
+        return self.error_importance_ema.detach()
+
+    def fit(
+        self,
+        X_train,
+        y_train,
+        epochs=25,
+        batch_size=32,
+        lr=0.005,
+        X_val=None,
+        y_val=None,
+        y_teacher_train=None,
+    ):
         """
         Обучение с улучшенной SHAP-регуляризацией
         
@@ -200,6 +516,9 @@ class ShapAwareANFISTrainerImproved:
         self.current_epoch = 0
         self.best_main_loss = None
         self.no_improvement_count = 0
+        self.error_importance_ema = None
+        self.prev_error_importance_raw = None
+        self.grad_importance_ema = None
 
         # Подготовка данных
         X_train_array = np.array(X_train) if not isinstance(X_train, np.ndarray) else X_train
@@ -210,8 +529,27 @@ class ShapAwareANFISTrainerImproved:
 
         X_tensor = torch.nan_to_num(X_tensor)
         y_tensor = torch.nan_to_num(y_tensor)
+
+        if self.use_feature_gates:
+            gate_init = np.clip(self.gate_init, 1e-4, 1 - 1e-4)
+            gate_logit = np.log(gate_init / (1.0 - gate_init))
+            self.feature_gate_logits = torch.nn.Parameter(
+                torch.full((X_tensor.shape[1],), float(gate_logit), device=self.device, dtype=torch.float32)
+            )
+        else:
+            self.feature_gate_logits = None
         
-        training_dataset = TensorDataset(X_tensor, y_tensor)
+        teacher_tensor = None
+        if y_teacher_train is not None:
+            y_teacher_array = np.array(y_teacher_train) if not isinstance(y_teacher_train, np.ndarray) else y_teacher_train
+            y_teacher_array = np.nan_to_num(y_teacher_array, nan=0.0, posinf=0.0, neginf=0.0)
+            if y_teacher_array.shape == y_train_array.shape:
+                teacher_tensor = torch.tensor(y_teacher_array, dtype=torch.float32, device=self.device)
+
+        if teacher_tensor is not None:
+            training_dataset = TensorDataset(X_tensor, y_tensor, teacher_tensor)
+        else:
+            training_dataset = TensorDataset(X_tensor, y_tensor)
         data_loader = DataLoader(
             training_dataset,
             batch_size=batch_size,
@@ -224,7 +562,13 @@ class ShapAwareANFISTrainerImproved:
         baseline_values = np.nan_to_num(baseline_values, nan=0.0, posinf=0.0, neginf=0.0)
 
         # Оптимизатор и функция потерь
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        if self.train_output_only and hasattr(self.model, "coeffs"):
+            trainable_params = [self.model.coeffs]
+        else:
+            trainable_params = [p for p in self.model.parameters() if p.requires_grad]
+        if self.feature_gate_logits is not None:
+            trainable_params = list(trainable_params) + [self.feature_gate_logits]
+        optimizer = torch.optim.Adam(trainable_params, lr=lr)
         loss_function = torch.nn.MSELoss()
 
         # История потерь
@@ -242,6 +586,35 @@ class ShapAwareANFISTrainerImproved:
             'tikhonov_contribution': [],
             'nonnegativity_contribution': [],
             'regularization_share': [],
+            'accuracy_guard_loss': [],
+            'accuracy_guard_contribution': [],
+            'distill_loss': [],
+            'distill_contribution': [],
+            'gate_entropy': [],
+            'gate_min': [],
+            'gate_max': [],
+            'gate_anchor_loss': [],
+            'gate_anchor_contribution': [],
+            'q_err_entropy': [],
+            'q_err_gini': [],
+            'q_err_corr': [],
+            'p_q_corr': [],
+            'ea_ratio': [],
+            'main_grad_norm': [],
+            'ea_grad_norm': [],
+            'ea_main_grad_ratio': [],
+            'ea_scale': [],
+            'main_grad_params': [],
+            'ea_grad_params': [],
+            'grad_params_total': [],
+            'rank_loss_raw': [],
+            'rank_pairs_count': [],
+            'rank_violations_count': [],
+            'rank_grad_norm': [],
+            'rank_main_grad_ratio': [],
+            'shap_clip_active': [],
+            'epoch_accepted': [],
+            'lr': [],
         }
 
         if self.verbose:
@@ -272,9 +645,69 @@ class ShapAwareANFISTrainerImproved:
                     f"soft_count_temperature={self.nonnegativity_soft_count_temperature:.4g}"
                 )
             self.logger.info(f"   SHAP scalarization: {self.scalarization_mode}")
+            if self.autonomous_error_shap:
+                self.logger.info(
+                    f"   [EA] mode={self.error_importance_mode}, align={self.ea_alignment_loss}, "
+                    f"target={self.error_importance_target}, warmup={self.ea_warmup_fraction}, "
+                    f"rho={self.error_target_rho}, ema={self.error_importance_ema_beta}, "
+                    f"grad_balance={self.ea_use_grad_balance}, rank={self.ea_rank_type}, rank_w={self.ea_rank_weight}"
+                )
+
+        X_val_tensor = None
+        y_val_tensor = None
+        if X_val is not None and y_val is not None:
+            X_val_array = np.array(X_val) if not isinstance(X_val, np.ndarray) else X_val
+            y_val_array = np.array(y_val) if not isinstance(y_val, np.ndarray) else y_val
+            X_val_array = np.nan_to_num(X_val_array, nan=0.0, posinf=0.0, neginf=0.0)
+            y_val_array = np.nan_to_num(y_val_array, nan=0.0, posinf=0.0, neginf=0.0)
+            X_val_tensor = torch.tensor(X_val_array, dtype=torch.float32, device=self.device)
+            y_val_tensor = torch.tensor(y_val_array, dtype=torch.float32, device=self.device)
+
+        best_val_loss = float("inf")
+        best_state_dict = None
+        best_gate_logits = None
+        no_improve_epochs = 0
+        prev_val_main_loss = None
+        frozen_model = None
+        if self.accuracy_guard_enabled or self.use_distill_anchor or self.quality_first:
+            frozen_model = copy.deepcopy(self.model).to(self.device)
+            frozen_model.eval()
+            for p in frozen_model.parameters():
+                p.requires_grad_(False)
+
+        if X_val_tensor is not None and y_val_tensor is not None:
+            with torch.no_grad():
+                base_pred = torch.nan_to_num(self.model(self._apply_feature_gates(X_val_tensor)))
+                if base_pred.shape != y_val_tensor.shape:
+                    min_dim_b = min(base_pred.shape[-1], y_val_tensor.shape[-1])
+                    base_pred = base_pred[..., :min_dim_b]
+                    base_target = y_val_tensor[..., :min_dim_b]
+                else:
+                    base_target = y_val_tensor
+                base_val_loss = float(loss_function(base_pred, base_target).item())
+            prev_val_main_loss = base_val_loss
+            best_val_loss = base_val_loss
+            if self.restore_best_state:
+                best_state_dict = copy.deepcopy(self.model.state_dict())
+                if self.feature_gate_logits is not None:
+                    best_gate_logits = self.feature_gate_logits.detach().clone()
+
+        coeff_anchor = None
+        coeff_anchor_norm = None
+        max_coeff_delta = None
+        if self.train_output_only and hasattr(self.model, "coeffs"):
+            coeff_anchor = self.model.coeffs.detach().clone()
+            coeff_anchor_norm = float(torch.norm(coeff_anchor).item())
+            max_coeff_delta = self.max_coeff_delta_ratio * max(coeff_anchor_norm, 1e-8)
 
         for epoch in range(epochs):
             self.current_epoch = epoch
+            epoch_start_state = None
+            if self.quality_first and X_val_tensor is not None and y_val_tensor is not None:
+                epoch_start_state = copy.deepcopy(self.model.state_dict())
+            epoch_start_gate = None
+            if self.quality_first and self.feature_gate_logits is not None:
+                epoch_start_gate = self.feature_gate_logits.detach().clone()
             epoch_losses = {
                 'total': [],
                 'main': [],
@@ -289,6 +722,33 @@ class ShapAwareANFISTrainerImproved:
                 'tikhonov_contribution': [],
                 'nonnegativity_contribution': [],
                 'regularization_share': [],
+                'accuracy_guard_loss': [],
+                'accuracy_guard_contribution': [],
+                'distill_loss': [],
+                'distill_contribution': [],
+                'gate_entropy': [],
+                'gate_min': [],
+                'gate_max': [],
+                'gate_anchor_loss': [],
+                'gate_anchor_contribution': [],
+                'q_err_entropy': [],
+                'q_err_gini': [],
+                'q_err_corr': [],
+                'p_q_corr': [],
+                'ea_ratio': [],
+                'main_grad_norm': [],
+                'ea_grad_norm': [],
+                'ea_main_grad_ratio': [],
+                'ea_scale': [],
+                'main_grad_params': [],
+                'ea_grad_params': [],
+                'grad_params_total': [],
+                'rank_loss_raw': [],
+                'rank_pairs_count': [],
+                'rank_violations_count': [],
+                'rank_grad_norm': [],
+                'rank_main_grad_ratio': [],
+                'shap_clip_active': [],
             }
             epoch_shap_components = {
                 'consistency': [], 'sparsity': [], 'faithfulness': [], 'stability': []
@@ -326,16 +786,27 @@ class ShapAwareANFISTrainerImproved:
                 progress,
             )
 
-            for batch_X, batch_y in data_loader:
+            for batch in data_loader:
+                if len(batch) == 3:
+                    batch_X, batch_y, batch_teacher = batch
+                else:
+                    batch_X, batch_y = batch
+                    batch_teacher = None
                 batch_X = torch.nan_to_num(batch_X)
                 batch_y = torch.nan_to_num(batch_y)
+                if batch_teacher is not None:
+                    batch_teacher = torch.nan_to_num(batch_teacher)
 
                 optimizer.zero_grad()
+                self._last_rank_loss_tensor = None
+                self.last_rank_pairs_count = float('nan')
+                self.last_rank_violations_count = float('nan')
 
                 # Прямой проход
                 self.model.train()
                 batch_X.requires_grad_(True)
-                predictions = self.model(batch_X)
+                batch_input = self._apply_feature_gates(batch_X)
+                predictions = self.model(batch_input)
                 predictions = torch.nan_to_num(predictions)
                 
                 # Для мультирегрессии predictions может быть (batch, 60)
@@ -345,6 +816,43 @@ class ShapAwareANFISTrainerImproved:
                     batch_y = batch_y[..., :min_dim]
                 
                 main_loss = loss_function(predictions, batch_y)
+                if self.accuracy_guard_enabled and frozen_model is not None:
+                    with torch.no_grad():
+                        baseline_pred = frozen_model(self._apply_feature_gates(batch_X.detach()))
+                        baseline_pred = torch.nan_to_num(baseline_pred)
+                        if baseline_pred.shape != batch_y.shape:
+                            min_dim_b = min(baseline_pred.shape[-1], batch_y.shape[-1])
+                            baseline_pred = baseline_pred[..., :min_dim_b]
+                            baseline_target = batch_y[..., :min_dim_b]
+                        else:
+                            baseline_target = batch_y
+                        baseline_main_loss = loss_function(baseline_pred, baseline_target)
+                    guard_threshold = baseline_main_loss * (1.0 + self.accuracy_guard_margin)
+                    accuracy_guard_loss = torch.relu(main_loss - guard_threshold)
+                else:
+                    accuracy_guard_loss = torch.tensor(0.0, device=self.device)
+
+                if batch_teacher is not None:
+                    teacher_pred = batch_teacher
+                    if teacher_pred.shape != predictions.shape:
+                        min_dim_t = min(teacher_pred.shape[-1], predictions.shape[-1])
+                        teacher_pred = teacher_pred[..., :min_dim_t]
+                        pred_for_distill = predictions[..., :min_dim_t]
+                    else:
+                        pred_for_distill = predictions
+                    distill_loss = loss_function(pred_for_distill, teacher_pred)
+                elif self.use_distill_anchor and frozen_model is not None:
+                    with torch.no_grad():
+                        teacher_pred = torch.nan_to_num(frozen_model(self._apply_feature_gates(batch_X.detach())))
+                        if teacher_pred.shape != predictions.shape:
+                            min_dim_t = min(teacher_pred.shape[-1], predictions.shape[-1])
+                            teacher_pred = teacher_pred[..., :min_dim_t]
+                            pred_for_distill = predictions[..., :min_dim_t]
+                        else:
+                            pred_for_distill = predictions
+                    distill_loss = loss_function(pred_for_distill, teacher_pred)
+                else:
+                    distill_loss = torch.tensor(0.0, device=self.device)
 
                 # Тихоновская регуляризация (гладкость спектра)
                 if self.tikhonov_enabled and current_tikhonov_lambda > 0:
@@ -361,8 +869,52 @@ class ShapAwareANFISTrainerImproved:
                 if self.use_improved_shap:
                     # Вычисляем main_loss до вызова регуляризации для адаптации
                     main_loss_value = main_loss.detach().item()
+                    q_err_target = None
+                    if self.autonomous_error_shap:
+                        q_source_x = batch_X
+                        q_source_y = batch_y
+                        q_source_loss = main_loss
+                        use_val_target = (
+                            self.error_importance_target == 'val'
+                            and X_val_tensor is not None
+                            and y_val_tensor is not None
+                            and X_val_tensor.shape[0] > 0
+                        )
+                        if use_val_target:
+                            val_bs = self.error_importance_val_batch_size
+                            if val_bs <= 0:
+                                val_bs = int(batch_X.shape[0])
+                            val_bs = int(max(1, min(val_bs, int(X_val_tensor.shape[0]))))
+                            val_idx = torch.randint(
+                                low=0,
+                                high=int(X_val_tensor.shape[0]),
+                                size=(val_bs,),
+                                device=self.device,
+                            )
+                            q_source_x = X_val_tensor.index_select(0, val_idx)
+                            q_source_y = y_val_tensor.index_select(0, val_idx)
+                            with torch.no_grad():
+                                q_pred = torch.nan_to_num(self.model(self._apply_feature_gates(q_source_x)))
+                                if q_pred.shape != q_source_y.shape:
+                                    min_dim_q = min(q_pred.shape[-1], q_source_y.shape[-1])
+                                    q_pred = q_pred[..., :min_dim_q]
+                                    q_source_y = q_source_y[..., :min_dim_q]
+                                q_source_loss = loss_function(q_pred, q_source_y)
+                        q_err_target = self._compute_error_aware_importance(
+                            q_source_x,
+                            q_source_y,
+                            q_source_loss,
+                            baseline_values,
+                            loss_function,
+                        )
+                    gate_probs = self._current_gate_probs()
                     shap_loss_tensor, shap_components = self._compute_improved_shap_regularization(
-                        batch_X, baseline_values, predictions, main_loss_value=main_loss_value
+                        batch_input,
+                        baseline_values,
+                        predictions,
+                        main_loss_value=main_loss_value,
+                        q_err_target=q_err_target,
+                        gate_probs=gate_probs,
                     )
                 else:
                     # Простая SHAP регуляризация (для совместимости)
@@ -405,41 +957,106 @@ class ShapAwareANFISTrainerImproved:
                 convergence_slowdown = max(convergence_slowdown, self.min_convergence_slowdown)
                 
                 # Адаптивная нормализация SHAP loss
-                if shap_loss_detached > eps and self.main_loss_ema > eps:
-                    # Вычисляем текущее соотношение
-                    current_ratio = shap_loss_detached / self.main_loss_ema
-                    
-                    # Плавная нормализация с учетом прогресса обучения
-                    progress = epoch / self.total_epochs if self.total_epochs else 0.5
-                    
-                    # На ранних этапах: меньше влияния SHAP (больше focus на основную задачу)
-                    # На поздних этапах: больше влияния SHAP (больше focus на интерпретируемость)
-                    target_ratio_dynamic = self.target_shap_ratio * (0.5 + 0.5 * progress)
-                    
-                    # Если соотношение слишком большое или маленькое, нормализуем
-                    if current_ratio > target_ratio_dynamic * 2:
-                        scale_factor = target_ratio_dynamic / current_ratio
-                    elif current_ratio < target_ratio_dynamic / 2:
-                        scale_factor = target_ratio_dynamic / current_ratio
-                    else:
-                        scale_factor = 1.0
-                    
-                    # Применяем замедление сходимости
-                    scale_factor *= convergence_slowdown
+                if self.autonomous_error_shap and self.ea_bypass_legacy_normalization:
+                    scale_factor = convergence_slowdown
                     shap_loss_normalized = shap_loss_tensor * scale_factor
                 else:
-                    # Fallback: используем простую нормализацию
-                    scale_factor = self.target_shap_ratio / (shap_loss_detached / (self.main_loss_ema + eps) + eps)
-                    scale_factor *= convergence_slowdown
-                    shap_loss_normalized = shap_loss_tensor * scale_factor
+                    if shap_loss_detached > eps and self.main_loss_ema > eps:
+                        current_ratio = shap_loss_detached / self.main_loss_ema
+                        progress = epoch / self.total_epochs if self.total_epochs else 0.5
+                        target_ratio_dynamic = self.target_shap_ratio * (0.5 + 0.5 * progress)
+                        if current_ratio > target_ratio_dynamic * 2:
+                            scale_factor = target_ratio_dynamic / current_ratio
+                        elif current_ratio < target_ratio_dynamic / 2:
+                            scale_factor = target_ratio_dynamic / current_ratio
+                        else:
+                            scale_factor = 1.0
+                        scale_factor *= convergence_slowdown
+                        shap_loss_normalized = shap_loss_tensor * scale_factor
+                    else:
+                        scale_factor = self.target_shap_ratio / (shap_loss_detached / (self.main_loss_ema + eps) + eps)
+                        scale_factor *= convergence_slowdown
+                        shap_loss_normalized = shap_loss_tensor * scale_factor
 
                 # АДАПТИВНАЯ ФУНКЦИЯ ПОТЕРЬ: балансировка двух задач
                 # Используем адаптивный gamma (может меняться в процессе обучения)
                 effective_gamma = current_gamma if self.use_adaptive_gamma else self.gamma
-                shap_contribution = effective_gamma * shap_loss_normalized
+                ea_scale = self.last_ea_scale
                 tikhonov_contribution = current_tikhonov_lambda * tikhonov_loss
                 nonnegativity_contribution = current_nonnegativity_lambda * nonnegativity_loss
-                total_loss = main_loss + shap_contribution + tikhonov_contribution + nonnegativity_contribution
+                accuracy_guard_contribution = self.accuracy_guard_weight * accuracy_guard_loss
+                if self.feature_gate_logits is not None:
+                    gate_probs_anchor = self._current_gate_probs()
+                    gate_anchor_loss = torch.mean((gate_probs_anchor - 1.0) ** 2)
+                else:
+                    gate_anchor_loss = torch.tensor(0.0, device=self.device)
+
+                # Ограничиваем вклад регуляризаторов относительно main loss,
+                # чтобы этап SHAP не разрушал базовую точность.
+                main_ref = torch.clamp(main_loss_detached, min=eps)
+                shap_contribution_raw_pre_warm = effective_gamma * ea_scale * shap_loss_normalized
+                max_shap_value = self.max_shap_ratio * main_ref
+                max_guard_value = self.max_guard_ratio * main_ref
+                max_distill_value = self.max_distill_ratio * main_ref
+                max_gate_anchor_value = 0.05 * main_ref
+                shap_contribution = torch.clamp(shap_contribution_raw_pre_warm, min=0.0, max=max_shap_value)
+                accuracy_guard_contribution = torch.clamp(accuracy_guard_contribution, min=0.0, max=max_guard_value)
+                distill_contribution = torch.clamp(
+                    self.distill_weight * distill_loss,
+                    min=0.0,
+                    max=max_distill_value,
+                )
+                gate_anchor_contribution = torch.clamp(
+                    self.gate_anchor_weight * gate_anchor_loss,
+                    min=0.0,
+                    max=max_gate_anchor_value,
+                )
+                reg_warmup = self._reg_warmup_factor() if self.autonomous_error_shap else 1.0
+                main_grad_norm = float('nan')
+                ea_grad_norm = float('nan')
+                ea_main_grad_ratio = float('nan')
+                rank_grad_norm = float('nan')
+                rank_main_grad_ratio = float('nan')
+                main_grad_params = float('nan')
+                ea_grad_params = float('nan')
+                grad_params_total = float('nan')
+
+                need_grad_probe = (
+                    (self.debug_grad_norms or self.ea_use_grad_balance)
+                    and (len(epoch_losses['main']) % self.grad_norm_interval == 0)
+                )
+                if need_grad_probe:
+                    params_for_grad = [p for p in trainable_params if p.requires_grad]
+                    if params_for_grad:
+                        main_grad_norm, main_used, total_used = self._compute_loss_grad_stats(main_loss, params_for_grad)
+                        ea_grad_norm, ea_used, _ = self._compute_loss_grad_stats(shap_loss_normalized, params_for_grad)
+                        ea_main_grad_ratio = ea_grad_norm / (main_grad_norm + 1e-12)
+                        if self._last_rank_loss_tensor is not None:
+                            rank_grad_norm, _, _ = self._compute_loss_grad_stats(self._last_rank_loss_tensor, params_for_grad)
+                            rank_main_grad_ratio = rank_grad_norm / (main_grad_norm + 1e-12)
+                        main_grad_params = float(main_used)
+                        ea_grad_params = float(ea_used)
+                        grad_params_total = float(total_used)
+
+                if self.ea_use_grad_balance and np.isfinite(ea_main_grad_ratio):
+                    target = max(self.ea_target_grad_ratio, 1e-12)
+                    raw_scale = target / max(ea_main_grad_ratio, 1e-12)
+                    ea_scale = float(np.clip(raw_scale, self.ea_scale_min, self.ea_scale_max))
+                    self.last_ea_scale = ea_scale
+
+                shap_contribution = effective_gamma * ea_scale * shap_loss_normalized * reg_warmup
+                ea_ratio = float((shap_contribution.detach() / (main_loss_detached + eps)).item())
+                shap_clip_active = float((shap_contribution_raw_pre_warm.detach() > max_shap_value.detach()).item())
+
+                total_loss = (
+                    main_loss
+                    + shap_contribution
+                    + tikhonov_contribution
+                    + nonnegativity_contribution
+                    + accuracy_guard_contribution
+                    + distill_contribution
+                    + gate_anchor_contribution
+                )
 
                 # Обратное распространение
                 if not torch.isfinite(total_loss):
@@ -450,6 +1067,18 @@ class ShapAwareANFISTrainerImproved:
                 if self.grad_clip and self.grad_clip > 0:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.grad_clip)
                 optimizer.step()
+                if (
+                    coeff_anchor is not None
+                    and max_coeff_delta is not None
+                    and hasattr(self.model, "coeffs")
+                    and max_coeff_delta > 0.0
+                ):
+                    with torch.no_grad():
+                        delta = self.model.coeffs - coeff_anchor
+                        delta_norm = float(torch.norm(delta).item())
+                        if np.isfinite(delta_norm) and delta_norm > max_coeff_delta:
+                            scale = max_coeff_delta / (delta_norm + 1e-12)
+                            self.model.coeffs.copy_(coeff_anchor + delta * scale)
 
                 # Сохранение потерь
                 epoch_losses['total'].append(float(total_loss.item()))
@@ -464,12 +1093,50 @@ class ShapAwareANFISTrainerImproved:
                 epoch_losses['shap_contribution'].append(float(shap_contribution.item()))
                 epoch_losses['tikhonov_contribution'].append(float(tikhonov_contribution.item()))
                 epoch_losses['nonnegativity_contribution'].append(float(nonnegativity_contribution.item()))
+                epoch_losses['accuracy_guard_loss'].append(float(accuracy_guard_loss.item()))
+                epoch_losses['accuracy_guard_contribution'].append(float(accuracy_guard_contribution.item()))
+                epoch_losses['distill_loss'].append(float(distill_loss.item()))
+                epoch_losses['distill_contribution'].append(float(distill_contribution.item()))
+                gate_probs_log = self._current_gate_probs()
+                if gate_probs_log is not None:
+                    gp = torch.clamp(gate_probs_log, min=1e-8, max=1.0)
+                    gate_entropy = float((-gp * torch.log(gp)).sum().item())
+                    epoch_losses['gate_entropy'].append(gate_entropy)
+                    epoch_losses['gate_min'].append(float(torch.min(gate_probs_log).item()))
+                    epoch_losses['gate_max'].append(float(torch.max(gate_probs_log).item()))
+                else:
+                    epoch_losses['gate_entropy'].append(float('nan'))
+                    epoch_losses['gate_min'].append(float('nan'))
+                    epoch_losses['gate_max'].append(float('nan'))
+                epoch_losses['gate_anchor_loss'].append(float(gate_anchor_loss.item()))
+                epoch_losses['gate_anchor_contribution'].append(float(gate_anchor_contribution.item()))
+                epoch_losses['q_err_entropy'].append(float(self.last_qerr_entropy))
+                epoch_losses['q_err_gini'].append(float(self.last_qerr_gini))
+                epoch_losses['q_err_corr'].append(float(self.last_qerr_corr))
+                epoch_losses['p_q_corr'].append(float(self.last_p_q_corr))
+                epoch_losses['ea_ratio'].append(ea_ratio)
+                epoch_losses['main_grad_norm'].append(main_grad_norm)
+                epoch_losses['ea_grad_norm'].append(ea_grad_norm)
+                epoch_losses['ea_main_grad_ratio'].append(ea_main_grad_ratio)
+                epoch_losses['rank_grad_norm'].append(rank_grad_norm)
+                epoch_losses['rank_main_grad_ratio'].append(rank_main_grad_ratio)
+                epoch_losses['ea_scale'].append(float(ea_scale))
+                epoch_losses['main_grad_params'].append(main_grad_params)
+                epoch_losses['ea_grad_params'].append(ea_grad_params)
+                epoch_losses['grad_params_total'].append(grad_params_total)
+                epoch_losses['rank_loss_raw'].append(float(shap_components.get('error_rank', float('nan'))))
+                epoch_losses['rank_pairs_count'].append(float(shap_components.get('rank_pairs_count', self.last_rank_pairs_count)))
+                epoch_losses['rank_violations_count'].append(float(shap_components.get('rank_violations_count', self.last_rank_violations_count)))
+                epoch_losses['shap_clip_active'].append(float(shap_clip_active))
                 epoch_losses['regularization_share'].append(
                     float(
                         (
                             shap_contribution.item()
                             + tikhonov_contribution.item()
                             + nonnegativity_contribution.item()
+                            + accuracy_guard_contribution.item()
+                            + distill_contribution.item()
+                            + gate_anchor_contribution.item()
                         ) / (abs(total_loss.item()) + eps)
                     )
                 )
@@ -502,10 +1169,42 @@ class ShapAwareANFISTrainerImproved:
                 'tikhonov_contribution': 'tikhonov_contribution',
                 'nonnegativity_contribution': 'nonnegativity_contribution',
                 'regularization_share': 'regularization_share',
+                'accuracy_guard_loss': 'accuracy_guard_loss',
+                'accuracy_guard_contribution': 'accuracy_guard_contribution',
+                'distill_loss': 'distill_loss',
+                'distill_contribution': 'distill_contribution',
+                'gate_entropy': 'gate_entropy',
+                'gate_min': 'gate_min',
+                'gate_max': 'gate_max',
+                'gate_anchor_loss': 'gate_anchor_loss',
+                'gate_anchor_contribution': 'gate_anchor_contribution',
+                'q_err_entropy': 'q_err_entropy',
+                'q_err_gini': 'q_err_gini',
+                'q_err_corr': 'q_err_corr',
+                'p_q_corr': 'p_q_corr',
+                'ea_ratio': 'ea_ratio',
+                'main_grad_norm': 'main_grad_norm',
+                'ea_grad_norm': 'ea_grad_norm',
+                'ea_main_grad_ratio': 'ea_main_grad_ratio',
+                'rank_grad_norm': 'rank_grad_norm',
+                'rank_main_grad_ratio': 'rank_main_grad_ratio',
+                'ea_scale': 'ea_scale',
+                'main_grad_params': 'main_grad_params',
+                'ea_grad_params': 'ea_grad_params',
+                'grad_params_total': 'grad_params_total',
+                'rank_loss_raw': 'rank_loss_raw',
+                'rank_pairs_count': 'rank_pairs_count',
+                'rank_violations_count': 'rank_violations_count',
+                'shap_clip_active': 'shap_clip_active',
             }
             for history_key, loss_key in history_sources.items():
                 values = epoch_losses[loss_key]
-                history[history_key].append(float(np.mean(values)) if values else float('nan'))
+                if values:
+                    arr = np.asarray(values, dtype=float)
+                    arr = arr[np.isfinite(arr)]
+                    history[history_key].append(float(np.mean(arr)) if arr.size else float('nan'))
+                else:
+                    history[history_key].append(float('nan'))
             
             # Сохраняем адаптивные параметры
             if 'adaptive_gamma' in epoch_losses:
@@ -533,6 +1232,54 @@ class ShapAwareANFISTrainerImproved:
                     weight_values = epoch_shap_weights[comp_name]
                     history[history_key].append(float(np.mean(weight_values)) if weight_values else float('nan'))
 
+            # Early stopping по валидационному main-loss
+            if X_val_tensor is not None and y_val_tensor is not None:
+                self.model.eval()
+                with torch.no_grad():
+                    val_pred = torch.nan_to_num(self.model(self._apply_feature_gates(X_val_tensor)))
+                    if val_pred.shape != y_val_tensor.shape:
+                        min_dim = min(val_pred.shape[-1], y_val_tensor.shape[-1])
+                        val_pred = val_pred[..., :min_dim]
+                        val_target = y_val_tensor[..., :min_dim]
+                    else:
+                        val_target = y_val_tensor
+                    val_main_loss = float(loss_function(val_pred, val_target).item())
+                if 'val_main_loss' not in history:
+                    history['val_main_loss'] = []
+                history['val_main_loss'].append(val_main_loss)
+
+                epoch_rejected = False
+                if (
+                    self.quality_first
+                    and self.reject_on_val_degrade
+                    and prev_val_main_loss is not None
+                    and val_main_loss > (prev_val_main_loss + self.quality_tolerance)
+                    and epoch_start_state is not None
+                ):
+                    self.model.load_state_dict(epoch_start_state)
+                    if epoch_start_gate is not None and self.feature_gate_logits is not None:
+                        with torch.no_grad():
+                            self.feature_gate_logits.copy_(epoch_start_gate)
+                    for group in optimizer.param_groups:
+                        group['lr'] = max(self.min_lr, group['lr'] * self.lr_backoff)
+                    epoch_rejected = True
+                else:
+                    prev_val_main_loss = val_main_loss
+                    if val_main_loss < (best_val_loss - self.early_stopping_min_delta):
+                        best_val_loss = val_main_loss
+                        no_improve_epochs = 0
+                        if self.restore_best_state:
+                            best_state_dict = copy.deepcopy(self.model.state_dict())
+                            if self.feature_gate_logits is not None:
+                                best_gate_logits = self.feature_gate_logits.detach().clone()
+                    else:
+                        no_improve_epochs += 1
+                history['epoch_accepted'].append(0.0 if epoch_rejected else 1.0)
+                history['lr'].append(float(optimizer.param_groups[0]['lr']))
+            else:
+                history['epoch_accepted'].append(1.0)
+                history['lr'].append(float(optimizer.param_groups[0]['lr']))
+
             # Прогресс с адаптивными параметрами
             if self.verbose and (epoch + 1) % 5 == 0:
                 msg = f"   Эпоха {epoch + 1}/{epochs}: Total: {history['total_loss'][-1]:.6f}, Main: {history['main_loss'][-1]:.6f}, SHAP: {history['shap_loss'][-1]:.6f}"
@@ -547,13 +1294,81 @@ class ShapAwareANFISTrainerImproved:
                     )
                     if 'nonnegativity_contribution' in history:
                         msg += f", Contrib(NonNeg): {history['nonnegativity_contribution'][-1]:.6f}"
+                    if 'accuracy_guard_contribution' in history:
+                        msg += f", Contrib(Guard): {history['accuracy_guard_contribution'][-1]:.6f}"
+                    if 'distill_contribution' in history:
+                        msg += f", Contrib(Distill): {history['distill_contribution'][-1]:.6f}"
                 if self.use_improved_shap and epoch_shap_components['consistency']:
                     msg += f" [C:{np.mean(epoch_shap_components['consistency']):.4f}, S:{np.mean(epoch_shap_components['sparsity']):.4f}, F:{np.mean(epoch_shap_components['faithfulness']):.4f}, St:{np.mean(epoch_shap_components['stability']):.4f}]"
                 if self.use_adaptive_gamma and 'adaptive_gamma' in history:
                     msg += f" | Gamma: {history['adaptive_gamma'][-1]:.4f}"
+                if self.autonomous_error_shap:
+                    msg += f" | EA-warm: {self._reg_warmup_factor():.2f}"
                 if self.use_convergence_smoothing and 'convergence_slowdown' in history:
                     msg += f" | Slowdown: {history['convergence_slowdown'][-1]:.3f}"
+                if 'val_main_loss' in history and history['val_main_loss']:
+                    msg += f" | ValMain: {history['val_main_loss'][-1]:.6f}"
+                if 'q_err_entropy' in history and history['q_err_entropy']:
+                    qent = history['q_err_entropy'][-1]
+                    qgini = history['q_err_gini'][-1]
+                    qcor = history['q_err_corr'][-1]
+                    pcorr = history['p_q_corr'][-1]
+                    ear = history['ea_ratio'][-1]
+                    msg += (
+                        f" | qE:{qent:.3f} qG:{qgini:.3f} qCorr:{qcor:.3f} p~q:{pcorr:.3f} "
+                        f"eaR:{ear:.3f} etaM:{self.last_eta_mean:.4g} etaS:{self.last_eta_std:.4g}"
+                    )
+                if 'ea_main_grad_ratio' in history and history['ea_main_grad_ratio']:
+                    gr = history['ea_main_grad_ratio'][-1]
+                    if np.isfinite(gr):
+                        msg += f" | gradR:{gr:.3g}"
+                if 'rank_main_grad_ratio' in history and history['rank_main_grad_ratio']:
+                    rgr = history['rank_main_grad_ratio'][-1]
+                    if np.isfinite(rgr):
+                        msg += f" | rankR:{rgr:.3g}"
+                if 'ea_scale' in history and history['ea_scale']:
+                    sc = history['ea_scale'][-1]
+                    if np.isfinite(sc):
+                        msg += f" | eaS:{sc:.2g}"
+                if 'rank_pairs_count' in history and history['rank_pairs_count']:
+                    rp = history['rank_pairs_count'][-1]
+                    rv = history['rank_violations_count'][-1] if ('rank_violations_count' in history and history['rank_violations_count']) else float('nan')
+                    if np.isfinite(rp):
+                        msg += f" | rPairs:{int(rp)}"
+                    if np.isfinite(rv):
+                        msg += f"/{int(rv)}"
+                if 'shap_clip_active' in history and history['shap_clip_active']:
+                    sca = history['shap_clip_active'][-1]
+                    if np.isfinite(sca):
+                        msg += f" | clip:{sca:.2f}"
+                if 'ea_grad_params' in history and 'grad_params_total' in history:
+                    egp = history['ea_grad_params'][-1]
+                    tgp = history['grad_params_total'][-1]
+                    if np.isfinite(egp) and np.isfinite(tgp) and tgp > 0:
+                        msg += f" | eaP:{int(egp)}/{int(tgp)}"
+                if 'epoch_accepted' in history and history['epoch_accepted']:
+                    msg += f" | Accept: {int(history['epoch_accepted'][-1])}"
+                if 'lr' in history and history['lr']:
+                    msg += f" | LR: {history['lr'][-1]:.6g}"
                 self.logger.info(msg)
+
+            if (
+                X_val_tensor is not None
+                and self.early_stopping_patience > 0
+                and no_improve_epochs >= self.early_stopping_patience
+            ):
+                if self.verbose:
+                    self.logger.info(
+                        f"⏹️ Ранняя остановка SHAP на эпохе {epoch + 1}: "
+                        f"нет улучшения val_main_loss {no_improve_epochs} эпох"
+                    )
+                break
+
+        if self.restore_best_state and best_state_dict is not None:
+            self.model.load_state_dict(best_state_dict)
+            if best_gate_logits is not None and self.feature_gate_logits is not None:
+                with torch.no_grad():
+                    self.feature_gate_logits.copy_(best_gate_logits)
 
         self.training_time = time.time() - start_time
         if self.verbose:
@@ -660,7 +1475,15 @@ class ShapAwareANFISTrainerImproved:
             return torch.mean(negative_part)
         return torch.mean(negative_part ** self.nonnegativity_power)
 
-    def _compute_improved_shap_regularization(self, batch_X, baseline_values, predictions, main_loss_value=None):
+    def _compute_improved_shap_regularization(
+        self,
+        batch_X,
+        baseline_values,
+        predictions,
+        main_loss_value=None,
+        q_err_target=None,
+        gate_probs=None,
+    ):
         """
         Вычисляет улучшенную SHAP регуляризацию с 4 компонентами:
         - Consistency: согласованность с настоящими Shapley values
@@ -700,6 +1523,112 @@ class ShapAwareANFISTrainerImproved:
         importance_sum = torch.sum(importance_per_feature) + 1e-10
         grad_importance_normalized = importance_per_feature / importance_sum
         grad_importance_normalized = torch.clamp(grad_importance_normalized, min=1e-10, max=1.0)
+        grad_importance_normalized = grad_importance_normalized / (torch.sum(grad_importance_normalized) + 1e-10)
+        if self.grad_importance_ema is None:
+            self.grad_importance_ema = grad_importance_normalized.detach().clone()
+        else:
+            self.grad_importance_ema = (
+                self.grad_importance_ema_beta * self.grad_importance_ema
+                + (1.0 - self.grad_importance_ema_beta) * grad_importance_normalized.detach()
+            )
+            self.grad_importance_ema = self.grad_importance_ema / (torch.sum(self.grad_importance_ema) + 1e-10)
+
+        if main_loss_value is not None:
+            current_main_loss = main_loss_value if isinstance(main_loss_value, float) else main_loss_value.item()
+        elif hasattr(self, 'main_loss_ema') and self.main_loss_ema is not None:
+            current_main_loss = self.main_loss_ema
+        else:
+            current_main_loss = 0.05
+
+        # Автономный error-aware режим: согласуем важность с ростом ошибки при маскировании.
+        if self.autonomous_error_shap and q_err_target is not None:
+            q_err = torch.clamp(q_err_target.to(self.device, dtype=grad_importance_normalized.dtype), min=1e-10)
+            q_err = q_err / (torch.sum(q_err) + 1e-10)
+            if self.grad_importance_ema is not None and self.error_target_rho < 1.0:
+                q_target = (1.0 - self.error_target_rho) * self.grad_importance_ema + self.error_target_rho * q_err
+                q_target = q_target / (torch.sum(q_target) + 1e-10)
+            else:
+                q_target = q_err
+
+            error_consistency, js_err, mse_err, cosine_err = self._compute_alignment_loss(
+                grad_importance_normalized, q_target
+            )
+            rank_mode = self.ea_rank_type
+            if rank_mode == 'ranknet_allpairs':
+                rank_loss, rank_pairs_count, rank_violations_count = self._compute_rank_loss_ranknet_allpairs(
+                    grad_importance_normalized,
+                    q_target,
+                    tau=self.ea_rank_tau,
+                    delta=self.ea_rank_delta,
+                )
+            elif rank_mode == 'topbottom_ranknet':
+                rank_loss, rank_pairs_count, rank_violations_count = self._compute_rank_loss_topbottom_ranknet(
+                    grad_importance_normalized,
+                    q_target,
+                    top_k=self.ea_rank_top_k,
+                    bottom_k=self.ea_rank_bottom_k,
+                    tau=self.ea_rank_tau,
+                )
+            else:
+                rank_loss, rank_pairs_count, rank_violations_count = self._compute_rank_loss_hinge_allpairs(
+                    grad_importance_normalized,
+                    q_target,
+                    margin=self.ea_rank_margin,
+                    delta=self.ea_rank_delta,
+                )
+            self.last_rank_pairs_count = float(rank_pairs_count)
+            self.last_rank_violations_count = float(rank_violations_count)
+            self._last_rank_loss_tensor = rank_loss
+            self.last_p_q_corr = float(self._vector_corr(grad_importance_normalized, q_target).detach().item())
+
+            if gate_probs is not None:
+                p_gate = self._compute_gate_distribution(gate_probs, batch_X)
+                gate_js = self._js_divergence(p_gate, q_err)
+                noise_loss = torch.mean((1.0 - q_err) * torch.clamp(gate_probs, min=0.0, max=1.0))
+            else:
+                gate_js = torch.tensor(0.0, device=self.device)
+                noise_loss = torch.tensor(0.0, device=self.device)
+
+            if self._component_enabled('stability') and batch_size > 1:
+                importance_per_sample = torch.abs(grad_input) * torch.abs(batch_X)
+                stability_result = PrecisionOptimizedSHAPRegularization.compute_precision_aware_stability(
+                    importance_per_sample,
+                    current_main_loss,
+                )
+                stability_loss = stability_result['stability_loss']
+            else:
+                stability_loss = torch.tensor(0.0, device=self.device)
+
+            shap_loss_tensor = (
+                self.error_js_weight * error_consistency
+                + self.ea_rank_weight * rank_loss
+                + self.gate_js_weight * gate_js
+                + self.noise_weight * noise_loss
+                + self.rule_stability_weight * stability_loss
+            ).requires_grad_(True)
+
+            shap_components = {
+                'consistency': float(error_consistency.detach().item()),
+                'sparsity': float(noise_loss.detach().item()),
+                'faithfulness': float(gate_js.detach().item()),
+                'stability': float(stability_loss.detach().item()),
+                'error_js': float(js_err.detach().item()),
+                'error_mse': float(mse_err.detach().item()),
+                'error_cosine': float(cosine_err.detach().item()),
+                'error_rank': float(rank_loss.detach().item()),
+                'rank_pairs_count': float(rank_pairs_count),
+                'rank_violations_count': float(rank_violations_count),
+                'q_err_entropy': float((-q_err * torch.log(q_err)).sum().detach().item()),
+                'q_target_entropy': float((-q_target * torch.log(q_target)).sum().detach().item()),
+                'p_q_corr': float(self.last_p_q_corr),
+                'weight_consistency': self.error_js_weight,
+                'weight_rank': self.ea_rank_weight,
+                'rank_type': rank_mode,
+                'weight_sparsity': self.noise_weight,
+                'weight_faithfulness': self.gate_js_weight,
+                'weight_stability': self.rule_stability_weight,
+            }
+            return shap_loss_tensor, shap_components
         
         # 1. CONSISTENCY: согласованность с настоящими Shapley values (МАТЕМАТИЧЕСКИ УЛУЧШЕНО)
         consistency_loss = torch.tensor(0.0, device=self.device, requires_grad=True)
@@ -707,12 +1636,7 @@ class ShapAwareANFISTrainerImproved:
         js_loss = torch.tensor(0.0, device=self.device, requires_grad=True)
         
         # Получаем текущий main_loss для адаптации
-        if main_loss_value is not None:
-            current_main_loss = main_loss_value if isinstance(main_loss_value, float) else main_loss_value.item()
-        elif hasattr(self, 'main_loss_ema') and self.main_loss_ema is not None:
-            current_main_loss = self.main_loss_ema
-        else:
-            current_main_loss = 0.05  # Значение по умолчанию
+        # current_main_loss уже определен выше
         
         if self._component_enabled('consistency') and self.use_true_shap:
             self.true_shap_batch_count += 1
@@ -974,7 +1898,7 @@ class ShapAwareANFISTrainerImproved:
                 return np.empty((0, 0), dtype=np.float32)
             X_test_array = np.nan_to_num(X_test_array, nan=0.0, posinf=0.0, neginf=0.0)
             X_tensor = torch.tensor(X_test_array, dtype=torch.float32, device=self.device)
-            predictions = self.model(X_tensor).cpu().numpy()
+            predictions = self.model(self._apply_feature_gates(X_tensor)).cpu().numpy()
             predictions = np.nan_to_num(predictions, nan=0.0, posinf=0.0, neginf=0.0)
             return predictions
 
@@ -1016,7 +1940,7 @@ class ShapAwareANFISTrainerImproved:
                 X_tensor = X_tensor.unsqueeze(0)
             
             original_predictions = self._scalarize_output_tensor(
-                self.model(X_tensor)
+                self.model(self._apply_feature_gates(X_tensor))
             ).detach().cpu().numpy()
 
             shap_values = []
@@ -1028,7 +1952,7 @@ class ShapAwareANFISTrainerImproved:
 
                 X_masked_tensor = torch.tensor(X_masked, dtype=torch.float32, device=self.device)
                 masked_predictions = self._scalarize_output_tensor(
-                    self.model(X_masked_tensor)
+                    self.model(self._apply_feature_gates(X_masked_tensor))
                 ).detach().cpu().numpy()
 
                 if np.isscalar(original_predictions) and np.isscalar(masked_predictions):

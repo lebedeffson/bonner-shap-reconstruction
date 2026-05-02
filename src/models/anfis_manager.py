@@ -3,8 +3,12 @@
 """
 
 import time
+import inspect
+import importlib
+import logging
 import numpy as np
 import torch
+import mealpy
 from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
@@ -12,6 +16,8 @@ from sklearn.metrics import (
 )
 from xanfis import BioAnfisRegressor
 from src.utils.logger import get_logger
+
+logging.getLogger("mealpy").setLevel(logging.ERROR)
 
 
 class ANFISManager:
@@ -25,6 +31,13 @@ class ANFISManager:
         'trimf': 'Triangular',
         'trapmf': 'Trapezoidal',
         'sigmf': 'Sigmoid',
+    }
+
+    OPTIMIZER_CLASS_PATHS = {
+        'OriginalPSO': 'mealpy.swarm_based.PSO.OriginalPSO',
+        'AIW_PSO': 'mealpy.swarm_based.PSO.AIW_PSO',
+        'LDW_PSO': 'mealpy.swarm_based.PSO.LDW_PSO',
+        'P_PSO': 'mealpy.swarm_based.PSO.P_PSO',
     }
 
     @staticmethod
@@ -94,19 +107,33 @@ class ANFISManager:
         Returns:
             BioAnfisRegressor: Созданная модель
         """
+        optim_value, optim_params_value = self._resolve_optimizer_for_xanfis(
+            self.model_config['optim'],
+            self.model_config['optim_params']
+        )
+
         base_params = {
             'num_rules': self.model_config['num_rules'],
             'mf_class': self._normalize_mf_class(self.model_config['mf_class']),
             'vanishing_strategy': self.model_config.get('vanishing_strategy', 'prod'),
-            'optim': self.model_config['optim'],
-            'optim_params': self.model_config['optim_params'],
+            'optim': optim_value,
+            'optim_params': optim_params_value,
             'reg_lambda': self.model_config['reg_lambda'],
             'seed': self.model_config['seed'],
             'n_workers': self.model_config.get('n_workers', 4),
             'verbose': verbose
         }
 
-        model = BioAnfisRegressor(**base_params)
+        # Совместимость с разными версиями xanfis:
+        # часть релизов не поддерживает n_workers и другие новые kwargs.
+        try:
+            sig = inspect.signature(BioAnfisRegressor.__init__)
+            allowed = set(sig.parameters.keys())
+            filtered_params = {k: v for k, v in base_params.items() if k in allowed}
+        except (TypeError, ValueError):
+            filtered_params = base_params
+
+        model = BioAnfisRegressor(**filtered_params)
 
         # Если заранее известны размеры входа и выхода, строим сеть,
         # чтобы избежать ситуаций с model.network = None.
@@ -116,6 +143,42 @@ class ANFISManager:
             model.build_model()
 
         return model
+
+    def _resolve_optimizer_for_xanfis(self, optim_name, optim_params):
+        """
+        Совместимость с mealpy>=3 / xanfis:
+        передаём в xanfis готовый объект Optimizer, а не строку.
+        """
+        if not isinstance(optim_name, str):
+            return optim_name, optim_params
+
+        class_path = self.OPTIMIZER_CLASS_PATHS.get(optim_name)
+        if class_path:
+            try:
+                module_name, class_name = class_path.rsplit('.', 1)
+                module = importlib.import_module(module_name)
+                opt_class = getattr(module, class_name)
+                params = dict(optim_params) if isinstance(optim_params, dict) else {}
+                params.setdefault('log_to', 'none')
+                return opt_class(**params), None
+            except Exception as exc:
+                self.logger.warning(
+                    f"Не удалось создать объект оптимизатора '{optim_name}' через class_path: {exc}. "
+                    "Пробую fallback через mealpy.get_all_optimizers()."
+                )
+
+        try:
+            all_opts = mealpy.get_all_optimizers(verbose=False)
+            opt_class = all_opts.get(optim_name)
+            if opt_class is None:
+                self.logger.warning(f"Оптимизатор '{optim_name}' не найден в mealpy.get_all_optimizers(). Оставляю как строку.")
+                return optim_name, optim_params
+            params = optim_params if isinstance(optim_params, dict) else {}
+            opt_instance = opt_class(**params)
+            return opt_instance, None
+        except Exception as exc:
+            self.logger.warning(f"Не удалось создать объект оптимизатора '{optim_name}': {exc}. Оставляю как строку.")
+            return optim_name, optim_params
 
     @classmethod
     def _normalize_mf_class(cls, mf_class):

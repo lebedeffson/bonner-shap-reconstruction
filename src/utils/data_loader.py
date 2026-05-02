@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from src.utils.logger import get_logger
+from src.utils.data_quality import summarize_feature_quality
 
 
 def load_data(data_path, drop_index=True):
@@ -304,6 +305,23 @@ def prepare_features_targets(data, normalize_sum=False, dataset_config=None):
     logger = get_logger("anfis_shap.data_loader")
     logger.info(f"Признаки: {len(feature_names)} ({', '.join(feature_names)})")
     logger.info(f"Целевые переменные: {y.shape[1]} бинов спектра")
+
+    # Диагностика структуры признаков: помогает понять причины деградации качества.
+    if dataset_config is None or dataset_config.get("log_feature_quality", True):
+        quality = summarize_feature_quality(X, corr_threshold=0.9999, max_pairs=10)
+        logger.info(
+            "Диагностика признаков: "
+            f"const={len(quality['constant_features'])}, "
+            f"dup={len(quality['duplicate_pairs'])}, "
+            f"high_corr={len(quality['high_corr_pairs'])}, "
+            f"cond={quality['condition_number']:.2e}"
+        )
+        if quality["constant_features"]:
+            logger.warning(f"Константные признаки: {quality['constant_features']}")
+        if quality["duplicate_pairs"]:
+            logger.warning(f"Дубли признаков: {quality['duplicate_pairs'][:5]}")
+        if quality["high_corr_pairs"]:
+            logger.warning(f"Почти коллинеарные пары: {quality['high_corr_pairs'][:5]}")
     
     SUM = None
     

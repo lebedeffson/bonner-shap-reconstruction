@@ -2,6 +2,44 @@
 
 Проект для восстановления спектров нейтронов по показаниям детектора (сферы Боннера) с использованием адаптивной нейро-нечеткой системы (ANFIS) и объяснимого искусственного интеллекта (SHAP).
 
+## ✅ 2026 Update (зафиксированная версия метода)
+
+Основной рабочий метод зафиксирован как **EA-minimal** (без rank/teacher-веток в основном контуре):
+
+```text
+L = L_main + γ D(p, q_err)
+```
+
+где:
+- `p` — внутренняя чувствительность/важность признаков ANFIS,
+- `q_err` — error-aware важность через рост ошибки при маскировании признака:
+
+```text
+q_err,j ~ max(0, L(y, f(x^(-j))) - L(y, f(x)))
+```
+
+Ключевой смысл: важность признаков становится частью обучения, а не только post-hoc объяснением.
+
+### Что подтверждено экспериментально
+
+1) **SML2010 (fast, 10 seed):**
+- `ΔR² mean = +7.206e-06`, `wins/losses = 10/0`
+- Faithfulness:
+  - Vanilla post-hoc: `top < random < bottom`
+  - EA-minimal: `top > random > bottom`
+
+2) **SML2010 (non-fast, 5 seed, random_trials=20):**
+- `eval=shap`:
+  - `AUC_gap(top-bottom) = +0.4666`, CI95 `[+0.3234, +0.6099]`
+- `eval=vanilla`:
+  - `AUC_gap(top-bottom) = -0.4151`, CI95 `[-0.5574, -0.2727]`
+
+Итого: основной вклад — **функционально корректное ранжирование важности** при сохранении качества.
+
+Подробная сводка:
+- `results/sml2010_ea_minimal_vs_vanilla_faithfulness.md`
+- `results/article_results_brief_20260502.md`
+
 ## 🚀 Ключевые особенности (актуально)
 
 *   **Два поддерживаемых режима:**
@@ -9,6 +47,14 @@
     - **Two-Stage SHAP (PSO)** — двухэтапный метод: PSO-инициализация (Vanilla) → SHAP fine-tune.
 *   **Интерпретируемость:** SHAP используется для регуляризации и анализа важности признаков.
 *   **Графики Боннера:** автоматическая визуализация отсчетов Q1..Q10 для выбранных образцов.
+
+## 🧹 Очистка датасетов (зафиксировано)
+
+```bash
+/home/lebedeffson/Code/venv_cuda/bin/python scripts/prepare_sml2010.py
+/home/lebedeffson/Code/venv_cuda/bin/python scripts/prepare_naval_propulsion.py
+/home/lebedeffson/Code/venv_cuda/bin/python scripts/download_energy_efficiency.py
+```
 
 ## 📂 Структура проекта
 
@@ -35,6 +81,18 @@ python3 train.py --config configs/config_integrated_shap.yaml --tag two_stage_sh
 ### Vanilla (real-only)
 ```bash
 python3 train_vanilla_real_only.py --config configs/config_vanilla_r2_09.yaml --tag vanilla_real_only
+```
+
+### Energy Efficiency (8 -> 2)
+```bash
+python3 train_vanilla_real_only.py --config configs/config_energy_vanilla_real_only.yaml --tag energy_vanilla
+python3 train.py --config configs/config_energy_ea_minimal.yaml --tag energy_ea
+```
+
+### SML2010 / Naval (EA-minimal)
+```bash
+python3 train.py --config configs/config_sml2010_ea_minimal.yaml --tag sml_ea
+python3 train.py --config configs/config_naval_ea_minimal.yaml --tag naval_ea
 ```
 
 ## 📐 Математическая формулировка

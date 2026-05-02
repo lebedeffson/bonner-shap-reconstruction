@@ -1,0 +1,19 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_integrated_shap_v2_1_light_candidate.yaml",
+  "seeds": [
+    42
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "bonner_v21_fast1_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.7911701978487243,
+      "r2_vanilla": 0.7911701978487243,
+      "r2_shap_raw": 0.747727576736104
+    }
+  ],
+  "delta_r2_mean": -0.04344262111262032,
+  "delta_r2_min": -0.04344262111262032,
+  "delta_r2_max": -0.04344262111262032
+}
