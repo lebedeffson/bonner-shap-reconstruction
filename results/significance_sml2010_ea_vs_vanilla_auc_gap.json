@@ -1,0 +1,31 @@
+{
+  "file_a": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_sml_ea10_ckpt_permute_final_v2.json",
+  "file_b": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_sml_ea10_ckpt_permute_vanilla_v2.json",
+  "metric": "auc_deletion_gap_top_bottom",
+  "n_pairs": 10,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51
+  ],
+  "delta_mean": 0.7778236546918975,
+  "delta_std": 0.22111811495382439,
+  "delta_median": 0.7441456676714324,
+  "ci95": {
+    "low": 0.6407732271572011,
+    "high": 0.9148740822265939
+  },
+  "wins": 10,
+  "losses": 0,
+  "wilcoxon_p": 0.001953125,
+  "ttest_p": 1.464737619397762e-06,
+  "cohen_d": 3.5176839982143076,
+  "cliffs_delta": 1.0
+}
