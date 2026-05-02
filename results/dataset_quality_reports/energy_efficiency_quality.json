@@ -1,0 +1,16 @@
+{
+  "dataset": "energy_efficiency.csv",
+  "rows": 768,
+  "features": 8,
+  "targets": [
+    "heating_load",
+    "cooling_load"
+  ],
+  "quality": {
+    "n_features": 8,
+    "constant_features": [],
+    "duplicate_pairs": [],
+    "high_corr_pairs": [],
+    "condition_number": 986116934659926.8
+  }
+}

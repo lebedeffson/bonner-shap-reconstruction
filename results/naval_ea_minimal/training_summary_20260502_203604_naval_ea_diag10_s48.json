@@ -1,0 +1,219 @@
+{
+  "timestamp": "20260502_203604_naval_ea_diag10_s48",
+  "tag": "naval_ea_diag10_s48",
+  "config_path": "/tmp/tmp1jbqzh37.yaml",
+  "model_state": null,
+  "model_state_path": null,
+  "train_size": 9547,
+  "shap_train_size": 7160,
+  "test_size": 2387,
+  "vanilla_train_count": 9547,
+  "shap_train_count": 7160,
+  "real_test_count": 2387,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 1.3285155719422737e-05,
+    "rmse": 0.0036448807551719355,
+    "mae": 0.0024359644598974843,
+    "r2": 0.9028676802090168,
+    "r2_weighted": 0.9028676802090168,
+    "r2_mean": 0.8448191261599288
+  },
+  "vanilla_metrics": {
+    "mse": 1.3285155719422737e-05,
+    "rmse": 0.0036448807551719355,
+    "mae": 0.0024359644598974843,
+    "r2": 0.9028676802090168,
+    "r2_weighted": 0.9028676802090168,
+    "r2_mean": 0.8448191261599288
+  },
+  "shap_metrics": {
+    "mse": 1.3398200916318633e-05,
+    "rmse": 0.0036603552991914096,
+    "mae": 0.0024504191949370514,
+    "r2": 0.9020411680892023,
+    "r2_weighted": 0.9020411680892023,
+    "r2_mean": 0.8430569574815563
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 1.3285155719422737e-05,
+      "rmse": 0.0036448807551719355,
+      "mae": 0.0024359644598974843,
+      "r2": 0.8448191261599287
+    }
+  },
+  "metrics_source": "vanilla_fallback",
+  "shap_config_enabled": true,
+  "shap_applied": false,
+  "shap_rejected": true,
+  "training_time_total": 35.67700123786926,
+  "training_time_shap": 28.96230959892273,
+  "saved_files": {
+    "predictions": "predictions_20260502_203604_naval_ea_diag10_s48.npy",
+    "targets_test": "targets_test_20260502_203604_naval_ea_diag10_s48.npy",
+    "metrics_csv": "metrics_20260502_203604_naval_ea_diag10_s48.csv",
+    "feature_importance": "feature_importance_20260502_203604_naval_ea_diag10_s48.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_203604_naval_ea_diag10_s48.csv",
+      "history": "shap_history_20260502_203604_naval_ea_diag10_s48.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.9813579758391202,
+      "std": 0.01364530708732234,
+      "min": 0.9242833256721497,
+      "max": 1.0365439653396606,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 0.9814348554671135,
+      "std": 0.013276405106874768,
+      "min": 0.95,
+      "max": 1.0
+    },
+    "coeff_stats": {
+      "mean": -0.005121020744547549,
+      "std": 0.2160775466150796,
+      "min": -0.9528504610061646,
+      "max": 1.235068440437317,
+      "abs_mean": 0.09108567460467754,
+      "finite_fraction": 1.0,
+      "nonzero": 182,
+      "total": 208
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "sparsity"
+      ],
+      "shap_contribution": {
+        "mean": 7.408095406287376e-10,
+        "last": 3.264772385967531e-10,
+        "max": 4.6885938006561794e-09
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.09053554541012375,
+        "last": 0.09090396788217227,
+        "max": 0.09091319314957616
+      },
+      "shap_scale_factor": {
+        "mean": 0.010030580827956152,
+        "last": 5.0861316060175e-06,
+        "max": 0.12334763214652592
+      },
+      "shap_loss_normalized": {
+        "mean": 0.0006617777852856553,
+        "last": 3.2647722227250953e-07,
+        "max": 0.00818225239245139
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.062442947616595974,
+          "last": 0.06490897350678486,
+          "max": 0.06768847915476986
+        },
+        "sparsity": {
+          "mean": 0.9165749680046196,
+          "last": 0.9165749709521022,
+          "max": 0.9165749730808395
+        },
+        "faithfulness": {
+          "mean": 0.4838049284663502,
+          "last": 0.4877987376281193,
+          "max": 0.5041552420173373
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "sparsity": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.062442947616595974,
+          "last": 0.06490897350678486,
+          "max": 0.06768847915476986
+        },
+        "sparsity": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "dominant_shap_component": "consistency",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 48,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_203604_naval_ea_diag10_s48.csv",
+    "history": "shap_history_20260502_203604_naval_ea_diag10_s48.json"
+  }
+}

@@ -1,0 +1,144 @@
+dataset:
+  train_data: data/naval_propulsion.csv
+  validation_data: data/naval_propulsion.csv
+  normalize_sum: false
+  mix_with_real: false
+  mix_ratio: 0.0
+  test_size: 0.2
+  random_state: 42
+  feature_columns:
+    - lever_position
+    - gas_turbine_shaft_torque
+    - gas_turbine_rate_of_revolutions
+    - gas_generator_rate_of_revolutions
+    - starboard_propeller_torque
+    - hp_turbine_exit_temperature
+    - gt_compressor_outlet_air_temperature
+    - hp_turbine_exit_pressure
+    - gt_compressor_outlet_air_pressure
+    - gas_turbine_exhaust_gas_pressure
+    - turbine_injection_control
+    - fuel_flow
+  target_columns:
+    - gt_compressor_decay_state_coefficient
+    - gt_turbine_decay_state_coefficient
+  feature_count: 12
+  target_count: 2
+
+model:
+  num_rules: 8
+  mf_class: Gaussian
+  vanishing_strategy: blend
+  optim: OriginalPSO
+  reg_lambda: 0.01
+  seed: 42
+  n_workers: 4
+  optim_params:
+    epoch: 60
+    pop_size: 50
+    verbose: false
+
+shap_reg:
+  enabled: true
+  integrated_training: false
+  training_mode: real_only
+  use_pso_init: false
+  pso_epochs: 60
+
+  epochs: 30
+  batch_size: 64
+  lr: 0.00008
+  train_output_only: false
+  early_stopping_patience: 20
+  early_stopping_min_delta: 0.0000005
+  restore_best_state: true
+
+  gamma: 0.001
+  gamma_start: 0.0002
+  gamma_end: 0.001
+  gamma_warmup_epochs: 0.7
+  use_adaptive_gamma: true
+  target_shap_ratio: 0.04
+  min_convergence_slowdown: 0.2
+  use_adaptive_weights: false
+  use_true_shap: false
+  active_components: [sparsity]
+
+  use_improved_shap: true
+  gamma_sparsity: 1.0
+  gamma_consistency: 0.0
+  gamma_faithfulness: 0.0
+  gamma_stability: 0.0
+
+  acceptance_min_delta_r2: 0.0
+  quality_first: true
+  reject_on_val_degrade: true
+  quality_tolerance: 0.0002
+  lr_backoff: 0.5
+  min_lr: 0.000001
+
+  # Чистая автономная EA-версия (без distillation/priors/rule-stability/noise)
+  use_distill_anchor: false
+  max_distill_ratio: 0.0
+  max_coeff_delta_ratio: 0.05
+  accuracy_guard:
+    enabled: true
+    margin: 0.005
+    weight: 5.0
+  max_shap_ratio: 1.0
+  max_guard_ratio: 0.10
+  teacher_distill:
+    enabled: false
+    n_estimators: 800
+    min_samples_leaf: 1
+    max_depth: null
+    random_state: 42
+
+  autonomous_error_shap: true
+  error_importance_mode: permute
+  error_importance_ema_beta: 0.9
+  grad_importance_ema_beta: 0.9
+  error_target_rho: 1.0
+  ea_alignment_loss: cosine_mse
+  ea_alignment_alpha: 0.5
+  ea_warmup_fraction: 0.0
+  debug_grad_norms: true
+  grad_norm_interval: 20
+  ea_bypass_legacy_normalization: true
+  ea_use_grad_balance: true
+  ea_target_grad_ratio: 0.5
+  ea_scale_min: 0.1
+  ea_scale_max: 1000000.0
+
+  # Главный вклад: JS(p || q_err)
+  error_js_weight: 1.0
+  error_mse_weight: 0.0
+
+  # Gating опционально: включен как инженерный механизм, но без отдельной "науки"
+  use_feature_gates: true
+  gate_init: 0.9999
+  gate_anchor_weight: 0.05
+  gate_js_weight: 0.0
+  noise_weight: 0.0
+  rule_stability_weight: 0.0
+
+  scalarization:
+    mode: mean
+
+  tikhonov:
+    enabled: false
+    lambda: 0.0
+    order: 2
+    energy_aware: false
+
+  nonnegativity:
+    enabled: false
+    lambda: 0.0
+
+output:
+  results_dir: results/naval_ea_sentinel_extreme
+  save_model: true
+  save_predictions: true
+  save_plots: true
+  save_samples: true
+  sample_size: 8

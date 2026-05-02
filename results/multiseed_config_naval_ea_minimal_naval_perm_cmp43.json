@@ -1,0 +1,19 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_naval_ea_minimal.yaml",
+  "seeds": [
+    43
+  ],
+  "runs": [
+    {
+      "seed": 43,
+      "tag": "naval_perm_cmp43_s43",
+      "metrics_source": "shap",
+      "r2_final": 0.8633683389470996,
+      "r2_vanilla": 0.8628921764846734,
+      "r2_shap_raw": 0.8633683389470996
+    }
+  ],
+  "delta_r2_mean": 0.00047616246242621063,
+  "delta_r2_min": 0.00047616246242621063,
+  "delta_r2_max": 0.00047616246242621063
+}

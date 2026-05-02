@@ -1,0 +1,13 @@
+,importance
+lever_position,0.4073687493801117
+gas_turbine_shaft_torque,0.011775223538279533
+gas_turbine_rate_of_revolutions,0.30285704135894775
+gas_generator_rate_of_revolutions,0.14814357459545135
+starboard_propeller_torque,0.07224123179912567
+hp_turbine_exit_temperature,0.23915693163871765
+gt_compressor_outlet_air_temperature,0.23072005808353424
+hp_turbine_exit_pressure,1.304524302482605
+gt_compressor_outlet_air_pressure,0.8415940999984741
+gas_turbine_exhaust_gas_pressure,1.1663833856582642
+turbine_injection_control,0.10859456658363342
+fuel_flow,0.4775276184082031

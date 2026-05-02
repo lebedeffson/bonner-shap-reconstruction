@@ -1,0 +1,219 @@
+{
+  "timestamp": "20260502_203422_naval_ea_diag10_s45",
+  "tag": "naval_ea_diag10_s45",
+  "config_path": "/tmp/tmp514gv68x.yaml",
+  "model_state": null,
+  "model_state_path": null,
+  "train_size": 9547,
+  "shap_train_size": 7160,
+  "test_size": 2387,
+  "vanilla_train_count": 9547,
+  "shap_train_count": 7160,
+  "real_test_count": 2387,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 3.4970446405619906e-05,
+    "rmse": 0.005913581521009067,
+    "mae": 0.0038842271393095505,
+    "r2": 0.7420248577832129,
+    "r2_weighted": 0.7420248577832129,
+    "r2_mean": 0.6504944833514339
+  },
+  "vanilla_metrics": {
+    "mse": 3.4970446405619906e-05,
+    "rmse": 0.005913581521009067,
+    "mae": 0.0038842271393095505,
+    "r2": 0.7420248577832129,
+    "r2_weighted": 0.7420248577832129,
+    "r2_mean": 0.6504944833514339
+  },
+  "shap_metrics": {
+    "mse": 3.503872788941261e-05,
+    "rmse": 0.005919351982220065,
+    "mae": 0.0039039492671041204,
+    "r2": 0.7415211488717544,
+    "r2_weighted": 0.7415211488717544,
+    "r2_mean": 0.6494542666954806
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 3.4970446405619906e-05,
+      "rmse": 0.005913581521009067,
+      "mae": 0.0038842271393095505,
+      "r2": 0.6504944833514337
+    }
+  },
+  "metrics_source": "vanilla_fallback",
+  "shap_config_enabled": true,
+  "shap_applied": false,
+  "shap_rejected": true,
+  "training_time_total": 34.996232986450195,
+  "training_time_shap": 28.3735568523407,
+  "saved_files": {
+    "predictions": "predictions_20260502_203422_naval_ea_diag10_s45.npy",
+    "targets_test": "targets_test_20260502_203422_naval_ea_diag10_s45.npy",
+    "metrics_csv": "metrics_20260502_203422_naval_ea_diag10_s45.csv",
+    "feature_importance": "feature_importance_20260502_203422_naval_ea_diag10_s45.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_203422_naval_ea_diag10_s45.csv",
+      "history": "shap_history_20260502_203422_naval_ea_diag10_s45.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.9812351395932011,
+      "std": 0.014107352355643398,
+      "min": 0.9255026578903198,
+      "max": 1.0301676988601685,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 0.981280896522832,
+      "std": 0.013215721028878078,
+      "min": 0.95,
+      "max": 1.0
+    },
+    "coeff_stats": {
+      "mean": 0.02520606813039614,
+      "std": 0.8526926254082023,
+      "min": -3.704986572265625,
+      "max": 5.96421480178833,
+      "abs_mean": 0.41522644955571547,
+      "finite_fraction": 1.0,
+      "nonzero": 206,
+      "total": 208
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "sparsity"
+      ],
+      "shap_contribution": {
+        "mean": 8.387209378630847e-10,
+        "last": 5.919333180856975e-10,
+        "max": 4.138429282794589e-09
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.09024013029497543,
+        "last": 0.09009835727394418,
+        "max": 0.09090952636971027
+      },
+      "shap_scale_factor": {
+        "mean": 0.01135035329487824,
+        "last": 1.771810058115074e-05,
+        "max": 0.14041262245741903
+      },
+      "shap_loss_normalized": {
+        "mean": 0.0003840011416806387,
+        "last": 5.919332899395613e-07,
+        "max": 0.004757301302350113
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.033477192177887555,
+          "last": 0.03403586806130728,
+          "max": 0.03403586806130728
+        },
+        "sparsity": {
+          "mean": 0.9165749691508629,
+          "last": 0.9165749698877335,
+          "max": 0.9165749794670514
+        },
+        "faithfulness": {
+          "mean": 0.3255055227654648,
+          "last": 0.3200346417725086,
+          "max": 0.3306093080235379
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "sparsity": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.033477192177887555,
+          "last": 0.03403586806130728,
+          "max": 0.03403586806130728
+        },
+        "sparsity": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "dominant_shap_component": "consistency",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 45,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_203422_naval_ea_diag10_s45.csv",
+    "history": "shap_history_20260502_203422_naval_ea_diag10_s45.json"
+  }
+}

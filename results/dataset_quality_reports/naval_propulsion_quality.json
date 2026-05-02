@@ -1,0 +1,16 @@
+{
+  "dataset": "naval_propulsion.csv",
+  "rows": 11934,
+  "features": 12,
+  "targets": [
+    "gt_compressor_decay_state_coefficient",
+    "gt_turbine_decay_state_coefficient"
+  ],
+  "quality": {
+    "n_features": 12,
+    "constant_features": [],
+    "duplicate_pairs": [],
+    "high_corr_pairs": [],
+    "condition_number": 708744.8903691594
+  }
+}

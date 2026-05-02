@@ -1,0 +1,18 @@
+{
+  "summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_ea_forced/training_summary_20260502_212221_sml_ea43_forced_s43.json",
+  "importance_kind": "shap",
+  "mask": "permute",
+  "k": 2,
+  "base_mse": 403.8000765821339,
+  "delta_mse_top": 0.22823153734657353,
+  "delta_mse_bottom": 0.001921559648735638,
+  "ratio_top_bottom": 118.77411007145831,
+  "top_idx": [
+    12,
+    13
+  ],
+  "bottom_idx": [
+    7,
+    18
+  ]
+}

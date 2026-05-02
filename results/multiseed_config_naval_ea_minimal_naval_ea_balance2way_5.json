@@ -1,0 +1,55 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_naval_ea_minimal.yaml",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "naval_ea_balance2way_5_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9126518673827981,
+      "r2_vanilla": 0.9126518673827981,
+      "r2_shap_raw": 0.9114342011815177
+    },
+    {
+      "seed": 43,
+      "tag": "naval_ea_balance2way_5_s43",
+      "metrics_source": "shap",
+      "r2_final": 0.8633683389470996,
+      "r2_vanilla": 0.8628921764846734,
+      "r2_shap_raw": 0.8633683389470996
+    },
+    {
+      "seed": 44,
+      "tag": "naval_ea_balance2way_5_s44",
+      "metrics_source": "shap",
+      "r2_final": 0.8615692733828055,
+      "r2_vanilla": 0.8615425329796008,
+      "r2_shap_raw": 0.8615692733828055
+    },
+    {
+      "seed": 45,
+      "tag": "naval_ea_balance2way_5_s45",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.7420248577832129,
+      "r2_vanilla": 0.7420248577832129,
+      "r2_shap_raw": 0.7415211488717544
+    },
+    {
+      "seed": 46,
+      "tag": "naval_ea_balance2way_5_s46",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.8163217150907304,
+      "r2_vanilla": 0.8163217150907304,
+      "r2_shap_raw": 0.8161809522370133
+    }
+  ],
+  "delta_r2_mean": -0.00027184702016502804,
+  "delta_r2_min": -0.0012176662012803874,
+  "delta_r2_max": 0.00047616246242621063
+}

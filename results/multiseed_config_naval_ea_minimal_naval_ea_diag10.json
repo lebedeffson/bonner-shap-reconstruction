@@ -1,0 +1,100 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_naval_ea_minimal.yaml",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "naval_ea_diag10_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9126518673827981,
+      "r2_vanilla": 0.9126518673827981,
+      "r2_shap_raw": 0.9114342011815177
+    },
+    {
+      "seed": 43,
+      "tag": "naval_ea_diag10_s43",
+      "metrics_source": "shap",
+      "r2_final": 0.8633683389470996,
+      "r2_vanilla": 0.8628921764846734,
+      "r2_shap_raw": 0.8633683389470996
+    },
+    {
+      "seed": 44,
+      "tag": "naval_ea_diag10_s44",
+      "metrics_source": "shap",
+      "r2_final": 0.8615692733828055,
+      "r2_vanilla": 0.8615425329796008,
+      "r2_shap_raw": 0.8615692733828055
+    },
+    {
+      "seed": 45,
+      "tag": "naval_ea_diag10_s45",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.7420248577832129,
+      "r2_vanilla": 0.7420248577832129,
+      "r2_shap_raw": 0.7415211488717544
+    },
+    {
+      "seed": 46,
+      "tag": "naval_ea_diag10_s46",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.8163217150907304,
+      "r2_vanilla": 0.8163217150907304,
+      "r2_shap_raw": 0.8161809522370133
+    },
+    {
+      "seed": 47,
+      "tag": "naval_ea_diag10_s47",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9503602035679906,
+      "r2_vanilla": 0.9503602035679906,
+      "r2_shap_raw": 0.950265848033705
+    },
+    {
+      "seed": 48,
+      "tag": "naval_ea_diag10_s48",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9028676802090168,
+      "r2_vanilla": 0.9028676802090168,
+      "r2_shap_raw": 0.9020411680892023
+    },
+    {
+      "seed": 49,
+      "tag": "naval_ea_diag10_s49",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.8961852124027926,
+      "r2_vanilla": 0.8961852124027926,
+      "r2_shap_raw": 0.8960823999246432
+    },
+    {
+      "seed": 50,
+      "tag": "naval_ea_diag10_s50",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.8357596639593962,
+      "r2_vanilla": 0.8357596639593962,
+      "r2_shap_raw": 0.835507319286155
+    },
+    {
+      "seed": 51,
+      "tag": "naval_ea_diag10_s51",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.8043950835233147,
+      "r2_vanilla": 0.8043950835233147,
+      "r2_shap_raw": 0.8033161623433995
+    }
+  ],
+  "delta_r2_mean": -0.00037141810862308946,
+  "delta_r2_min": -0.0012176662012803874,
+  "delta_r2_max": 0.00047616246242621063
+}

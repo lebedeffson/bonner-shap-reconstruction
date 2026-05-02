@@ -1,0 +1,19 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_naval_ea_sentinel_off.yaml",
+  "seeds": [
+    42
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "naval_sent_off_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9126518673827981,
+      "r2_vanilla": 0.9126518673827981,
+      "r2_shap_raw": 0.912651780424105
+    }
+  ],
+  "delta_r2_mean": -8.695869313513072e-08,
+  "delta_r2_min": -8.695869313513072e-08,
+  "delta_r2_max": -8.695869313513072e-08
+}

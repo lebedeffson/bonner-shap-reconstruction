@@ -1,0 +1,19 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_naval_ea_minimal.yaml",
+  "seeds": [
+    42
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "naval_ea_ema_check_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9126518673827981,
+      "r2_vanilla": 0.9126518673827981,
+      "r2_shap_raw": 0.9114342011815177
+    }
+  ],
+  "delta_r2_mean": -0.0012176662012803874,
+  "delta_r2_min": -0.0012176662012803874,
+  "delta_r2_max": -0.0012176662012803874
+}

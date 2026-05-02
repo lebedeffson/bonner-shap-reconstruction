@@ -1,0 +1,56 @@
+{
+  "timestamp": "20260502_123148_energy_vanilla_s42",
+  "tag": "energy_vanilla_s42",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_efficiency/multiseed/configs/config_energy_vanilla_seed_42.yaml",
+  "model_state": "anfis_model_state_20260502_123148_energy_vanilla_s42.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_efficiency/anfis_model_state_20260502_123148_energy_vanilla_s42.pt",
+  "train_size": 614,
+  "test_size": 154,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 1.4581844761893028,
+    "rmse": 1.2075530945632589,
+    "mae": 0.7842269888791169,
+    "r2": 0.9851877346467696,
+    "r2_weighted": 0.9851877346467696,
+    "r2_mean": 0.984444322768232
+  },
+  "metrics_denorm": null,
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 1.4581844761893028,
+      "rmse": 1.2075530945632589,
+      "mae": 0.7842269888791169,
+      "r2": 0.984444322768232
+    }
+  },
+  "metrics_source": "vanilla_real_only",
+  "training_time": 27.96177864074707,
+  "model_config": {
+    "num_rules": 16,
+    "reg_lambda": 0.001,
+    "pso_epochs": 120,
+    "pso_pop_size": 80
+  },
+  "saved_files": {
+    "predictions": "predictions_20260502_123148_energy_vanilla_s42.npy",
+    "targets_test": "targets_test_20260502_123148_energy_vanilla_s42.npy",
+    "samples": {
+      "indices": [
+        13,
+        65,
+        97,
+        107,
+        114,
+        130,
+        150,
+        152
+      ],
+      "X": "samples_20260502_123148_energy_vanilla_s42_X.npy",
+      "y": "samples_20260502_123148_energy_vanilla_s42_y.npy",
+      "pred": "samples_20260502_123148_energy_vanilla_s42_pred.npy"
+    },
+    "metrics_csv": "metrics_20260502_123148_energy_vanilla_s42.csv",
+    "feature_importance": "feature_importance_20260502_123148_energy_vanilla_s42.csv"
+  }
+}

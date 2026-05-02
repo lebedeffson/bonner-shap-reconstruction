@@ -1,0 +1,218 @@
+{
+  "timestamp": "20260502_141407_sml2010_shap_quality_v1",
+  "tag": "sml2010_shap_quality_v1",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_sml2010_integrated_shap_safe.yaml",
+  "model_state": "anfis_model_state_20260502_141407_sml2010_shap_quality_v1.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010/anfis_model_state_20260502_141407_sml2010_shap_quality_v1.pt",
+  "train_size": 3309,
+  "shap_train_size": 2481,
+  "test_size": 828,
+  "vanilla_train_count": 3309,
+  "shap_train_count": 2481,
+  "real_test_count": 828,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 0.6752952864247898,
+    "rmse": 0.8217635222037967,
+    "mae": 0.5721593438650678,
+    "r2": 0.9380579551383574,
+    "r2_weighted": 0.9380579551383574,
+    "r2_mean": 0.9380502885054373
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 0.6752952864247898,
+      "rmse": 0.8217635222037967,
+      "mae": 0.5721593438650678,
+      "r2": 0.9380502885054373
+    }
+  },
+  "metrics_source": "shap",
+  "shap_config_enabled": true,
+  "shap_applied": true,
+  "shap_rejected": false,
+  "training_time_total": 42.80302834510803,
+  "training_time_shap": 2.8148558139801025,
+  "saved_files": {
+    "predictions": "predictions_20260502_141407_sml2010_shap_quality_v1.npy",
+    "targets_test": "targets_test_20260502_141407_sml2010_shap_quality_v1.npy",
+    "samples": {
+      "indices": [
+        71,
+        73,
+        357,
+        361,
+        538,
+        577,
+        636,
+        709
+      ],
+      "X": "samples_20260502_141407_sml2010_shap_quality_v1_X.npy",
+      "y": "samples_20260502_141407_sml2010_shap_quality_v1_y.npy",
+      "pred": "samples_20260502_141407_sml2010_shap_quality_v1_pred.npy"
+    },
+    "metrics_csv": "metrics_20260502_141407_sml2010_shap_quality_v1.csv",
+    "feature_importance": "feature_importance_20260502_141407_sml2010_shap_quality_v1.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_141407_sml2010_shap_quality_v1.csv",
+      "history": "shap_history_20260502_141407_sml2010_shap_quality_v1.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 20.092311428364923,
+      "std": 3.3127961560195467,
+      "min": 6.303531646728516,
+      "max": 31.2218017578125,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 20.091670591787437,
+      "std": 3.306111225086599,
+      "min": 11.144,
+      "max": 28.8173
+    },
+    "coeff_stats": {
+      "mean": 0.44948173013213477,
+      "std": 2.9237214319479423,
+      "min": -13.781354904174805,
+      "max": 17.731069564819336,
+      "abs_mean": 1.4890598962596244,
+      "finite_fraction": 1.0,
+      "nonzero": 480,
+      "total": 480
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "sparsity"
+      ],
+      "shap_contribution": {
+        "mean": 6.055498678993223e-06,
+        "last": 2.2677850211039186e-06,
+        "max": 1.6858968942520172e-05
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.14485216183923078,
+        "last": 0.08986097798653467,
+        "max": 0.2146748446937849
+      },
+      "shap_scale_factor": {
+        "mean": 0.08560238345333761,
+        "last": 0.008198432188425083,
+        "max": 0.30530738832762033
+      },
+      "shap_loss_normalized": {
+        "mean": 0.02613876248823288,
+        "last": 0.0046689691296659215,
+        "max": 0.0842948464008096
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 0.4918482772623881,
+          "last": 0.5680347077357464,
+          "max": 0.5680347077357464
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 0.4918482772623881,
+          "last": 0.5680347077357464,
+          "max": 0.5680347077357464
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "dominant_shap_component": "sparsity",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 42,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_141407_sml2010_shap_quality_v1.csv",
+    "history": "shap_history_20260502_141407_sml2010_shap_quality_v1.json"
+  }
+}

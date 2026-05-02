@@ -1,0 +1,219 @@
+{
+  "timestamp": "20260502_200437_naval_auto_fast5_s42",
+  "tag": "naval_auto_fast5_s42",
+  "config_path": "/tmp/tmpf84mvdqo.yaml",
+  "model_state": null,
+  "model_state_path": null,
+  "train_size": 9547,
+  "shap_train_size": 7160,
+  "test_size": 2387,
+  "vanilla_train_count": 9547,
+  "shap_train_count": 7160,
+  "real_test_count": 2387,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 1.1877421156415662e-05,
+    "rmse": 0.003446363468413577,
+    "mae": 0.0022995180154775628,
+    "r2": 0.9126518673827981,
+    "r2_weighted": 0.9126518673827981,
+    "r2_mean": 0.8431287699929793
+  },
+  "vanilla_metrics": {
+    "mse": 1.1877421156415662e-05,
+    "rmse": 0.003446363468413577,
+    "mae": 0.0022995180154775628,
+    "r2": 0.9126518673827981,
+    "r2_weighted": 0.9126518673827981,
+    "r2_mean": 0.8431287699929793
+  },
+  "shap_metrics": {
+    "mse": 1.2042996926236896e-05,
+    "rmse": 0.003470302137600831,
+    "mae": 0.002312502055973198,
+    "r2": 0.9114342011815177,
+    "r2_weighted": 0.9114342011815177,
+    "r2_mean": 0.8404602195843023
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 1.1877421156415662e-05,
+      "rmse": 0.003446363468413577,
+      "mae": 0.0022995180154775628,
+      "r2": 0.8431287699929794
+    }
+  },
+  "metrics_source": "vanilla_fallback",
+  "shap_config_enabled": true,
+  "shap_applied": false,
+  "shap_rejected": true,
+  "training_time_total": 45.38243365287781,
+  "training_time_shap": 35.59561610221863,
+  "saved_files": {
+    "predictions": "predictions_20260502_200437_naval_auto_fast5_s42.npy",
+    "targets_test": "targets_test_20260502_200437_naval_auto_fast5_s42.npy",
+    "metrics_csv": "metrics_20260502_200437_naval_auto_fast5_s42.csv",
+    "feature_importance": "feature_importance_20260502_200437_naval_auto_fast5_s42.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_200437_naval_auto_fast5_s42.csv",
+      "history": "shap_history_20260502_200437_naval_auto_fast5_s42.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.9811019910445611,
+      "std": 0.013682776725830653,
+      "min": 0.9421862363815308,
+      "max": 1.018336534500122,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 0.981065982404692,
+      "std": 0.013260436409205129,
+      "min": 0.95,
+      "max": 1.0
+    },
+    "coeff_stats": {
+      "mean": -0.00460849290561345,
+      "std": 0.4110361718727456,
+      "min": -2.976794958114624,
+      "max": 2.8795089721679688,
+      "abs_mean": 0.14964161065786094,
+      "finite_fraction": 1.0,
+      "nonzero": 208,
+      "total": 208
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "sparsity"
+      ],
+      "shap_contribution": {
+        "mean": 6.885793080985252e-08,
+        "last": 2.883062057939296e-10,
+        "max": 7.775372010334845e-07
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.09040639845565178,
+        "last": 0.08927829918528134,
+        "max": 0.09091300380951683
+      },
+      "shap_scale_factor": {
+        "mean": 0.0005470537600611422,
+        "last": 4.7588332399392475e-07,
+        "max": 0.006437061318003397
+      },
+      "shap_loss_normalized": {
+        "mean": 0.0003302138359260797,
+        "last": 2.883061931413522e-07,
+        "max": 0.0038876861077962338
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.13262855704198337,
+          "last": 0.13333419737006938,
+          "max": 0.13339822060827697
+        },
+        "sparsity": {
+          "mean": 0.9165749693146119,
+          "last": 0.9165749677589962,
+          "max": 0.916574974145208
+        },
+        "faithfulness": {
+          "mean": 0.2884429423854902,
+          "last": 0.2884951901755163,
+          "max": 0.2891092694231442
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "sparsity": {
+          "mean": 0.20000000000000004,
+          "last": 0.2,
+          "max": 0.2
+        },
+        "faithfulness": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "stability": {
+          "mean": 0.10000000000000002,
+          "last": 0.1,
+          "max": 0.1
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.13262855704198337,
+          "last": 0.13333419737006938,
+          "max": 0.13339822060827697
+        },
+        "sparsity": {
+          "mean": 0.1833149938629224,
+          "last": 0.18331499355179925,
+          "max": 0.18331499482904162
+        },
+        "faithfulness": {
+          "mean": 0.2884429423854902,
+          "last": 0.2884951901755163,
+          "max": 0.2891092694231442
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "dominant_shap_component": "faithfulness",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 42,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_200437_naval_auto_fast5_s42.csv",
+    "history": "shap_history_20260502_200437_naval_auto_fast5_s42.json"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "timestamp": "20260502_122332_energy_vanilla",
+  "tag": "energy_vanilla",
+  "config_path": "configs/config_energy_vanilla_real_only.yaml",
+  "model_state": "anfis_model_state_20260502_122332_energy_vanilla.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_efficiency/anfis_model_state_20260502_122332_energy_vanilla.pt",
+  "train_size": 614,
+  "test_size": 154,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 1.4581844761893028,
+    "rmse": 1.2075530945632589,
+    "mae": 0.7842269888791169,
+    "r2": 0.9851877346467696,
+    "r2_weighted": 0.9851877346467696,
+    "r2_mean": 0.984444322768232
+  },
+  "metrics_denorm": null,
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 1.4581844761893028,
+      "rmse": 1.2075530945632589,
+      "mae": 0.7842269888791169,
+      "r2": 0.984444322768232
+    }
+  },
+  "metrics_source": "vanilla_real_only",
+  "training_time": 26.559702157974243,
+  "model_config": {
+    "num_rules": 16,
+    "reg_lambda": 0.001,
+    "pso_epochs": 120,
+    "pso_pop_size": 80
+  },
+  "saved_files": {
+    "predictions": "predictions_20260502_122332_energy_vanilla.npy",
+    "targets_test": "targets_test_20260502_122332_energy_vanilla.npy",
+    "samples": {
+      "indices": [
+        13,
+        65,
+        97,
+        107,
+        114,
+        130,
+        150,
+        152
+      ],
+      "X": "samples_20260502_122332_energy_vanilla_X.npy",
+      "y": "samples_20260502_122332_energy_vanilla_y.npy",
+      "pred": "samples_20260502_122332_energy_vanilla_pred.npy"
+    },
+    "metrics_csv": "metrics_20260502_122332_energy_vanilla.csv"
+  }
+}

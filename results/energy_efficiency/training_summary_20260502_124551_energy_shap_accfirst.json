@@ -1,0 +1,218 @@
+{
+  "timestamp": "20260502_124551_energy_shap_accfirst",
+  "tag": "energy_shap_accfirst",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_energy_integrated_shap_accuracy_first.yaml",
+  "model_state": "anfis_model_state_20260502_124551_energy_shap_accfirst.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_efficiency/anfis_model_state_20260502_124551_energy_shap_accfirst.pt",
+  "train_size": 614,
+  "shap_train_size": 460,
+  "test_size": 154,
+  "vanilla_train_count": 614,
+  "shap_train_count": 460,
+  "real_test_count": 154,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 2.2048178506707705,
+    "rmse": 1.4848629063555903,
+    "mae": 1.1280409156502067,
+    "r2": 0.9776034187766002,
+    "r2_weighted": 0.9776034187766002,
+    "r2_mean": 0.9768281673105934
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 2.2048178506707705,
+      "rmse": 1.4848629063555903,
+      "mae": 1.1280409156502067,
+      "r2": 0.9768281673105934
+    }
+  },
+  "metrics_source": "shap",
+  "shap_config_enabled": true,
+  "shap_applied": true,
+  "training_time_total": 44.568639039993286,
+  "training_time_shap": 17.79670524597168,
+  "saved_files": {
+    "predictions": "predictions_20260502_124551_energy_shap_accfirst.npy",
+    "targets_test": "targets_test_20260502_124551_energy_shap_accfirst.npy",
+    "samples": {
+      "indices": [
+        13,
+        65,
+        97,
+        107,
+        114,
+        130,
+        150,
+        152
+      ],
+      "X": "samples_20260502_124551_energy_shap_accfirst_X.npy",
+      "y": "samples_20260502_124551_energy_shap_accfirst_y.npy",
+      "pred": "samples_20260502_124551_energy_shap_accfirst_pred.npy"
+    },
+    "metrics_csv": "metrics_20260502_124551_energy_shap_accfirst.csv",
+    "feature_importance": "feature_importance_20260502_124551_energy_shap_accfirst.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_124551_energy_shap_accfirst.csv",
+      "history": "shap_history_20260502_124551_energy_shap_accfirst.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 23.28572024308242,
+      "std": 9.960487510805129,
+      "min": 5.513519287109375,
+      "max": 42.93922424316406,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 24.10366883116883,
+      "std": 9.99299516905561,
+      "min": 6.37,
+      "max": 46.23
+    },
+    "coeff_stats": {
+      "mean": -1.171920019118424,
+      "std": 15.890545554001472,
+      "min": -119.57196807861328,
+      "max": 57.60177230834961,
+      "abs_mean": 8.725008128961539,
+      "finite_fraction": 1.0,
+      "nonzero": 270,
+      "total": 288
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "consistency",
+        "sparsity"
+      ],
+      "shap_contribution": {
+        "mean": 0.0006012994145276025,
+        "last": 0.0008816275629214942,
+        "max": 0.001119277133451154
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.00041719874240228713,
+        "last": 0.0006497687078127586,
+        "max": 0.0008170447685299179
+      },
+      "shap_scale_factor": {
+        "mean": 0.07929910950766923,
+        "last": 0.09219181302669069,
+        "max": 0.2407618045357925
+      },
+      "shap_loss_normalized": {
+        "mean": 0.03695033338541786,
+        "last": 0.04408137922485669,
+        "max": 0.09007107814153036
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 0.4769142666260401,
+          "last": 0.4869953513145447,
+          "max": 0.5196448544661204
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 0.4769142666260401,
+          "last": 0.4869953513145447,
+          "max": 0.5196448544661204
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "dominant_shap_component": "sparsity",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 42,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_124551_energy_shap_accfirst.csv",
+    "history": "shap_history_20260502_124551_energy_shap_accfirst.json"
+  }
+}
