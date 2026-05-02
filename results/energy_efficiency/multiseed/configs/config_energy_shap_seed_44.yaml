@@ -1,0 +1,80 @@
+dataset:
+  train_data: data/energy_efficiency.csv
+  validation_data: data/energy_efficiency.csv
+  normalize_sum: false
+  mix_with_real: false
+  mix_ratio: 0.0
+  test_size: 0.2
+  random_state: 44
+  feature_columns:
+  - relative_compactness
+  - surface_area
+  - wall_area
+  - roof_area
+  - overall_height
+  - orientation
+  - glazing_area
+  - glazing_area_distribution
+  target_columns:
+  - heating_load
+  - cooling_load
+  feature_count: 8
+  target_count: 2
+model:
+  num_rules: 16
+  mf_class: Gaussian
+  vanishing_strategy: blend
+  optim: OriginalPSO
+  reg_lambda: 0.001
+  seed: 44
+  n_workers: 4
+  optim_params:
+    epoch: 120
+    pop_size: 80
+    verbose: false
+shap_reg:
+  enabled: true
+  integrated_training: false
+  training_mode: real_only
+  use_pso_init: false
+  pso_epochs: 120
+  epochs: 200
+  batch_size: 32
+  lr: 0.001
+  gamma: 0.08
+  gamma_start: 0.02
+  gamma_end: 0.08
+  gamma_warmup_epochs: 0.4
+  use_adaptive_gamma: true
+  target_shap_ratio: 0.25
+  min_convergence_slowdown: 0.25
+  use_adaptive_weights: true
+  use_true_shap: true
+  active_components:
+  - consistency
+  - sparsity
+  - faithfulness
+  - stability
+  use_improved_shap: true
+  gamma_sparsity: 0.65
+  gamma_consistency: 0.2
+  gamma_faithfulness: 0.1
+  gamma_stability: 0.05
+  scalarization:
+    mode: mean
+  tikhonov:
+    enabled: false
+    lambda: 0.0
+    order: 2
+    energy_aware: false
+  nonnegativity:
+    enabled: false
+    lambda: 0.0
+  seed: 44
+output:
+  results_dir: results/energy_efficiency
+  save_model: true
+  save_predictions: true
+  save_plots: true
+  save_samples: true
+  sample_size: 8

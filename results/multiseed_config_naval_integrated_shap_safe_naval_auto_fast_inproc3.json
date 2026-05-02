@@ -1,0 +1,37 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_naval_integrated_shap_safe.yaml",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "naval_auto_fast_inproc3_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9126518673827981,
+      "r2_vanilla": 0.9126518673827981,
+      "r2_shap_raw": 0.9114342011815177
+    },
+    {
+      "seed": 43,
+      "tag": "naval_auto_fast_inproc3_s43",
+      "metrics_source": "shap",
+      "r2_final": 0.8633683389470996,
+      "r2_vanilla": 0.8628921764846734,
+      "r2_shap_raw": 0.8633683389470996
+    },
+    {
+      "seed": 44,
+      "tag": "naval_auto_fast_inproc3_s44",
+      "metrics_source": "shap",
+      "r2_final": 0.8615692733828055,
+      "r2_vanilla": 0.8615425329796008,
+      "r2_shap_raw": 0.8615692733828055
+    }
+  ],
+  "delta_r2_mean": -0.00023825444521648662,
+  "delta_r2_min": -0.0012176662012803874,
+  "delta_r2_max": 0.00047616246242621063
+}

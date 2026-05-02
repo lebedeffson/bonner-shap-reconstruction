@@ -1,0 +1,18 @@
+{
+  "summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_ea_minimal/training_summary_20260502_211949_sml_ea43_full_s43.json",
+  "importance_kind": "vanilla",
+  "mask": "mean",
+  "k": 2,
+  "base_mse": 403.7998799569474,
+  "delta_mse_top": 0.029367230338664285,
+  "delta_mse_bottom": 0.039061518497874204,
+  "ratio_top_bottom": 0.7518199872212004,
+  "top_idx": [
+    7,
+    5
+  ],
+  "bottom_idx": [
+    11,
+    10
+  ]
+}

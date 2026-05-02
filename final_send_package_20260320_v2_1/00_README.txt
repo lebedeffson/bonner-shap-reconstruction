@@ -11,3 +11,4 @@ Figures are in ./figures
 Summaries are in ./summaries
 
 TeX sources are in ./tex_sources
+Conference talk script in Word is in ./05_conference_talk_script_20260323.docx

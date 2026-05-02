@@ -1,0 +1,19 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_sml2010_ea_rank_val_sentinel.yaml",
+  "seeds": [
+    42
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "sml_rankval_sentinel_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9532332813069075,
+      "r2_vanilla": 0.9532332813069075,
+      "r2_shap_raw": 0.7954891833484878
+    }
+  ],
+  "delta_r2_mean": -0.1577440979584197,
+  "delta_r2_min": -0.1577440979584197,
+  "delta_r2_max": -0.1577440979584197
+}

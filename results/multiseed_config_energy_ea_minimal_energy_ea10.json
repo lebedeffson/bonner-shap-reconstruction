@@ -1,0 +1,100 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_energy_ea_minimal.yaml",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "energy_ea10_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9819457146100332,
+      "r2_vanilla": 0.9819457146100332,
+      "r2_shap_raw": 0.9815698910972591
+    },
+    {
+      "seed": 43,
+      "tag": "energy_ea10_s43",
+      "metrics_source": "shap",
+      "r2_final": 0.987271519227912,
+      "r2_vanilla": 0.9872260203632655,
+      "r2_shap_raw": 0.987271519227912
+    },
+    {
+      "seed": 44,
+      "tag": "energy_ea10_s44",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9799275898739993,
+      "r2_vanilla": 0.9799275898739993,
+      "r2_shap_raw": 0.9790553040830171
+    },
+    {
+      "seed": 45,
+      "tag": "energy_ea10_s45",
+      "metrics_source": "shap",
+      "r2_final": 0.9758477061175255,
+      "r2_vanilla": 0.9758018433089225,
+      "r2_shap_raw": 0.9758477061175255
+    },
+    {
+      "seed": 46,
+      "tag": "energy_ea10_s46",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9863538142698172,
+      "r2_vanilla": 0.9863538142698172,
+      "r2_shap_raw": 0.986066244429446
+    },
+    {
+      "seed": 47,
+      "tag": "energy_ea10_s47",
+      "metrics_source": "shap",
+      "r2_final": 0.9867725724528743,
+      "r2_vanilla": 0.9865877244376344,
+      "r2_shap_raw": 0.9867725724528743
+    },
+    {
+      "seed": 48,
+      "tag": "energy_ea10_s48",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9799822798235718,
+      "r2_vanilla": 0.9799822798235718,
+      "r2_shap_raw": 0.9799685086853371
+    },
+    {
+      "seed": 49,
+      "tag": "energy_ea10_s49",
+      "metrics_source": "shap",
+      "r2_final": 0.9832488121272154,
+      "r2_vanilla": 0.9831898436332166,
+      "r2_shap_raw": 0.9832488121272154
+    },
+    {
+      "seed": 50,
+      "tag": "energy_ea10_s50",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9802083542613446,
+      "r2_vanilla": 0.9802083542613446,
+      "r2_shap_raw": 0.9798669699316966
+    },
+    {
+      "seed": 51,
+      "tag": "energy_ea10_s51",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9760318541997066,
+      "r2_vanilla": 0.9760318541997066,
+      "r2_shap_raw": 0.9745696519547036
+    }
+  ],
+  "delta_r2_mean": -0.00030178586745248647,
+  "delta_r2_min": -0.0014622022450030414,
+  "delta_r2_max": 0.00018484801523988015
+}

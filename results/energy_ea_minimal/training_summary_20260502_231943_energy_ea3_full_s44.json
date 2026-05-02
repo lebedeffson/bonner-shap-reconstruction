@@ -1,0 +1,260 @@
+{
+  "timestamp": "20260502_231943_energy_ea3_full_s44",
+  "tag": "energy_ea3_full_s44",
+  "config_path": "/tmp/tmpnkqh1urs.yaml",
+  "config_sha256": "48da6edbc005dca341e95f58d4aca32dc28307deba6c13ac7686d1a9891d7bb9",
+  "effective_config_sha256": "e06ec92ac3d5f158056d523bd765dd0234d6f22e044dc883284478d1898b8f75",
+  "run_meta": {
+    "fast_mode": false,
+    "inprocess_mode": true,
+    "tag_prefix": "energy_ea3_full"
+  },
+  "model_state": "anfis_model_state_20260502_231943_energy_ea3_full_s44.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_ea_minimal/anfis_model_state_20260502_231943_energy_ea3_full_s44.pt",
+  "train_size": 614,
+  "shap_train_size": 460,
+  "test_size": 154,
+  "vanilla_train_count": 614,
+  "shap_train_count": 460,
+  "real_test_count": 154,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 1.370437443330832,
+    "rmse": 1.1706568426874,
+    "mae": 0.7283738634183812,
+    "r2": 0.9859671717487332,
+    "r2_weighted": 0.9859671717487332,
+    "r2_mean": 0.9855820384109165
+  },
+  "vanilla_metrics": {
+    "mse": 1.4168742883158207,
+    "rmse": 1.1903252867665295,
+    "mae": 0.7286175939634252,
+    "r2": 0.9854916737437888,
+    "r2_weighted": 0.9854916737437888,
+    "r2_mean": 0.9850906232285015
+  },
+  "shap_metrics": {
+    "mse": 1.370437443330832,
+    "rmse": 1.1706568426874,
+    "mae": 0.7283738634183812,
+    "r2": 0.9859671717487332,
+    "r2_weighted": 0.9859671717487332,
+    "r2_mean": 0.9855820384109165
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 1.370437443330832,
+      "rmse": 1.1706568426874,
+      "mae": 0.7283738634183812,
+      "r2": 0.9855820384109165
+    }
+  },
+  "metrics_source": "shap",
+  "shap_config_enabled": true,
+  "shap_applied": true,
+  "shap_rejected": false,
+  "effective_ea_config": {
+    "autonomous_error_shap": true,
+    "error_importance_mode": "permute",
+    "error_importance_ema_beta": 0.9,
+    "grad_importance_ema_beta": 0.9,
+    "error_target_rho": 0.3,
+    "ea_alignment_loss": "cosine_mse",
+    "ea_alignment_alpha": 0.5,
+    "ea_warmup_fraction": 0.4,
+    "ea_bypass_legacy_normalization": true,
+    "ea_use_grad_balance": true,
+    "ea_target_grad_ratio": 0.01,
+    "ea_scale_min": 0.1,
+    "ea_scale_max": 10000.0,
+    "debug_grad_norms": true,
+    "grad_norm_interval": 20,
+    "fast_mode": false,
+    "inprocess_mode": true
+  },
+  "training_time_total": 40.89436721801758,
+  "training_time_shap": 13.863061904907227,
+  "saved_files": {
+    "predictions": "predictions_20260502_231943_energy_ea3_full_s44.npy",
+    "targets_test": "targets_test_20260502_231943_energy_ea3_full_s44.npy",
+    "samples": {
+      "indices": [
+        13,
+        18,
+        38,
+        61,
+        98,
+        100,
+        122,
+        149
+      ],
+      "X": "samples_20260502_231943_energy_ea3_full_s44_X.npy",
+      "y": "samples_20260502_231943_energy_ea3_full_s44_y.npy",
+      "pred": "samples_20260502_231943_energy_ea3_full_s44_pred.npy"
+    },
+    "metrics_csv": "metrics_20260502_231943_energy_ea3_full_s44.csv",
+    "feature_importance": "feature_importance_20260502_231943_energy_ea3_full_s44.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_231943_energy_ea3_full_s44.csv",
+      "history": "shap_history_20260502_231943_energy_ea3_full_s44.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 22.523949412556437,
+      "std": 9.795787569261876,
+      "min": 6.449190139770508,
+      "max": 43.142372131347656,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 22.5900974025974,
+      "std": 9.951628382231986,
+      "min": 6.81,
+      "max": 47.01
+    },
+    "coeff_stats": {
+      "mean": -0.02143109234077636,
+      "std": 13.150172152770427,
+      "min": -54.46175765991211,
+      "max": 82.64806365966797,
+      "abs_mean": 6.760738333490975,
+      "finite_fraction": 1.0,
+      "nonzero": 288,
+      "total": 288
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "sparsity"
+      ],
+      "shap_contribution": {
+        "mean": 1.6493061073176026e-05,
+        "last": 1.7451004593264465e-05,
+        "max": 0.0001195733302665758
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.008288677623662605,
+        "last": 0.00662887218106458,
+        "max": 0.08484848644306416
+      },
+      "shap_scale_factor": {
+        "mean": 0.28560375660684634,
+        "last": 0.5913266158568351,
+        "max": 0.835175935175935
+      },
+      "shap_loss_normalized": {
+        "mean": 0.008332624674872741,
+        "last": 0.017378106573596598,
+        "max": 0.022802846071620784
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.02909931172657627,
+          "last": 0.029599956019471088,
+          "max": 0.04156059175729752
+        },
+        "sparsity": {
+          "mean": 0.8749124955712703,
+          "last": 0.8749124964078268,
+          "max": 0.8749125003814697
+        },
+        "faithfulness": {
+          "mean": 0.12694666107234204,
+          "last": 0.12591096063454946,
+          "max": 0.14908027152220407
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "sparsity": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.02909931172657627,
+          "last": 0.029599956019471088,
+          "max": 0.04156059175729752
+        },
+        "sparsity": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "dominant_shap_component": "consistency",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 44,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_231943_energy_ea3_full_s44.csv",
+    "history": "shap_history_20260502_231943_energy_ea3_full_s44.json"
+  }
+}

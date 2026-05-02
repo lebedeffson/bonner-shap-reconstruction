@@ -1,0 +1,218 @@
+{
+  "timestamp": "20260502_133711_naval_shap_safe_v2",
+  "tag": "naval_shap_safe_v2",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_naval_integrated_shap_safe.yaml",
+  "model_state": "anfis_model_state_20260502_133711_naval_shap_safe_v2.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/naval/anfis_model_state_20260502_133711_naval_shap_safe_v2.pt",
+  "train_size": 9547,
+  "shap_train_size": 7160,
+  "test_size": 2387,
+  "vanilla_train_count": 9547,
+  "shap_train_count": 7160,
+  "real_test_count": 2387,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 5.124911510850614e-06,
+    "rmse": 0.0022638267404663753,
+    "mae": 0.0015838662662114602,
+    "r2": 0.9623107201128925,
+    "r2_weighted": 0.9623107201128925,
+    "r2_mean": 0.9601099919088162
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 5.124911510850614e-06,
+      "rmse": 0.0022638267404663753,
+      "mae": 0.0015838662662114602,
+      "r2": 0.9601099919088161
+    }
+  },
+  "metrics_source": "vanilla_fallback",
+  "shap_config_enabled": true,
+  "shap_applied": false,
+  "shap_rejected": true,
+  "training_time_total": 38.83840322494507,
+  "training_time_shap": 8.567150831222534,
+  "saved_files": {
+    "predictions": "predictions_20260502_133711_naval_shap_safe_v2.npy",
+    "targets_test": "targets_test_20260502_133711_naval_shap_safe_v2.npy",
+    "samples": {
+      "indices": [
+        205,
+        212,
+        1032,
+        1045,
+        1559,
+        1664,
+        1842,
+        2047
+      ],
+      "X": "samples_20260502_133711_naval_shap_safe_v2_X.npy",
+      "y": "samples_20260502_133711_naval_shap_safe_v2_y.npy",
+      "pred": "samples_20260502_133711_naval_shap_safe_v2_pred.npy"
+    },
+    "metrics_csv": "metrics_20260502_133711_naval_shap_safe_v2.csv",
+    "feature_importance": "feature_importance_20260502_133711_naval_shap_safe_v2.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_133711_naval_shap_safe_v2.csv",
+      "history": "shap_history_20260502_133711_naval_shap_safe_v2.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.9810723930060439,
+      "std": 0.013250825499527512,
+      "min": 0.9411359429359436,
+      "max": 1.0085357427597046,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 0.981065982404692,
+      "std": 0.013260436409205129,
+      "min": 0.95,
+      "max": 1.0
+    },
+    "coeff_stats": {
+      "mean": -0.002383407941976292,
+      "std": 0.23530569736044016,
+      "min": -1.3732779026031494,
+      "max": 1.9576125144958496,
+      "abs_mean": 0.07349797308977667,
+      "finite_fraction": 1.0,
+      "nonzero": 182,
+      "total": 208
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "sparsity"
+      ],
+      "shap_contribution": {
+        "mean": 9.419051290568258e-07,
+        "last": 1.3650762569840578e-06,
+        "max": 1.7972197020026809e-06
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 5.731473438339228e-06,
+        "last": 1.192461909305413e-05,
+        "max": 1.192461909305413e-05
+      },
+      "shap_scale_factor": {
+        "mean": 0.00453337884714816,
+        "last": 0.0023832819174288153,
+        "max": 0.0193094562757044
+      },
+      "shap_loss_normalized": {
+        "mean": 0.0025798115202126937,
+        "last": 0.0017695432886414761,
+        "max": 0.008986098746556108
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 0.7644953521690807,
+          "last": 0.7729537433811596,
+          "max": 0.794301722730909
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "sparsity": {
+          "mean": 0.7644953521690807,
+          "last": 0.7729537433811596,
+          "max": 0.794301722730909
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "dominant_shap_component": "sparsity",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 42,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_133711_naval_shap_safe_v2.csv",
+    "history": "shap_history_20260502_133711_naval_shap_safe_v2.json"
+  }
+}

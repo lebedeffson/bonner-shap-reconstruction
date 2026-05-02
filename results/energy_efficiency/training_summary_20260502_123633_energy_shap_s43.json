@@ -1,0 +1,220 @@
+{
+  "timestamp": "20260502_123633_energy_shap_s43",
+  "tag": "energy_shap_s43",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_efficiency/multiseed/configs/config_energy_shap_seed_43.yaml",
+  "model_state": "anfis_model_state_20260502_123633_energy_shap_s43.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_efficiency/anfis_model_state_20260502_123633_energy_shap_s43.pt",
+  "train_size": 614,
+  "shap_train_size": 460,
+  "test_size": 154,
+  "vanilla_train_count": 614,
+  "shap_train_count": 460,
+  "real_test_count": 154,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 2.1969999990349285,
+    "rmse": 1.4822280523033318,
+    "mae": 1.1184689464816797,
+    "r2": 0.9777541343885908,
+    "r2_weighted": 0.9777541343885908,
+    "r2_mean": 0.9768788332534171
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 2.1969999990349285,
+      "rmse": 1.4822280523033318,
+      "mae": 1.1184689464816797,
+      "r2": 0.9768788332534172
+    }
+  },
+  "metrics_source": "shap",
+  "shap_config_enabled": true,
+  "shap_applied": true,
+  "training_time_total": 102.27037930488586,
+  "training_time_shap": 75.70832443237305,
+  "saved_files": {
+    "predictions": "predictions_20260502_123633_energy_shap_s43.npy",
+    "targets_test": "targets_test_20260502_123633_energy_shap_s43.npy",
+    "samples": {
+      "indices": [
+        3,
+        6,
+        42,
+        59,
+        74,
+        87,
+        96,
+        129
+      ],
+      "X": "samples_20260502_123633_energy_shap_s43_X.npy",
+      "y": "samples_20260502_123633_energy_shap_s43_y.npy",
+      "pred": "samples_20260502_123633_energy_shap_s43_pred.npy"
+    },
+    "metrics_csv": "metrics_20260502_123633_energy_shap_s43.csv",
+    "feature_importance": "feature_importance_20260502_123633_energy_shap_s43.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_123633_energy_shap_s43.csv",
+      "history": "shap_history_20260502_123633_energy_shap_s43.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 23.64622784899427,
+      "std": 9.357583714877256,
+      "min": 4.362007141113281,
+      "max": 41.58625030517578,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 23.313149350649354,
+      "std": 9.991288518025172,
+      "min": 6.07,
+      "max": 45.28
+    },
+    "coeff_stats": {
+      "mean": -0.2320156143624901,
+      "std": 36.107903940380005,
+      "min": -152.68348693847656,
+      "max": 266.2762145996094,
+      "abs_mean": 18.370761761997283,
+      "finite_fraction": 1.0,
+      "nonzero": 272,
+      "total": 288
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "consistency",
+        "sparsity",
+        "faithfulness",
+        "stability"
+      ],
+      "shap_contribution": {
+        "mean": 0.01047928875219077,
+        "last": 0.018308726015190284,
+        "max": 0.02941162697970867
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.00418587720952578,
+        "last": 0.008367763742750455,
+        "max": 0.009309375452179315
+      },
+      "shap_scale_factor": {
+        "mean": 16.7694514864283,
+        "last": 9.303274096804394,
+        "max": 211.99217636798673
+      },
+      "shap_loss_normalized": {
+        "mean": 0.15629916257659593,
+        "last": 0.2288590798775355,
+        "max": 0.7724878698587417
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.014332373035780619,
+          "last": 0.01888584950938821,
+          "max": 0.03898581036676963
+        },
+        "sparsity": {
+          "mean": 0.3320902156382799,
+          "last": 0.33595103323459624,
+          "max": 0.38543403148651123
+        },
+        "faithfulness": {
+          "mean": 482083.4098553059,
+          "last": 424193.84270833334,
+          "max": 763655.4822916667
+        },
+        "stability": {
+          "mean": 148017.35228873696,
+          "last": 155290.61510416667,
+          "max": 213218.43229166666
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 0.9606711901326891,
+          "last": 0.9481187092300395,
+          "max": 0.9928277423889199
+        },
+        "sparsity": {
+          "mean": 0.03932880857314559,
+          "last": 0.05188128912520397,
+          "max": 0.0938732281769259
+        },
+        "faithfulness": {
+          "mean": 4.6400313927640776e-10,
+          "last": 5.231877883005655e-10,
+          "max": 3.064072695354113e-09
+        },
+        "stability": {
+          "mean": 8.301621740665096e-10,
+          "last": 1.121568692906251e-09,
+          "max": 2.397867778360981e-09
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.013625358738626645,
+          "last": 0.01790602725955392,
+          "max": 0.035418032949673904
+        },
+        "sparsity": {
+          "mean": 0.013202410975642334,
+          "last": 0.017429572687155094,
+          "max": 0.03467096304045553
+        },
+        "faithfulness": {
+          "mean": 0.0002324105737778328,
+          "last": 0.00022193303837729088,
+          "max": 0.0015059795268377082
+        },
+        "stability": {
+          "mean": 0.0001291793857717625,
+          "last": 0.00017416909220298793,
+          "max": 0.000496239646960789
+        }
+      },
+      "dominant_shap_component": "consistency",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 43,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_123633_energy_shap_s43.csv",
+    "history": "shap_history_20260502_123633_energy_shap_s43.json"
+  }
+}

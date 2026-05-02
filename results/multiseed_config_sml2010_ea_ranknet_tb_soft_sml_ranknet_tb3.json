@@ -1,0 +1,37 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_sml2010_ea_ranknet_tb_soft.yaml",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "sml_ranknet_tb3_s42",
+      "metrics_source": "shap",
+      "r2_final": 0.9532353169852847,
+      "r2_vanilla": 0.9532332813069075,
+      "r2_shap_raw": 0.9532353169852847
+    },
+    {
+      "seed": 43,
+      "tag": "sml_ranknet_tb3_s43",
+      "metrics_source": "shap",
+      "r2_final": 0.9504549459973808,
+      "r2_vanilla": 0.9504482777730557,
+      "r2_shap_raw": 0.9504549459973808
+    },
+    {
+      "seed": 44,
+      "tag": "sml_ranknet_tb3_s44",
+      "metrics_source": "shap",
+      "r2_final": 0.9541671047241952,
+      "r2_vanilla": 0.9541631776421334,
+      "r2_shap_raw": 0.9541671047241952
+    }
+  ],
+  "delta_r2_mean": 4.210328254668679e-06,
+  "delta_r2_min": 2.0356783771990905e-06,
+  "delta_r2_max": 6.6682243250459905e-06
+}

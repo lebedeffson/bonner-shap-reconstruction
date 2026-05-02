@@ -1,0 +1,56 @@
+{
+  "timestamp": "20260502_132210_sml2010_vanilla_tuned",
+  "tag": "sml2010_vanilla_tuned",
+  "config_path": "configs/config_sml2010_vanilla_real_only.yaml",
+  "model_state": "anfis_model_state_20260502_132210_sml2010_vanilla_tuned.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010/anfis_model_state_20260502_132210_sml2010_vanilla_tuned.pt",
+  "train_size": 3309,
+  "test_size": 828,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 0.6752958042027866,
+    "rmse": 0.8217638372444888,
+    "mae": 0.5721597729033322,
+    "r2": 0.9380579076447224,
+    "r2_weighted": 0.9380579076447224,
+    "r2_mean": 0.9380502410674358
+  },
+  "metrics_denorm": null,
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 0.6752958042027866,
+      "rmse": 0.8217638372444888,
+      "mae": 0.5721597729033322,
+      "r2": 0.9380502410674358
+    }
+  },
+  "metrics_source": "vanilla_real_only",
+  "training_time": 36.91637444496155,
+  "model_config": {
+    "num_rules": 12,
+    "reg_lambda": 0.01,
+    "pso_epochs": 80,
+    "pso_pop_size": 60
+  },
+  "saved_files": {
+    "predictions": "predictions_20260502_132210_sml2010_vanilla_tuned.npy",
+    "targets_test": "targets_test_20260502_132210_sml2010_vanilla_tuned.npy",
+    "samples": {
+      "indices": [
+        71,
+        73,
+        357,
+        361,
+        538,
+        577,
+        636,
+        709
+      ],
+      "X": "samples_20260502_132210_sml2010_vanilla_tuned_X.npy",
+      "y": "samples_20260502_132210_sml2010_vanilla_tuned_y.npy",
+      "pred": "samples_20260502_132210_sml2010_vanilla_tuned_pred.npy"
+    },
+    "metrics_csv": "metrics_20260502_132210_sml2010_vanilla_tuned.csv",
+    "feature_importance": "feature_importance_20260502_132210_sml2010_vanilla_tuned.csv"
+  }
+}

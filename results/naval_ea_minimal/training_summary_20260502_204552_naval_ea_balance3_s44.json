@@ -1,0 +1,219 @@
+{
+  "timestamp": "20260502_204552_naval_ea_balance3_s44",
+  "tag": "naval_ea_balance3_s44",
+  "config_path": "/tmp/tmp7cstxs_l.yaml",
+  "model_state": null,
+  "model_state_path": null,
+  "train_size": 9547,
+  "shap_train_size": 7160,
+  "test_size": 2387,
+  "vanilla_train_count": 9547,
+  "shap_train_count": 7160,
+  "real_test_count": 2387,
+  "normalize_sum": false,
+  "metrics": {
+    "mse": 1.8912043579772526e-05,
+    "rmse": 0.004348797946533332,
+    "mae": 0.00209730070727012,
+    "r2": 0.8615692733828055,
+    "r2_weighted": 0.8615692733828055,
+    "r2_mean": 0.7634043429546148
+  },
+  "vanilla_metrics": {
+    "mse": 1.8915696783675355e-05,
+    "rmse": 0.004349217950813152,
+    "mae": 0.002099582858798788,
+    "r2": 0.8615425329796008,
+    "r2_weighted": 0.8615425329796008,
+    "r2_mean": 0.7633679296414972
+  },
+  "shap_metrics": {
+    "mse": 1.8912043579772526e-05,
+    "rmse": 0.004348797946533332,
+    "mae": 0.00209730070727012,
+    "r2": 0.8615692733828055,
+    "r2_weighted": 0.8615692733828055,
+    "r2_mean": 0.7634043429546148
+  },
+  "band_metrics": {
+    "all_outputs": {
+      "mse": 1.8912043579772526e-05,
+      "rmse": 0.004348797946533332,
+      "mae": 0.00209730070727012,
+      "r2": 0.7634043429546149
+    }
+  },
+  "metrics_source": "shap",
+  "shap_config_enabled": true,
+  "shap_applied": true,
+  "shap_rejected": false,
+  "training_time_total": 32.900877475738525,
+  "training_time_shap": 26.044244289398193,
+  "saved_files": {
+    "predictions": "predictions_20260502_204552_naval_ea_balance3_s44.npy",
+    "targets_test": "targets_test_20260502_204552_naval_ea_balance3_s44.npy",
+    "metrics_csv": "metrics_20260502_204552_naval_ea_balance3_s44.csv",
+    "feature_importance": "feature_importance_20260502_204552_naval_ea_balance3_s44.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260502_204552_naval_ea_balance3_s44.csv",
+      "history": "shap_history_20260502_204552_naval_ea_balance3_s44.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.981355610780752,
+      "std": 0.013801277490374988,
+      "min": 0.9298893809318542,
+      "max": 1.1533050537109375,
+      "zero_fraction": 0.0,
+      "negative_fraction": 0.0,
+      "negative_count": 0
+    },
+    "target_stats": {
+      "mean": 0.9812825722664432,
+      "std": 0.013312900040997288,
+      "min": 0.95,
+      "max": 1.0
+    },
+    "coeff_stats": {
+      "mean": 0.02893101646105828,
+      "std": 0.3033941268422696,
+      "min": -0.9759765863418579,
+      "max": 2.420358419418335,
+      "abs_mean": 0.10681398227280182,
+      "finite_fraction": 1.0,
+      "nonzero": 182,
+      "total": 208
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "sparsity"
+      ],
+      "shap_contribution": {
+        "mean": 3.10286737235205e-06,
+        "last": 6.060967635335146e-06,
+        "max": 6.060967635335146e-06
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "nonnegativity_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.10601358402503869,
+        "last": 0.14062921350588908,
+        "max": 0.14062921350588908
+      },
+      "shap_scale_factor": {
+        "mean": 0.21265233756489843,
+        "last": 0.2,
+        "max": 0.2759140253893904
+      },
+      "shap_loss_normalized": {
+        "mean": 0.0066942325003245574,
+        "last": 0.006060967373611804,
+        "max": 0.010172783095705589
+      },
+      "nonnegativity_loss": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.031045684407997345,
+          "last": 0.03030483632548047,
+          "max": 0.033721952665863295
+        },
+        "sparsity": {
+          "mean": 0.9165749687346674,
+          "last": 0.9165749762739454,
+          "max": 0.9165749762739454
+        },
+        "faithfulness": {
+          "mean": 0.3616827550743307,
+          "last": 0.35722098712410244,
+          "max": 0.367942340405924
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 1.0,
+          "last": 1.0,
+          "max": 1.0
+        },
+        "sparsity": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.031045684407997345,
+          "last": 0.03030483632548047,
+          "max": 0.033721952665863295
+        },
+        "sparsity": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "faithfulness": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        },
+        "stability": {
+          "mean": 0.0,
+          "last": 0.0,
+          "max": 0.0
+        }
+      },
+      "dominant_shap_component": "consistency",
+      "dominant_regularizer": "shap"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 44,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "band_metrics_denorm": {},
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260502_204552_naval_ea_balance3_s44.csv",
+    "history": "shap_history_20260502_204552_naval_ea_balance3_s44.json"
+  }
+}

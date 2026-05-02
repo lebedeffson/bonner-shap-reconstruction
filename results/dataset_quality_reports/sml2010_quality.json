@@ -1,0 +1,29 @@
+{
+  "dataset": "sml2010.csv",
+  "rows": 4137,
+  "features": 22,
+  "targets": [
+    "temperature_comedor_sensor",
+    "temperature_habitacion_sensor"
+  ],
+  "quality": {
+    "n_features": 22,
+    "constant_features": [
+      "exterior_entalpic_1",
+      "exterior_entalpic_2",
+      "exterior_entalpic_turbo"
+    ],
+    "duplicate_pairs": [
+      [
+        "exterior_entalpic_1",
+        "exterior_entalpic_2"
+      ],
+      [
+        "exterior_entalpic_1",
+        "exterior_entalpic_turbo"
+      ]
+    ],
+    "high_corr_pairs": [],
+    "condition_number": 1.2695412251270877e+19
+  }
+}
