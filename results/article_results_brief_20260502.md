@@ -118,3 +118,49 @@ Faithfulness:
 - “рост стабильности между seed”
 - “ранговые штрафы как основной метод”
 
+---
+
+### 7) Ответ на жёсткую рецензию и план до Q1
+
+Короткий ответ:
+
+> Критика по baseline/ablation/статистике/масштабируемости принята.  
+> Текущая версия — сильный proof-of-concept для 2.3.5 (Поволжье), но для Q1 нужна расширенная валидация.
+
+Что уже закрыто:
+- Добавлено сравнение по `R²` с внешними baseline (`RF`, `ET`, `HGB`, `MLP`) на SML2010 / Energy / Naval:
+  - `results/methods_compare_multidataset_20260503.md`
+- Добавлен baseline-faithfulness (deletion top/random/bottom):
+  - `results/faithfulness_baselines_vs_ea_20260503.md`
+
+Что остается обязательно добить для Q1:
+
+1. **Жесткая экспериментальная архитектура**
+   - В каждом run хранить: `model_mode`, `fallback_used`, `metrics_source`, `effective_config`, `config_hash`, `seed`, `split_hash`.
+
+2. **Full non-fast multi-seed**
+   - SML2010: 10 seed (обязательно)
+   - Energy: 10 seed (желательно)
+   - Naval: 5–10 seed (ограничительный кейс)
+
+3. **Ablation по EA-компонентам**
+   - `EA train-target`, `EA val-target`, `без EMA`, `без grad balancing`, `full EA`.
+   - Метрики: `R²`, `AUC_gap(top-bottom)`, `AUC top/random`, `N_eff`, `Mass@3`, fallback-rate.
+
+4. **Статистическая доказательность**
+   - `mean±std`, `median`, `CI95`, `wins/losses`, `Wilcoxon`, effect size.
+   - Главный тест: `AUC_gap` у vanilla < 0, у EA > 0, разница статистически стабильна.
+
+5. **Insertion**
+   - Либо чинить формализацию и знак gain, либо исключить из основного тезиса и оставить deletion-only.
+
+6. **Масштабируемость**
+   - Оценка вычислительной сложности и wall-time.
+   - Отдельный эксперимент на более крупном датасете (по возможности >50K объектов).
+
+7. **Воспроизводимость Q1-уровня**
+   - `requirements/environment`, `run_all_experiments.sh`, `results_manifest.json`, фиксированные seeds/splits.
+
+Позиционирование для подачи:
+- **Сейчас:** Поволжье / 2.3.5 (готово почти полностью).
+- **Q1-версия:** после расширенного baseline+ablation+statistics+scaling.

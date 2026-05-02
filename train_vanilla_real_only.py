@@ -8,6 +8,9 @@ import argparse
 import json
 import os
 import sys
+import hashlib
+import subprocess
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -49,6 +52,25 @@ def _to_serializable(obj):
     if isinstance(obj, (np.int32, np.int64)):
         return int(obj)
     return obj
+
+
+def _get_git_commit():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True
+        ).strip()
+    except Exception:
+        return None
+
+
+def _array_sha256(*arrays):
+    h = hashlib.sha256()
+    for arr in arrays:
+        a = np.ascontiguousarray(np.asarray(arr))
+        h.update(str(a.shape).encode("utf-8"))
+        h.update(str(a.dtype).encode("utf-8"))
+        h.update(a.tobytes())
+    return h.hexdigest()
 
 
 def _compute_band_metrics(y_true, y_pred, bands):
@@ -110,6 +132,7 @@ def _resolve_output_bands(n_outputs):
 
 def train_vanilla_real_only(args):
     """Обучение чистой ANFIS модели ТОЛЬКО на реальных данных"""
+    t_total_start = time.perf_counter()
     
     print("=" * 80)
     print("🤖 ОБУЧЕНИЕ ЧИСТОЙ ANFIS МОДЕЛИ (ТОЛЬКО РЕАЛЬНЫЕ ДАННЫЕ, БЕЗ SHAP)")
@@ -118,6 +141,11 @@ def train_vanilla_real_only(args):
     config_path = args.config
     print(f"\n⚙️  Конфигурация: {config_path}")
     config = load_config(config_path)
+    config_text = Path(config_path).read_text(encoding="utf-8")
+    config_sha256 = hashlib.sha256(config_text.encode("utf-8")).hexdigest()
+    effective_config_sha256 = hashlib.sha256(
+        json.dumps(_to_serializable(config), ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     dataset_config = config['dataset']
     model_config = config['model']
     normalize_sum = dataset_config.get('normalize_sum', False)
@@ -180,6 +208,7 @@ def train_vanilla_real_only(args):
     y_train_array = np.nan_to_num(y_train_array, nan=0.0, posinf=0.0, neginf=0.0)
     X_test_array = np.nan_to_num(X_test_array, nan=0.0, posinf=0.0, neginf=0.0)
     y_test_array = np.nan_to_num(y_test_array, nan=0.0, posinf=0.0, neginf=0.0)
+    split_hash = _array_sha256(X_test_array, y_test_array)
 
     # Обучение модели
     print("\n🛠️  Обучение ANFIS модели...")
@@ -321,10 +350,20 @@ def train_vanilla_real_only(args):
         saved_files['feature_importance'] = f"feature_importance_{run_id}.csv"
 
     # Сохраняем сводку
+    t_total_end = time.perf_counter()
     summary = {
         'timestamp': run_id,
+        'created_at': datetime.now().isoformat(timespec='seconds'),
         'tag': tag,
+        'model_mode': 'vanilla',
+        'fallback_used': False,
         'config_path': str(config_path),
+        'config_sha256': config_sha256,
+        'effective_config_sha256': effective_config_sha256,
+        'git_commit': _get_git_commit(),
+        'seed': int(dataset_config.get('random_state', 42)),
+        'dataset': Path(dataset_config.get('train_data', '')).stem,
+        'split_hash': split_hash,
         'model_state': f"anfis_model_state_{run_id}.pt",
         'model_state_path': str(model_path),
         'train_size': len(X_train_array),
@@ -335,6 +374,14 @@ def train_vanilla_real_only(args):
         'band_metrics': test_band_metrics,
         'metrics_source': 'vanilla_real_only',
         'training_time': training_time,
+        'timing': {
+            'data_loading_sec': None,
+            'pso_sec': float(training_time),
+            'vanilla_train_sec': float(training_time),
+            'ea_train_sec': 0.0,
+            'deletion_eval_sec': None,
+            'total_sec': float(t_total_end - t_total_start),
+        },
         'model_config': {
             'num_rules': model_config['num_rules'],
             'reg_lambda': model_config['reg_lambda'],

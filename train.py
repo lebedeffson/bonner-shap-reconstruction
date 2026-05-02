@@ -7,6 +7,8 @@ import os
 import sys
 import copy
 import hashlib
+import time
+import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -63,6 +65,25 @@ def _to_serializable(obj):
     if isinstance(obj, (np.int32, np.int64)):
         return int(obj)
     return obj
+
+
+def _get_git_commit():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True
+        ).strip()
+    except Exception:
+        return None
+
+
+def _array_sha256(*arrays):
+    h = hashlib.sha256()
+    for arr in arrays:
+        a = np.ascontiguousarray(np.asarray(arr))
+        h.update(str(a.shape).encode("utf-8"))
+        h.update(str(a.dtype).encode("utf-8"))
+        h.update(a.tobytes())
+    return h.hexdigest()
 
 
 def _compute_band_metrics(y_true, y_pred, bands):
@@ -259,6 +280,8 @@ def _split_real_data_for_shap(X_real, y_real, SUM_real, *, normalize_sum=False, 
 
 def train_and_save(args):
     """Обучает модель и сохраняет артефакты"""
+    t_total_start = time.perf_counter()
+    t_data_start = t_total_start
 
     print("=" * 80)
     print("🤖 ОБУЧЕНИЕ ANFIS МОДЕЛИ (train.py)")
@@ -344,6 +367,7 @@ def train_and_save(args):
         X_test = X_real
         y_test = y_real
         SUM_test = SUM_real
+    t_data_end = time.perf_counter()
     
     # Разделяем реальные данные: 60% обучение, 20% валидация, 20% финальный тест
     random_state = dataset_config.get('random_state', 42)
@@ -411,6 +435,7 @@ def train_and_save(args):
     y_real_test_array = np.array(y_real_test) if not isinstance(y_real_test, np.ndarray) else y_real_test
     X_real_test_array = np.nan_to_num(X_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
     y_real_test_array = np.nan_to_num(y_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
+    split_hash = _array_sha256(X_real_test_array, y_real_test_array)
 
     vanilla_test_predictions = results['model'].predict(X_real_test_array)
     vanilla_test_predictions = manager._sanitize_predictions(
@@ -716,12 +741,20 @@ def train_and_save(args):
             'total': int(coeff_np.size)
         }
 
+    t_total_end = time.perf_counter()
     summary = {
         'timestamp': timestamp,
+        'created_at': datetime.now().isoformat(timespec='seconds'),
         'tag': args.tag,
+        'model_mode': 'final_policy',
+        'fallback_used': bool(results.get('metrics_source') == 'vanilla_fallback'),
         'config_path': os.path.abspath(config_path),
         'config_sha256': config_sha256,
         'effective_config_sha256': effective_config_sha256,
+        'git_commit': _get_git_commit(),
+        'seed': int(dataset_config.get('random_state', 42)),
+        'dataset': Path(dataset_config.get('train_data', '')).stem,
+        'split_hash': split_hash,
         'run_meta': _to_serializable(run_meta),
         'model_state': os.path.basename(model_state_path) if model_state_path else None,
         'model_state_path': model_state_path,
@@ -761,6 +794,14 @@ def train_and_save(args):
         },
         'training_time_total': results.get('training_time'),
         'training_time_shap': results.get('training_time_shap'),
+        'timing': {
+            'data_loading_sec': float(t_data_end - t_data_start),
+            'pso_sec': float(results.get('training_time', 0.0) or 0.0),
+            'vanilla_train_sec': float(results.get('training_time', 0.0) or 0.0),
+            'ea_train_sec': float(results.get('training_time_shap', 0.0) or 0.0),
+            'deletion_eval_sec': None,
+            'total_sec': float(t_total_end - t_total_start),
+        },
         'saved_files': saved_files,
         'diagnostics': {
             'prediction_stats': prediction_stats,
