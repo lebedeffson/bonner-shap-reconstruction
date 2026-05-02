@@ -1,0 +1,37 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_energy_ea_minimal.yaml",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "energy_ea3_full_s42",
+      "metrics_source": "vanilla_fallback",
+      "r2_final": 0.9851877346467696,
+      "r2_vanilla": 0.9851877346467696,
+      "r2_shap_raw": 0.9851054365895782
+    },
+    {
+      "seed": 43,
+      "tag": "energy_ea3_full_s43",
+      "metrics_source": "shap",
+      "r2_final": 0.9874710210421569,
+      "r2_vanilla": 0.9872664998718605,
+      "r2_shap_raw": 0.9874710210421569
+    },
+    {
+      "seed": 44,
+      "tag": "energy_ea3_full_s44",
+      "metrics_source": "shap",
+      "r2_final": 0.9859671717487332,
+      "r2_vanilla": 0.9854916737437888,
+      "r2_shap_raw": 0.9859671717487332
+    }
+  ],
+  "delta_r2_mean": 0.00019924037268311454,
+  "delta_r2_min": -8.229805719139893e-05,
+  "delta_r2_max": 0.00047549800494439687
+}

@@ -29,13 +29,6 @@ from src.utils.data_loader import (
 )
 
 
-ENERGY_BANDS = [
-    ("band_0_19", slice(0, 20)),
-    ("band_20_39", slice(20, 40)),
-    ("band_40_59", slice(40, 60)),
-]
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Обучение чистой ANFIS модели ТОЛЬКО на реальных данных (без SHAP)")
     parser.add_argument("--config", default="configs/config_vanilla_real_only.yaml", help="Путь к YAML конфигурации")
@@ -91,6 +84,28 @@ def _compute_band_metrics(y_true, y_pred, bands):
             'r2': float(r2)
         }
     return metrics
+
+
+def _resolve_output_bands(n_outputs):
+    n_outputs = int(n_outputs)
+    if n_outputs <= 0:
+        return []
+    if n_outputs == 60:
+        return [
+            ("band_0_19", slice(0, 20)),
+            ("band_20_39", slice(20, 40)),
+            ("band_40_59", slice(40, 60)),
+        ]
+    if n_outputs <= 3:
+        return [("all_outputs", slice(0, n_outputs))]
+
+    step = max(n_outputs // 3, 1)
+    bands = [
+        ("band_0", slice(0, step)),
+        ("band_1", slice(step, min(2 * step, n_outputs))),
+        ("band_2", slice(min(2 * step, n_outputs), n_outputs)),
+    ]
+    return [(name, sl) for name, sl in bands if sl.stop > sl.start]
 
 
 def train_vanilla_real_only(args):
@@ -201,7 +216,8 @@ def train_vanilla_real_only(args):
 
     # Вычисляем метрики по бинам
     test_predictions = results['predictions']
-    test_band_metrics = _compute_band_metrics(y_test_array, test_predictions, ENERGY_BANDS)
+    output_bands = _resolve_output_bands(y_test_array.shape[1])
+    test_band_metrics = _compute_band_metrics(y_test_array, test_predictions, output_bands)
 
     # Сохранение результатов
     print("\n💾 Сохранение результатов...")
@@ -292,6 +308,17 @@ def train_vanilla_real_only(args):
     metrics_csv_path = results_dir / f"metrics_{run_id}.csv"
     metrics_df.to_csv(metrics_csv_path, index=False)
     saved_files['metrics_csv'] = f"metrics_{run_id}.csv"
+
+    # Сохраняем важность признаков
+    feature_importance = np.asarray(results.get('feature_importance', []), dtype=float).reshape(-1)
+    if feature_importance.size > 0:
+        feature_names = list(X_train.columns) if hasattr(X_train, 'columns') else [f"X{i+1}" for i in range(feature_importance.size)]
+        if len(feature_names) != feature_importance.size:
+            feature_names = [f"X{i+1}" for i in range(feature_importance.size)]
+        fi_df = pd.DataFrame({"importance": feature_importance}, index=feature_names)
+        fi_path = results_dir / f"feature_importance_{run_id}.csv"
+        fi_df.to_csv(fi_path)
+        saved_files['feature_importance'] = f"feature_importance_{run_id}.csv"
 
     # Сохраняем сводку
     summary = {
