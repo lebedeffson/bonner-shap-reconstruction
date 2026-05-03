@@ -1,0 +1,47 @@
+dataset:
+  train_data: data/sml2010.csv
+  test_size: 0.2
+  random_state: 42
+  feature_columns:
+    - weather_temperature
+    - co2_comedor_sensor
+    - co2_habitacion_sensor
+    - humedad_comedor_sensor
+    - humedad_habitacion_sensor
+    - lighting_comedor_sensor
+    - lighting_habitacion_sensor
+    - precipitacion
+    - meteo_exterior_crepusculo
+    - meteo_exterior_viento
+    - meteo_exterior_sol_oest
+    - meteo_exterior_sol_est
+    - meteo_exterior_sol_sud
+    - meteo_exterior_piranometro
+    - temperature_exterior_sensor
+    - humedad_exterior_sensor
+    - day_of_week
+    - hour
+    - minute
+  target_columns:
+    - temperature_comedor_sensor
+    - temperature_habitacion_sensor
+
+model:
+  seed: 42
+  epochs: 140
+  batch_size: 128
+  lr: 0.001
+  dropout: 0.1
+
+shap_reg:
+  enabled: true
+  gamma: 0.05
+  error_importance_mode: permute
+  error_importance_ema_beta: 0.9
+  ea_alignment_loss: cosine_mse
+  ea_alignment_alpha: 0.5
+  ea_warmup_fraction: 0.25
+
+output:
+  results_dir: results/sml2010_mlp_ea
+

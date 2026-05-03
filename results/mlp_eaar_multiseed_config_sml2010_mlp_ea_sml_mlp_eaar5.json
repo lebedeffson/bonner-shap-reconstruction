@@ -1,0 +1,92 @@
+{
+  "created_at": "2026-05-03T15:44:00",
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_sml2010_mlp_ea.yaml",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "k_list": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "mask": "permute",
+  "random_trials": 20,
+  "aggregate": {
+    "n_runs": 5,
+    "delta_r2_mean": -0.0002810037101801388,
+    "delta_r2_std": 0.003203809662887632,
+    "wins": 3,
+    "losses": 2,
+    "vanilla_auc_gap_mean": 16.275396977668244,
+    "ea_auc_gap_mean": 18.147482974818267,
+    "vanilla_top_random_mean": 4.916852822836114,
+    "ea_top_random_mean": 5.418491124293124
+  },
+  "runs": [
+    {
+      "seed": 42,
+      "vanilla_r2": 0.9747767372413902,
+      "ea_r2": 0.9694556277099683,
+      "delta_r2": -0.0053211095314219525,
+      "vanilla_auc_gap": 14.66233932801049,
+      "ea_auc_gap": 18.118541943577394,
+      "vanilla_top_random": 4.928737284212002,
+      "ea_top_random": 5.800019629470382,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154119_sml_mlp_eaar5_s42_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154145_sml_mlp_eaar5_s42_ea.json"
+    },
+    {
+      "seed": 43,
+      "vanilla_r2": 0.9768295172343623,
+      "ea_r2": 0.9773447186844213,
+      "delta_r2": 0.0005152014500590107,
+      "vanilla_auc_gap": 17.763071147535783,
+      "ea_auc_gap": 19.095243316552253,
+      "vanilla_top_random": 4.267482813444464,
+      "ea_top_random": 4.536880197629581,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154152_sml_mlp_eaar5_s43_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154219_sml_mlp_eaar5_s43_ea.json"
+    },
+    {
+      "seed": 44,
+      "vanilla_r2": 0.9733688601711816,
+      "ea_r2": 0.9767122159656325,
+      "delta_r2": 0.0033433557944508863,
+      "vanilla_auc_gap": 18.00611154743146,
+      "ea_auc_gap": 21.65936518359183,
+      "vanilla_top_random": 4.591355840803725,
+      "ea_top_random": 5.147558636198576,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154226_sml_mlp_eaar5_s44_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154252_sml_mlp_eaar5_s44_ea.json"
+    },
+    {
+      "seed": 45,
+      "vanilla_r2": 0.9793908838729033,
+      "ea_r2": 0.9803397264542373,
+      "delta_r2": 0.0009488425813339862,
+      "vanilla_auc_gap": 16.526737168289912,
+      "ea_auc_gap": 16.376736935785587,
+      "vanilla_top_random": 5.305323351565904,
+      "ea_top_random": 5.433471922224991,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154259_sml_mlp_eaar5_s45_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154326_sml_mlp_eaar5_s45_ea.json"
+    },
+    {
+      "seed": 46,
+      "vanilla_r2": 0.9785279256407982,
+      "ea_r2": 0.9776366167954755,
+      "delta_r2": -0.0008913088453226248,
+      "vanilla_auc_gap": 14.418725697073572,
+      "ea_auc_gap": 15.487527494584265,
+      "vanilla_top_random": 5.491364824154473,
+      "ea_top_random": 6.174525235942086,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154333_sml_mlp_eaar5_s46_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/sml2010_mlp_ea/training_summary_20260503_154359_sml_mlp_eaar5_s46_ea.json"
+    }
+  ]
+}

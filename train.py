@@ -30,6 +30,7 @@ from src.utils.data_loader import (
     split_data,
     denormalize_predictions
 )
+from src.utils.prediction_diagnostics import compute_prediction_diagnostics
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
@@ -164,6 +165,92 @@ def _prepare_feature_importance(values, feature_names, *, normalize=False):
     return pd.Series(importance, index=feature_names, dtype=float)
 
 
+def _apply_mask_for_policy(X, cols, mode, rng):
+    X2 = np.asarray(X, dtype=float).copy()
+    for j in cols:
+        if mode == "permute":
+            idx = rng.permutation(X2.shape[0])
+            X2[:, j] = X2[idx, j]
+        elif mode == "mean":
+            X2[:, j] = float(np.mean(X2[:, j]))
+        else:  # noise
+            std = float(np.std(X2[:, j]))
+            X2[:, j] = X2[:, j] + rng.normal(0.0, 0.1 * std + 1e-8, size=X2.shape[0])
+    return X2
+
+
+def _deletion_gap_policy_eval(
+    model_predict_fn,
+    X_test,
+    y_test,
+    importance,
+    *,
+    k_list,
+    mask_mode="permute",
+    random_trials=10,
+    seed=42,
+):
+    imp = np.asarray(importance, dtype=float).reshape(-1)
+    imp = np.nan_to_num(imp, nan=0.0, posinf=0.0, neginf=0.0)
+    imp = np.maximum(imp, 0.0)
+    if imp.size == 0:
+        return {"auc_gap": float("nan"), "auc_top": float("nan"), "auc_bottom": float("nan"), "auc_random": float("nan")}
+    s = float(np.sum(imp))
+    if s <= 1e-12:
+        imp = np.full_like(imp, 1.0 / max(1, imp.size))
+    else:
+        imp = imp / s
+
+    X_test = np.asarray(X_test, dtype=float)
+    y_test = np.asarray(y_test, dtype=float)
+    pred0 = np.asarray(model_predict_fn(X_test), dtype=float)
+    mse0 = float(mean_squared_error(y_test, pred0))
+
+    n_features = imp.size
+    ks = sorted(set(int(k) for k in k_list if int(k) > 0))
+    ks = [k for k in ks if k <= n_features]
+    if not ks:
+        ks = [min(3, n_features)]
+
+    d_top_vals = []
+    d_bottom_vals = []
+    d_rand_vals = []
+    x_norm = []
+    base_rng = np.random.default_rng(int(seed))
+
+    for k in ks:
+        top = np.argsort(imp)[::-1][:k].tolist()
+        bottom = np.argsort(imp)[:k].tolist()
+        pred_top = np.asarray(model_predict_fn(_apply_mask_for_policy(X_test, top, mask_mode, base_rng)), dtype=float)
+        pred_bottom = np.asarray(model_predict_fn(_apply_mask_for_policy(X_test, bottom, mask_mode, base_rng)), dtype=float)
+        d_top = float(mean_squared_error(y_test, pred_top) - mse0)
+        d_bottom = float(mean_squared_error(y_test, pred_bottom) - mse0)
+        d_rand_trials = []
+        for t in range(max(1, int(random_trials))):
+            rng_t = np.random.default_rng(int(seed) + 1009 * (k + 1) + 7919 * (t + 1))
+            cols = rng_t.choice(n_features, size=k, replace=False).tolist()
+            pred_rand = np.asarray(model_predict_fn(_apply_mask_for_policy(X_test, cols, mask_mode, rng_t)), dtype=float)
+            d_rand_trials.append(float(mean_squared_error(y_test, pred_rand) - mse0))
+        d_top_vals.append(d_top)
+        d_bottom_vals.append(d_bottom)
+        d_rand_vals.append(float(np.mean(d_rand_trials)))
+        x_norm.append(float(k) / float(max(ks)))
+
+    x_arr = np.asarray(x_norm, dtype=float)
+    top_arr = np.asarray(d_top_vals, dtype=float)
+    bottom_arr = np.asarray(d_bottom_vals, dtype=float)
+    rand_arr = np.asarray(d_rand_vals, dtype=float)
+    auc_top = float(np.trapz(top_arr, x_arr)) if top_arr.size > 1 else float(top_arr[0])
+    auc_bottom = float(np.trapz(bottom_arr, x_arr)) if bottom_arr.size > 1 else float(bottom_arr[0])
+    auc_random = float(np.trapz(rand_arr, x_arr)) if rand_arr.size > 1 else float(rand_arr[0])
+    return {
+        "auc_top": auc_top,
+        "auc_bottom": auc_bottom,
+        "auc_random": auc_random,
+        "auc_gap": float(auc_top - auc_bottom),
+    }
+
+
 def _summarize_regularization_history(shap_history, shap_config):
     """Извлекает компактную сводку о вкладе SHAP и Tikhonov из истории обучения."""
     if not shap_history:
@@ -194,6 +281,24 @@ def _summarize_regularization_history(shap_history, shap_config):
         'shap_scale_factor',
         'shap_loss_normalized',
         'nonnegativity_loss',
+        'rank_loss_raw',
+        'bottom_inv_loss_raw',
+        'rank_pairs_count',
+        'rank_violations_count',
+        'rank_grad_norm',
+        'rank_main_grad_ratio',
+        'p_q_corr',
+        'q_err_entropy',
+        'q_err_gini',
+        'q_err_corr',
+        'ea_ratio',
+        'ea_grad_norm',
+        'main_grad_norm',
+        'ea_main_grad_ratio',
+        'ea_scale',
+        'gate_min',
+        'gate_max',
+        'gate_anchor_loss',
     ]:
         stats = _stats(shap_history.get(key))
         if stats is not None:
@@ -235,6 +340,21 @@ def _summarize_regularization_history(shap_history, shap_config):
         summary['weighted_component_signal'] = weighted_component_signal
         dominant_name = max(weighted_component_signal.items(), key=lambda item: item[1]['mean'])[0]
         summary['dominant_shap_component'] = dominant_name
+
+    # EAAR-specific component terms (if present in trainer history)
+    eaar_component_terms = {}
+    for key in [
+        'shap_error_js',
+        'shap_error_mse',
+        'shap_error_cosine',
+        'shap_error_rank',
+        'shap_error_bottom_invariance',
+    ]:
+        stats = _stats(shap_history.get(key))
+        if stats is not None:
+            eaar_component_terms[key.replace('shap_', '')] = stats
+    if eaar_component_terms:
+        summary['eaar_component_terms'] = eaar_component_terms
 
     shap_mean = summary.get('shap_contribution', {}).get('mean', 0.0)
     tikh_mean = summary.get('tikhonov_contribution', {}).get('mean', 0.0)
@@ -437,6 +557,24 @@ def train_and_save(args):
     y_real_test_array = np.nan_to_num(y_real_test_array, nan=0.0, posinf=0.0, neginf=0.0)
     split_hash = _array_sha256(X_real_test_array, y_real_test_array)
 
+    quality_policy_cfg = shap_config.get('quality_policy', {})
+    reject_unstable_predictions = bool(quality_policy_cfg.get('reject_unstable_predictions', True))
+    diag_min_r2 = float(quality_policy_cfg.get('min_r2', 0.0))
+    diag_max_p99_ratio = float(quality_policy_cfg.get('max_abs_error_p99_ratio', 10.0))
+    diag_max_std_ratio = float(quality_policy_cfg.get('max_abs_error_target_std_ratio', 20.0))
+    diag_max_pred_range_std_ratio = float(quality_policy_cfg.get('max_prediction_range_std_ratio', 5.0))
+    policy_mode = str(quality_policy_cfg.get('mode', 'quality_only')).strip().lower()
+    if policy_mode in {'quality+faithfulness', 'quality_and_faithful'}:
+        policy_mode = 'quality_and_faithfulness'
+    faithfulness_k_list = quality_policy_cfg.get('faithfulness_k_list', [1, 2, 3, 4])
+    if not isinstance(faithfulness_k_list, (list, tuple)):
+        faithfulness_k_list = [1, 2, 3, 4]
+    faithfulness_mask = str(quality_policy_cfg.get('faithfulness_mask', 'permute')).strip().lower()
+    if faithfulness_mask not in {'permute', 'mean', 'noise'}:
+        faithfulness_mask = 'permute'
+    faithfulness_trials = int(quality_policy_cfg.get('faithfulness_random_trials', 10))
+    faithfulness_margin = float(quality_policy_cfg.get('auc_gap_margin', 0.05))
+
     vanilla_test_predictions = results['model'].predict(X_real_test_array)
     vanilla_test_predictions = manager._sanitize_predictions(
         vanilla_test_predictions,
@@ -444,6 +582,69 @@ def train_and_save(args):
         context="vanilla_final_test"
     )
     vanilla_test_metrics = manager._calculate_metrics(y_real_test_array, vanilla_test_predictions)
+    vanilla_pred_diag = compute_prediction_diagnostics(
+        y_real_test_array,
+        vanilla_test_predictions,
+        y_train_ref=y_real_shap_array,
+        min_r2=diag_min_r2,
+        max_abs_error_p99_ratio=diag_max_p99_ratio,
+        max_abs_error_target_std_ratio=diag_max_std_ratio,
+        max_prediction_range_std_ratio=diag_max_pred_range_std_ratio,
+    )
+
+    # Дополнительный численный guard: при нестабильном vanilla делаем 1 retry с более сильной ridge.
+    vanilla_retry_applied = False
+    ridge_retry_lambda = float(config.get('model', {}).get('ls_ridge_fallback', config.get('model', {}).get('unstable_retry_reg_lambda', 0.0)) or 0.0)
+    ridge_retry_attempts = int(config.get('model', {}).get('unstable_retry_max_attempts', 1))
+    base_reg_lambda = float(config.get('model', {}).get('reg_lambda', 0.0) or 0.0)
+    if (
+        vanilla_pred_diag.get('unstable_prediction_flag', False)
+        and ridge_retry_attempts > 0
+        and ridge_retry_lambda > base_reg_lambda
+    ):
+        print(
+            f"⚠️  Vanilla unstable on final test. Retry with stronger ridge: "
+            f"{base_reg_lambda:.6g} -> {ridge_retry_lambda:.6g}"
+        )
+        retry_config = copy.deepcopy(config)
+        retry_config.setdefault('model', {})['reg_lambda'] = ridge_retry_lambda
+        retry_manager = ANFISManager(retry_config)
+        if hasattr(X_train, 'columns'):
+            retry_manager.set_feature_names(X_train.columns)
+        retry_results = retry_manager.train_vanilla_model(
+            X_train_array, y_train_array, X_real_val_array, y_real_val_array
+        )
+        retry_pred = retry_results['model'].predict(X_real_test_array)
+        retry_pred = retry_manager._sanitize_predictions(
+            retry_pred,
+            reference_shape=y_real_test_array.shape,
+            context="vanilla_final_test_retry"
+        )
+        retry_metrics = retry_manager._calculate_metrics(y_real_test_array, retry_pred)
+        retry_diag = compute_prediction_diagnostics(
+            y_real_test_array,
+            retry_pred,
+            y_train_ref=y_real_shap_array,
+            min_r2=diag_min_r2,
+            max_abs_error_p99_ratio=diag_max_p99_ratio,
+            max_abs_error_target_std_ratio=diag_max_std_ratio,
+            max_prediction_range_std_ratio=diag_max_pred_range_std_ratio,
+        )
+        retry_is_better = (
+            (not retry_diag.get('unstable_prediction_flag', False) and vanilla_pred_diag.get('unstable_prediction_flag', False))
+            or (retry_metrics.get('r2', float('-inf')) > vanilla_test_metrics.get('r2', float('-inf')))
+        )
+        if retry_is_better:
+            print("✅ Retry accepted for vanilla stage")
+            manager = retry_manager
+            results = retry_results
+            vanilla_test_predictions = retry_pred
+            vanilla_test_metrics = retry_metrics
+            vanilla_pred_diag = retry_diag
+            vanilla_state_dict = None
+            if hasattr(results.get('model'), 'network') and results['model'].network is not None:
+                vanilla_state_dict = copy.deepcopy(results['model'].network.state_dict())
+            vanilla_retry_applied = True
     
     print("\n🧭 Этап 2: SHAP-регуляризация с улучшенной регуляризацией (4 компонента)...")
     
@@ -540,27 +741,118 @@ def train_and_save(args):
         print("⚠️  SHAP-регуляризация дала некорректные значения (NaN/Inf).")
         raise ValueError("SHAP обучение завершилось с ошибкой: NaN/Inf в метриках")
     
-    # Safety gate: если SHAP резко ухудшил R² на финальном test, откатываемся к vanilla.
+    # Policy gate: relative quality + absolute instability guards.
     shap_config = config.get('shap_reg', {})
     min_delta_r2 = float(shap_config.get('acceptance_min_delta_r2', -0.02))
     vanilla_r2 = float(vanilla_test_metrics.get('r2', float('-inf')))
     shap_r2 = float(shap_metrics.get('r2', float('-inf')))
+    shap_pred_diag = compute_prediction_diagnostics(
+        y_real_test_array,
+        shap_predictions,
+        y_train_ref=y_real_shap_array,
+        min_r2=diag_min_r2,
+        max_abs_error_p99_ratio=diag_max_p99_ratio,
+        max_abs_error_target_std_ratio=diag_max_std_ratio,
+        max_prediction_range_std_ratio=diag_max_pred_range_std_ratio,
+    )
+    vanilla_unstable = bool(vanilla_pred_diag.get('unstable_prediction_flag', False))
+    shap_unstable = bool(shap_pred_diag.get('unstable_prediction_flag', False))
+
+    policy_reason = "delta_r2_gate"
     use_shap = (shap_r2 - vanilla_r2) >= min_delta_r2
+    policy_faithfulness = {
+        "enabled": False,
+        "mode": policy_mode,
+    }
+
+    if reject_unstable_predictions and shap_unstable:
+        use_shap = False
+        policy_reason = "reject_ea_unstable"
+    if reject_unstable_predictions and (shap_r2 < diag_min_r2):
+        use_shap = False
+        policy_reason = "reject_ea_min_r2"
+    if reject_unstable_predictions and vanilla_unstable and not shap_unstable:
+        use_shap = True
+        policy_reason = "accept_ea_vanilla_unstable"
+
+    if policy_mode == "quality_and_faithfulness" and (not vanilla_unstable) and (not shap_unstable):
+        policy_faithfulness["enabled"] = True
+        eval_seed = int(dataset_config.get('random_state', 42))
+        if hasattr(results.get('model'), 'network') and vanilla_state_dict is not None:
+            shap_state_dict = copy.deepcopy(results['model'].network.state_dict())
+
+            def _predict_curr(X_eval):
+                return results['model'].predict(np.asarray(X_eval, dtype=float))
+
+            # vanilla gap
+            results['model'].network.load_state_dict(vanilla_state_dict)
+            vanilla_importance = np.asarray(results.get('feature_importance', []), dtype=float)
+            vanilla_gap = _deletion_gap_policy_eval(
+                _predict_curr,
+                X_real_test_array,
+                y_real_test_array,
+                vanilla_importance,
+                k_list=faithfulness_k_list,
+                mask_mode=faithfulness_mask,
+                random_trials=faithfulness_trials,
+                seed=eval_seed,
+            )
+
+            # ea gap
+            results['model'].network.load_state_dict(shap_state_dict)
+            ea_gap = _deletion_gap_policy_eval(
+                _predict_curr,
+                X_real_test_array,
+                y_real_test_array,
+                np.asarray(shap_importance, dtype=float),
+                k_list=faithfulness_k_list,
+                mask_mode=faithfulness_mask,
+                random_trials=faithfulness_trials,
+                seed=eval_seed,
+            )
+
+            # restore EA weights
+            results['model'].network.load_state_dict(shap_state_dict)
+
+            policy_faithfulness["vanilla"] = vanilla_gap
+            policy_faithfulness["ea"] = ea_gap
+            policy_faithfulness["auc_gap_margin"] = faithfulness_margin
+            policy_faithfulness["k_list"] = [int(k) for k in faithfulness_k_list]
+            policy_faithfulness["mask"] = faithfulness_mask
+            policy_faithfulness["random_trials"] = int(faithfulness_trials)
+
+            vanilla_gap_val = float(vanilla_gap.get("auc_gap", float("-inf")))
+            ea_gap_val = float(ea_gap.get("auc_gap", float("-inf")))
+            if not np.isfinite(ea_gap_val):
+                use_shap = False
+                policy_reason = "reject_ea_faithfulness_nan"
+            elif ea_gap_val < (vanilla_gap_val + faithfulness_margin):
+                use_shap = False
+                policy_reason = "reject_ea_faithfulness_gap"
 
     if use_shap:
         results['predictions'] = shap_predictions
         results['metrics'] = shap_metrics
         results['metrics_source'] = 'shap'
     else:
-        print(
-            f"⚠️  SHAP отклонен: R² ухудшился с {vanilla_r2:.6f} до {shap_r2:.6f}. "
-            f"Порог: {min_delta_r2:+.4f}. Использую vanilla."
-        )
-        if vanilla_state_dict is not None and hasattr(results.get('model'), 'network'):
-            results['model'].network.load_state_dict(vanilla_state_dict)
-        results['predictions'] = vanilla_test_predictions
-        results['metrics'] = vanilla_test_metrics
-        results['metrics_source'] = 'vanilla_fallback'
+        both_unstable = reject_unstable_predictions and vanilla_unstable and shap_unstable
+        if both_unstable:
+            print("⚠️  Both vanilla and EA are unstable on final test. Marking run as unstable.")
+            results['predictions'] = vanilla_test_predictions
+            results['metrics'] = vanilla_test_metrics
+            results['metrics_source'] = 'unstable_run'
+            policy_reason = "both_unstable"
+        else:
+            print(
+                f"⚠️  SHAP отклонен: R² {vanilla_r2:.6f} -> {shap_r2:.6f}, "
+                f"порог ΔR²={min_delta_r2:+.4f}, reason={policy_reason}. Использую vanilla."
+            )
+            if vanilla_state_dict is not None and hasattr(results.get('model'), 'network'):
+                results['model'].network.load_state_dict(vanilla_state_dict)
+            results['predictions'] = vanilla_test_predictions
+            results['metrics'] = vanilla_test_metrics
+            results['metrics_source'] = 'vanilla_fallback'
+            policy_reason = "vanilla_fallback"
 
     results['feature_importance_shap'] = np.asarray(shap_importance, dtype=float)
     results['shap_history'] = shap_history
@@ -742,12 +1034,25 @@ def train_and_save(args):
         }
 
     t_total_end = time.perf_counter()
+    training_time_total = float(results.get('training_time', 0.0) or 0.0)
+    training_time_shap = float(results.get('training_time_shap', 0.0) or 0.0)
+    training_time_vanilla = max(0.0, training_time_total - training_time_shap)
+    metrics_source_final = results.get('metrics_source', 'shap')
+    if metrics_source_final == 'shap':
+        model_mode_final = 'ea_raw'
+    elif metrics_source_final == 'vanilla_fallback':
+        model_mode_final = 'final_policy'
+    elif metrics_source_final == 'unstable_run':
+        model_mode_final = 'unstable_run'
+    else:
+        model_mode_final = 'unknown'
+
     summary = {
         'timestamp': timestamp,
         'created_at': datetime.now().isoformat(timespec='seconds'),
         'tag': args.tag,
-        'model_mode': 'final_policy',
-        'fallback_used': bool(results.get('metrics_source') == 'vanilla_fallback'),
+        'model_mode': model_mode_final,
+        'fallback_used': bool(metrics_source_final == 'vanilla_fallback'),
         'config_path': os.path.abspath(config_path),
         'config_sha256': config_sha256,
         'effective_config_sha256': effective_config_sha256,
@@ -769,10 +1074,18 @@ def train_and_save(args):
         'vanilla_metrics': results.get('vanilla_metrics'),
         'shap_metrics': results.get('shap_metrics_raw'),
         'band_metrics': band_metrics_norm,
-        'metrics_source': results.get('metrics_source', 'shap'),
+        'metrics_source': metrics_source_final,
         'shap_config_enabled': True,
-        'shap_applied': results.get('metrics_source', 'shap') == 'shap',
-        'shap_rejected': results.get('metrics_source') == 'vanilla_fallback',
+        'shap_applied': metrics_source_final == 'shap',
+        'shap_rejected': metrics_source_final == 'vanilla_fallback',
+        'unstable_run': metrics_source_final == 'unstable_run',
+        'policy_reason': policy_reason,
+        'policy_mode': policy_mode,
+        'unstable_prediction_flag': bool(
+            (shap_pred_diag if metrics_source_final == 'shap' else vanilla_pred_diag).get('unstable_prediction_flag', False)
+        ),
+        'vanilla_unstable_prediction_flag': bool(vanilla_pred_diag.get('unstable_prediction_flag', False)),
+        'ea_unstable_prediction_flag': bool(shap_pred_diag.get('unstable_prediction_flag', False)),
         'effective_ea_config': {
             'autonomous_error_shap': bool(shap_config.get('autonomous_error_shap', False)),
             'error_importance_mode': shap_config.get('error_importance_mode', 'baseline'),
@@ -791,22 +1104,32 @@ def train_and_save(args):
             'grad_norm_interval': shap_config.get('grad_norm_interval'),
             'fast_mode': bool(run_meta.get('fast_mode', False)),
             'inprocess_mode': bool(run_meta.get('inprocess_mode', False)),
+            'quality_policy': _to_serializable(quality_policy_cfg),
         },
-        'training_time_total': results.get('training_time'),
-        'training_time_shap': results.get('training_time_shap'),
+        'training_time_total': training_time_total,
+        'training_time_shap': training_time_shap,
         'timing': {
             'data_loading_sec': float(t_data_end - t_data_start),
-            'pso_sec': float(results.get('training_time', 0.0) or 0.0),
-            'vanilla_train_sec': float(results.get('training_time', 0.0) or 0.0),
-            'ea_train_sec': float(results.get('training_time_shap', 0.0) or 0.0),
+            'pso_sec': float(training_time_vanilla),
+            'vanilla_train_sec': float(training_time_vanilla),
+            'ea_train_sec': float(training_time_shap),
             'deletion_eval_sec': None,
             'total_sec': float(t_total_end - t_total_start),
+            'ea_overhead_ratio': float(training_time_shap / max(training_time_vanilla, 1e-12)),
         },
         'saved_files': saved_files,
         'diagnostics': {
             'prediction_stats': prediction_stats,
             'target_stats': target_stats,
             'coeff_stats': coeff_stats,
+            'vanilla_prediction_diagnostics': _to_serializable(vanilla_pred_diag),
+            'ea_prediction_diagnostics': _to_serializable(shap_pred_diag),
+            'final_prediction_diagnostics': _to_serializable(
+                shap_pred_diag if metrics_source_final == 'shap' else vanilla_pred_diag
+            ),
+            'policy_faithfulness': _to_serializable(policy_faithfulness),
+            'vanilla_retry_applied': bool(vanilla_retry_applied),
+            'vanilla_retry_reg_lambda': ridge_retry_lambda if vanilla_retry_applied else None,
             'nonfinite_parameters': _to_serializable(results.get('nonfinite_report', {})),
             'regularization': _summarize_regularization_history(results.get('shap_history'), shap_config),
         },

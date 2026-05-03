@@ -187,7 +187,7 @@ class ANFISManager:
         return cls.MF_CLASS_ALIASES.get(mf_class, mf_class)
 
     @staticmethod
-    def _log_and_clean_state(model):
+    def _log_and_clean_state(model, *, consequent_clip_enabled=False, consequent_clip_value=0.0):
         """
         Логирование и устранение NaN/Inf в параметрах модели.
         Возвращает статистику по очищенным параметрам.
@@ -200,6 +200,9 @@ class ANFISManager:
         state_dict = model.network.state_dict()
         cleaned = {}
         report = {}
+
+        clip_report = {}
+        clip_value = float(consequent_clip_value) if consequent_clip_enabled else 0.0
 
         for name, tensor in state_dict.items():
             if not isinstance(tensor, torch.Tensor):
@@ -251,6 +254,19 @@ class ANFISManager:
                     # Для других параметров используем стандартную замену
                     array = np.nan_to_num(array, nan=0.0, posinf=0.0, neginf=0.0)
 
+            if consequent_clip_enabled and name == 'coeffs' and clip_value > 0:
+                abs_before = float(np.max(np.abs(array))) if array.size else 0.0
+                clipped = np.clip(array, -clip_value, clip_value)
+                n_clipped = int(np.sum(np.abs(array) > clip_value))
+                if n_clipped > 0:
+                    clip_report[name] = {
+                        'n_coeff_clipped': n_clipped,
+                        'max_coeff_abs_before': abs_before,
+                        'max_coeff_abs_after': float(np.max(np.abs(clipped))) if clipped.size else 0.0,
+                        'clip_value': clip_value,
+                    }
+                array = clipped
+
             cleaned_tensor = torch.from_numpy(array).to(tensor.device).type(tensor.dtype)
             cleaned[name] = cleaned_tensor
 
@@ -277,6 +293,8 @@ class ANFISManager:
                 logger.error(f"Ошибка при загрузке очищенного состояния: {e}")
                 logger.warning("Модель может работать некорректно. Рекомендуется переобучение.")
 
+        if clip_report:
+            report['__coefficient_clipping__'] = clip_report
         return report
 
     def train_vanilla_model(self, X_train, y_train, X_test, y_test):
@@ -355,7 +373,11 @@ class ANFISManager:
 
         # Проверяем и чистим состояние модели сразу после обучения
         # Делаем это ДО получения предсказаний, чтобы избежать NaN в предсказаниях
-        nonfinite_report = self._log_and_clean_state(model)
+        nonfinite_report = self._log_and_clean_state(
+            model,
+            consequent_clip_enabled=bool(self.model_config.get('consequent_clip_enabled', False)),
+            consequent_clip_value=float(self.model_config.get('consequent_clip_value', 0.0) or 0.0),
+        )
         
         # Дополнительная проверка: если слишком много NaN, предупреждаем
         total_params = sum(p.numel() for p in model.network.parameters())
@@ -365,6 +387,18 @@ class ANFISManager:
             if nan_ratio > 0.05:  # Более 5% параметров содержат NaN
                 self.logger.warning(f"ВНИМАНИЕ: Обнаружено {total_nonfinite} некорректных параметров из {total_params} ({nan_ratio*100:.2f}%)")
                 self.logger.warning("Рекомендуется увеличить reg_lambda или уменьшить сложность модели")
+
+        coeff_condition_threshold = float(self.model_config.get('coeff_condition_threshold', 1e8) or 1e8)
+        coeff_tensor = model.network.state_dict().get('coeffs') if hasattr(model, "network") else None
+        if isinstance(coeff_tensor, torch.Tensor):
+            coeff_np = coeff_tensor.detach().cpu().numpy().astype(float)
+            coeff_abs_max = float(np.max(np.abs(coeff_np))) if coeff_np.size else 0.0
+            if np.isfinite(coeff_abs_max) and coeff_abs_max > coeff_condition_threshold:
+                self.logger.warning(
+                    "Коэффициенты consequents имеют аномально большой масштаб "
+                    f"(max|coeff|={coeff_abs_max:.3e} > threshold={coeff_condition_threshold:.3e}). "
+                    "Рекомендуется повысить reg_lambda / включить coefficient clipping."
+                )
         
         training_time = time.time() - start_time
 
