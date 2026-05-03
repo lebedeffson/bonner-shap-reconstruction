@@ -48,6 +48,24 @@
 
 Это главный новый аргумент переносимости за пределы ANFIS.
 
+## 3.1) Новая задача: multiclass classification (Covertype, 100k subset, 3 seed)
+
+Файлы:
+- `results/covtype_mlp_eaar_vs_vanilla_3seed_20260503.md`
+- `results/mlp_classifier_eaar_multiseed_config_covtype_mlp_eaar_covtype_cls_eaar3.json`
+
+Ключевые числа:
+- `ΔAccuracy mean = +0.000650`
+- `ΔMacro-F1 mean = -0.004929`
+- `vanilla AUC gap (CE) = 2.3461`
+- `EAAR AUC gap (CE) = 2.4187`
+- `ΔAUC gap (CE) = +0.0726`
+- Faithfulness wins/losses: `3/0`
+
+Интерпретация:
+- EAAR улучшает internal faithfulness и на классификации.
+- Качество по accuracy сохраняется практически на месте.
+
 ## 4) Negative controls (fast sanity)
 
 Файлы:

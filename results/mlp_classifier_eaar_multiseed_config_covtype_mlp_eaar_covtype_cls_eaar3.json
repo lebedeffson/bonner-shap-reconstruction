@@ -1,0 +1,89 @@
+{
+  "created_at": "2026-05-03T16:57:40",
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_covtype_mlp_eaar.yaml",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "k_list": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "mask": "permute",
+  "random_trials": 20,
+  "aggregate": {
+    "n_runs": 3,
+    "delta_accuracy_mean": 0.0006499999999999654,
+    "delta_accuracy_std": 0.0017839562774911006,
+    "delta_macro_f1_mean": -0.004928548225391127,
+    "delta_macro_f1_std": 0.0037289868892454105,
+    "delta_ce_mean": 0.0005421318551070605,
+    "delta_ce_std": 0.0034653859312091255,
+    "vanilla_auc_gap_ce_mean": 2.346115395701674,
+    "ea_auc_gap_ce_mean": 2.4187161605772936,
+    "vanilla_top_random_ce_mean": 12.809460533660372,
+    "ea_top_random_ce_mean": 13.129722390269395,
+    "faithfulness_wins": 3,
+    "faithfulness_losses": 0
+  },
+  "runs": [
+    {
+      "seed": 42,
+      "vanilla_accuracy": 0.8463,
+      "ea_accuracy": 0.8489,
+      "delta_accuracy": 0.0025999999999999357,
+      "vanilla_macro_f1": 0.7550586016070948,
+      "ea_macro_f1": 0.7511689703142904,
+      "delta_macro_f1": -0.0038896312928043963,
+      "vanilla_ce": 0.3702687879781913,
+      "ea_ce": 0.36984679167948153,
+      "delta_ce": -0.0004219962987097592,
+      "vanilla_auc_gap_ce": 2.370072180520496,
+      "ea_auc_gap_ce": 2.502833693438171,
+      "vanilla_top_random_ce": 11.633555181798139,
+      "ea_top_random_ce": 11.870180876777807,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/covtype_mlp_eaar/training_summary_20260503_165034_covtype_cls_eaar3_s42_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/covtype_mlp_eaar/training_summary_20260503_165232_covtype_cls_eaar3_s42_ea.json"
+    },
+    {
+      "seed": 43,
+      "vanilla_accuracy": 0.8485,
+      "ea_accuracy": 0.8476,
+      "delta_accuracy": -0.0009000000000000119,
+      "vanilla_macro_f1": 0.7693783927094595,
+      "ea_macro_f1": 0.7675492023885726,
+      "delta_macro_f1": -0.0018291903208869087,
+      "vanilla_ce": 0.37264716215435495,
+      "ea_ce": 0.3770346514618412,
+      "delta_ce": 0.004387489307486225,
+      "vanilla_auc_gap_ce": 2.3514255293523045,
+      "ea_auc_gap_ce": 2.3820899522427528,
+      "vanilla_top_random_ce": 14.079308953770267,
+      "ea_top_random_ce": 14.282967927664394,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/covtype_mlp_eaar/training_summary_20260503_165304_covtype_cls_eaar3_s43_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/covtype_mlp_eaar/training_summary_20260503_165501_covtype_cls_eaar3_s43_ea.json"
+    },
+    {
+      "seed": 44,
+      "vanilla_accuracy": 0.8444,
+      "ea_accuracy": 0.84465,
+      "delta_accuracy": 0.00024999999999997247,
+      "vanilla_macro_f1": 0.7686815934796319,
+      "ea_macro_f1": 0.7596147704171499,
+      "delta_macro_f1": -0.009066823062482077,
+      "vanilla_ce": 0.3831942341355653,
+      "ea_ce": 0.38085513669211,
+      "delta_ce": -0.0023390974434552847,
+      "vanilla_auc_gap_ce": 2.316848477232222,
+      "ea_auc_gap_ce": 2.3712248360509562,
+      "vanilla_top_random_ce": 12.715517465412715,
+      "ea_top_random_ce": 13.23601836636598,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/covtype_mlp_eaar/training_summary_20260503_165533_covtype_cls_eaar3_s44_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/covtype_mlp_eaar/training_summary_20260503_165729_covtype_cls_eaar3_s44_ea.json"
+    }
+  ]
+}
