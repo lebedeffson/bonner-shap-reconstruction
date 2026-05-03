@@ -218,10 +218,21 @@ def _get_test_split(base_cfg: dict, seed: int, cache: dict[int, tuple[np.ndarray
     )
     X_real = np.asarray(X_real, dtype=float)
     y_real = np.asarray(y_real, dtype=float)
-    X_temp, X_test, y_temp, y_test = train_test_split(
-        X_real, y_real, test_size=REAL_TEST_FRACTION, random_state=seed
-    )
-    _ = train_test_split(X_temp, y_temp, test_size=0.25, random_state=seed)
+    split_strategy = str(ds.get("split_strategy", "random")).strip().lower()
+    if split_strategy in {"time_block", "time", "temporal"}:
+        n = X_real.shape[0]
+        n_test = max(1, int(round(n * REAL_TEST_FRACTION)))
+        n_test = min(n_test, n - 2)
+        n_temp = n - n_test
+        n_val = max(1, int(round(n_temp * 0.25)))
+        n_shap = n_temp - n_val
+        X_test, y_test = X_real[n_temp:], y_real[n_temp:]
+        _ = (X_real[:n_shap], y_real[:n_shap], X_real[n_shap:n_temp], y_real[n_shap:n_temp])
+    else:
+        X_temp, X_test, y_temp, y_test = train_test_split(
+            X_real, y_real, test_size=REAL_TEST_FRACTION, random_state=seed
+        )
+        _ = train_test_split(X_temp, y_temp, test_size=0.25, random_state=seed)
     cache[seed] = (np.nan_to_num(X_test), np.nan_to_num(y_test))
     return cache[seed]
 
@@ -439,7 +450,9 @@ def main():
         "runs": df.to_dict(orient="records"),
     }
 
-    out_path = Path(args.out) if args.out else Path("results") / f"explainability_{ms_path.stem}.json"
+    out_path = Path(args.out) if args.out else Path("results") / (
+        f"explainability_{ms_path.stem}_{args.mask}_{args.eval_importance}.json"
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
     csv_path = out_path.with_suffix(".csv")

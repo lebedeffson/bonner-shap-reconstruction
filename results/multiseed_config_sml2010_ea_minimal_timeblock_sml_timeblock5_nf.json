@@ -1,0 +1,100 @@
+{
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_sml2010_ea_minimal_timeblock.yaml",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "runs": [
+    {
+      "seed": 42,
+      "tag": "sml_timeblock5_nf_s42",
+      "summary_path": "results/sml2010_ea_minimal/training_summary_20260503_204124_sml_timeblock5_nf_s42.json",
+      "metrics_source": "shap",
+      "model_mode": "ea_raw",
+      "fallback_used": false,
+      "unstable_prediction_flag": false,
+      "r2_final": 0.7848413956877439,
+      "r2_vanilla": 0.7849669061702085,
+      "r2_shap_raw": 0.7848413956877439,
+      "r2_ea_raw": 0.7848413956877439
+    },
+    {
+      "seed": 43,
+      "tag": "sml_timeblock5_nf_s43",
+      "summary_path": "results/sml2010_ea_minimal/training_summary_20260503_204319_sml_timeblock5_nf_s43.json",
+      "metrics_source": "shap",
+      "model_mode": "ea_raw",
+      "fallback_used": false,
+      "unstable_prediction_flag": false,
+      "r2_final": 0.6455657365989896,
+      "r2_vanilla": 0.6457130937220082,
+      "r2_shap_raw": 0.6455657365989896,
+      "r2_ea_raw": 0.6455657365989896
+    },
+    {
+      "seed": 44,
+      "tag": "sml_timeblock5_nf_s44",
+      "summary_path": "results/sml2010_ea_minimal/training_summary_20260503_204521_sml_timeblock5_nf_s44.json",
+      "metrics_source": "shap",
+      "model_mode": "ea_raw",
+      "fallback_used": false,
+      "unstable_prediction_flag": false,
+      "r2_final": 0.8001727835057657,
+      "r2_vanilla": 0.8003541846981188,
+      "r2_shap_raw": 0.8001727835057657,
+      "r2_ea_raw": 0.8001727835057657
+    },
+    {
+      "seed": 45,
+      "tag": "sml_timeblock5_nf_s45",
+      "summary_path": "results/sml2010_ea_minimal/training_summary_20260503_204722_sml_timeblock5_nf_s45.json",
+      "metrics_source": "vanilla_fallback",
+      "model_mode": "final_policy",
+      "fallback_used": true,
+      "unstable_prediction_flag": false,
+      "r2_final": 0.7955467934257419,
+      "r2_vanilla": 0.7955467934257419,
+      "r2_shap_raw": 0.7954081044438966,
+      "r2_ea_raw": 0.7954081044438966
+    },
+    {
+      "seed": 46,
+      "tag": "sml_timeblock5_nf_s46",
+      "summary_path": "results/sml2010_ea_minimal/training_summary_20260503_204930_sml_timeblock5_nf_s46.json",
+      "metrics_source": "vanilla_fallback",
+      "model_mode": "final_policy",
+      "fallback_used": true,
+      "unstable_prediction_flag": false,
+      "r2_final": 0.7111374172194909,
+      "r2_vanilla": 0.7111374172194909,
+      "r2_shap_raw": 0.7109557964870679,
+      "r2_ea_raw": 0.7109557964870679
+    }
+  ],
+  "n_unstable_runs": 0,
+  "unstable_seeds": [],
+  "aggregate_all_runs": {
+    "n_runs": 5,
+    "delta_r2_mean": -0.00015491570242089913,
+    "delta_r2_min": -0.00018162073242300458,
+    "delta_r2_max": -0.00012551048246456364,
+    "wins": 0,
+    "losses": 5,
+    "fallback_rate": 0.4
+  },
+  "aggregate_stable_only": {
+    "n_runs": 5,
+    "delta_r2_mean": -0.00015491570242089913,
+    "delta_r2_min": -0.00018162073242300458,
+    "delta_r2_max": -0.00012551048246456364,
+    "wins": 0,
+    "losses": 5,
+    "fallback_rate": 0.4
+  },
+  "delta_r2_mean": -0.00015491570242089913,
+  "delta_r2_min": -0.00018162073242300458,
+  "delta_r2_max": -0.00012551048246456364
+}

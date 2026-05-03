@@ -1,0 +1,23 @@
+{
+  "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_timeblock_sml_timeblock3_nf.json",
+  "unstable_seeds": [],
+  "n_unstable_runs": 0,
+  "aggregate_all_runs": {
+    "n_runs": 3,
+    "delta_r2_mean": -0.0001514229326120923,
+    "delta_r2_min": -0.00018140119235310337,
+    "delta_r2_max": -0.00012551048246456364,
+    "wins": 0,
+    "losses": 3,
+    "fallback_rate": 0.0
+  },
+  "aggregate_stable_only": {
+    "n_runs": 3,
+    "delta_r2_mean": -0.0001514229326120923,
+    "delta_r2_min": -0.00018140119235310337,
+    "delta_r2_max": -0.00012551048246456364,
+    "wins": 0,
+    "losses": 3,
+    "fallback_rate": 0.0
+  }
+}
