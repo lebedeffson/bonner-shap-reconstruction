@@ -37,6 +37,7 @@
 Файлы:
 - `results/mlp_eaar_vs_vanilla_sml2010_5seed_20260503.md`
 - `results/mlp_eaar_multiseed_config_sml2010_mlp_ea_sml_mlp_eaar5.json`
+- `results/significance_mlp_eaar_vs_vanilla_auc_gap.json`
 
 Ключевые числа:
 - `ΔR² mean = -0.000281` (negligible impact)
@@ -82,6 +83,19 @@
 - fast-режим дал почти одинаковые агрегаты → использовать только как dev-sanity.
 - Для Q1-доказательности нужен non-fast mini на `full/random_target/shuffled_q_err` с `eval=ea_raw`.
 
+## 4.1) Negative controls (non-fast, 3 seed, ANFIS)
+
+Файл:
+- `results/ablation_neg3_nonfast_controls_20260503.md`
+
+Ключ:
+- unmasked режим (fallback off) показал различия:
+  - `full AUC gap = 0.4992`
+  - `random_target AUC gap = 0.4369`
+  - `shuffled_q_err AUC gap = 0.4798`
+  - `sparsity_only AUC gap = 0.5077`
+- вывод: block стал информативнее (random хуже full), но контроль все ещё не идеальный, т.к. `sparsity_only` не хуже.
+
 ## 5) Statistical evidence (ANFIS main comparison)
 
 Файл:
@@ -111,10 +125,8 @@
 
 ## 8) Что запускать следующим шагом
 
-1. non-fast negative controls (3 seed):
-   - `full, random_target, shuffled_q_err`
-   - `eval=ea_raw`, `mask=permute`, `random_trials=20`
-2. добавить CI/Wilcoxon для MLP `ΔAUC gap`.
+1. добавить CI/Wilcoxon для Covertype `ΔAUC gap (CE)`.
+2. timing table (ANFIS/MLP reg + MLP cls).
 3. (после этого) обновить Q1-док финальной таблицей:
    - ANFIS modes + MLP portability + negative controls.
 
