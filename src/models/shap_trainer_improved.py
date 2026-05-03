@@ -13,6 +13,7 @@ import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 from constants import Ebins_float_IAEA_Comp
 from src.models.shap_trainer_precision_optimized import PrecisionOptimizedSHAPRegularization
+from src.regularizers.error_aware_attribution import error_importance
 from src.utils.logger import get_logger
 
 
@@ -98,6 +99,22 @@ class ShapAwareANFISTrainerImproved:
         self.ea_rank_tau = float(shap_config.get('ea_rank_tau', 0.2))
         self.ea_rank_top_k = int(shap_config.get('ea_rank_top_k', 3))
         self.ea_rank_bottom_k = int(shap_config.get('ea_rank_bottom_k', 3))
+        self.ea_target_ablation_mode = str(
+            shap_config.get('ea_target_ablation_mode', 'none')
+        ).strip().lower()
+        if self.ea_target_ablation_mode in {'shuffle', 'shuffled'}:
+            self.ea_target_ablation_mode = 'shuffled_q_err'
+        if self.ea_target_ablation_mode in {'random', 'rand'}:
+            self.ea_target_ablation_mode = 'random_target'
+        if self.ea_target_ablation_mode not in {'none', 'random_target', 'shuffled_q_err'}:
+            self.ea_target_ablation_mode = 'none'
+        self.ea_importance_source = str(shap_config.get('ea_importance_source', 'grad')).strip().lower()
+        if self.ea_importance_source not in {'grad', 'gate', 'mixed'}:
+            self.ea_importance_source = 'grad'
+        self.ea_gate_importance_alpha = float(shap_config.get('ea_gate_importance_alpha', 0.5))
+        self.ea_gate_importance_alpha = min(max(self.ea_gate_importance_alpha, 0.0), 1.0)
+        self.ea_bottom_invariance_weight = float(shap_config.get('ea_bottom_invariance_weight', 0.0))
+        self.ea_bottom_k = int(shap_config.get('ea_bottom_k', 3))
         self.ea_warmup_fraction = float(shap_config.get('ea_warmup_fraction', 0.25))
         self.ea_warmup_fraction = min(max(self.ea_warmup_fraction, 0.0), 0.95)
         self.ea_bypass_legacy_normalization = bool(shap_config.get('ea_bypass_legacy_normalization', True))
@@ -340,6 +357,41 @@ class ShapAwareANFISTrainerImproved:
             loss = a * cosine + (1.0 - a) * mse
         return loss, js, mse, cosine
 
+    def _compose_internal_importance(self, grad_importance_normalized, gate_probs, batch_x):
+        gate_dist = None
+        if gate_probs is not None:
+            gate_dist = self._compute_gate_distribution(gate_probs, batch_x)
+        src = self.ea_importance_source
+        if src == 'gate' and gate_dist is not None:
+            return gate_dist, gate_dist
+        if src == 'mixed' and gate_dist is not None:
+            a = self.ea_gate_importance_alpha
+            p_mix = a * grad_importance_normalized + (1.0 - a) * gate_dist
+            p_mix = p_mix / (torch.sum(p_mix) + 1e-10)
+            return p_mix, gate_dist
+        return grad_importance_normalized, gate_dist
+
+    def _compute_bottom_invariance_loss(self, batch_x, predictions, q_target, baseline_values):
+        if self.ea_bottom_invariance_weight <= 0.0:
+            return torch.tensor(0.0, device=self.device)
+        n = int(batch_x.shape[1])
+        k = int(max(1, min(self.ea_bottom_k, n)))
+        idx = torch.argsort(q_target.detach(), descending=False)[:k]
+        base = torch.as_tensor(
+            np.asarray(baseline_values, dtype=np.float32),
+            device=batch_x.device,
+            dtype=batch_x.dtype
+        )
+        x_masked = batch_x.clone()
+        x_masked[:, idx] = base[idx].unsqueeze(0)
+        pred_masked = torch.nan_to_num(self.model(x_masked))
+        ref = predictions.detach()
+        if pred_masked.shape != ref.shape:
+            min_dim = min(pred_masked.shape[-1], ref.shape[-1])
+            pred_masked = pred_masked[..., :min_dim]
+            ref = ref[..., :min_dim]
+        return F.mse_loss(pred_masked, ref)
+
     def _reg_warmup_factor(self):
         if self.total_epochs is None or self.total_epochs <= 0:
             return 1.0
@@ -436,52 +488,26 @@ class ShapAwareANFISTrainerImproved:
         return norm, used, len(params)
 
     def _compute_error_aware_importance(self, batch_x_raw, batch_y, batch_main_loss, baseline_values, loss_function):
-        n_features = batch_x_raw.shape[1]
-        base_loss = float(batch_main_loss.detach().item())
-        eta = torch.zeros(n_features, device=self.device, dtype=batch_x_raw.dtype)
-        with torch.no_grad():
-            for j in range(n_features):
-                masked = batch_x_raw.detach().clone()
-                if self.error_importance_mode == 'permute':
-                    idx = torch.randperm(masked.shape[0], device=masked.device)
-                    masked[:, j] = masked[idx, j]
-                elif self.error_importance_mode == 'noise':
-                    std = torch.std(masked[:, j])
-                    noise = torch.randn_like(masked[:, j]) * (0.1 * std + 1e-8)
-                    masked[:, j] = masked[:, j] + noise
-                else:
-                    masked[:, j] = float(baseline_values[j])
-                masked_in = self._apply_feature_gates(masked)
-                pred_masked = torch.nan_to_num(self.model(masked_in))
-                if pred_masked.shape != batch_y.shape:
-                    min_dim = min(pred_masked.shape[-1], batch_y.shape[-1])
-                    pred_masked = pred_masked[..., :min_dim]
-                    y_ref = batch_y[..., :min_dim]
-                else:
-                    y_ref = batch_y
-                masked_loss = float(loss_function(pred_masked, y_ref).item())
-                eta[j] = max(0.0, masked_loss - base_loss)
-        eta_sum = torch.sum(eta) + 1e-10
-        q_err = eta / eta_sum
-        self.last_eta_mean = float(torch.mean(eta).item())
-        self.last_eta_std = float(torch.std(eta).item())
-        q_err_safe = torch.clamp(q_err, min=1e-10)
-        q_err_safe = q_err_safe / (torch.sum(q_err_safe) + 1e-10)
-        self.last_qerr_entropy = float((-q_err_safe * torch.log(q_err_safe)).sum().item())
-        self.last_qerr_gini = float(self._compute_gini(q_err_safe).item())
-        if self.prev_error_importance_raw is None:
-            self.last_qerr_corr = float('nan')
-        else:
-            self.last_qerr_corr = float(self._vector_corr(q_err_safe, self.prev_error_importance_raw).item())
-        self.prev_error_importance_raw = q_err_safe.detach().clone()
-        if self.error_importance_ema is None:
-            self.error_importance_ema = q_err.detach().clone()
-        else:
-            self.error_importance_ema = (
-                self.error_importance_ema_beta * self.error_importance_ema
-                + (1.0 - self.error_importance_ema_beta) * q_err.detach()
-            )
-            self.error_importance_ema = self.error_importance_ema / (torch.sum(self.error_importance_ema) + 1e-10)
+        q_raw, q_ema, diag = error_importance(
+            self.model,
+            batch_x_raw,
+            batch_y,
+            loss_fn=loss_function,
+            masking_mode=self.error_importance_mode,
+            baseline_values=baseline_values,
+            gate_fn=self._apply_feature_gates,
+            ema_state=self.error_importance_ema,
+            ema_beta=self.error_importance_ema_beta,
+            prev_q=self.prev_error_importance_raw,
+        )
+        self.error_importance_ema = q_ema.detach().clone()
+        self.prev_error_importance_raw = torch.clamp(q_raw.detach(), min=1e-10)
+        self.prev_error_importance_raw = self.prev_error_importance_raw / (torch.sum(self.prev_error_importance_raw) + 1e-10)
+        self.last_eta_mean = float(diag.get('eta_mean', float('nan')))
+        self.last_eta_std = float(diag.get('eta_std', float('nan')))
+        self.last_qerr_entropy = float(diag.get('q_entropy', float('nan')))
+        self.last_qerr_gini = float(diag.get('q_gini', float('nan')))
+        self.last_qerr_corr = float(diag.get('q_corr', float('nan')))
         return self.error_importance_ema.detach()
 
     def fit(
@@ -608,6 +634,7 @@ class ShapAwareANFISTrainerImproved:
             'ea_grad_params': [],
             'grad_params_total': [],
             'rank_loss_raw': [],
+            'bottom_inv_loss_raw': [],
             'rank_pairs_count': [],
             'rank_violations_count': [],
             'rank_grad_norm': [],
@@ -650,7 +677,8 @@ class ShapAwareANFISTrainerImproved:
                     f"   [EA] mode={self.error_importance_mode}, align={self.ea_alignment_loss}, "
                     f"target={self.error_importance_target}, warmup={self.ea_warmup_fraction}, "
                     f"rho={self.error_target_rho}, ema={self.error_importance_ema_beta}, "
-                    f"grad_balance={self.ea_use_grad_balance}, rank={self.ea_rank_type}, rank_w={self.ea_rank_weight}"
+                    f"grad_balance={self.ea_use_grad_balance}, rank={self.ea_rank_type}, rank_w={self.ea_rank_weight}, "
+                    f"p_src={self.ea_importance_source}, binv_w={self.ea_bottom_invariance_weight}"
                 )
 
         X_val_tensor = None
@@ -744,6 +772,7 @@ class ShapAwareANFISTrainerImproved:
                 'ea_grad_params': [],
                 'grad_params_total': [],
                 'rank_loss_raw': [],
+                'bottom_inv_loss_raw': [],
                 'rank_pairs_count': [],
                 'rank_violations_count': [],
                 'rank_grad_norm': [],
@@ -1125,6 +1154,7 @@ class ShapAwareANFISTrainerImproved:
                 epoch_losses['ea_grad_params'].append(ea_grad_params)
                 epoch_losses['grad_params_total'].append(grad_params_total)
                 epoch_losses['rank_loss_raw'].append(float(shap_components.get('error_rank', float('nan'))))
+                epoch_losses['bottom_inv_loss_raw'].append(float(shap_components.get('error_bottom_invariance', float('nan'))))
                 epoch_losses['rank_pairs_count'].append(float(shap_components.get('rank_pairs_count', self.last_rank_pairs_count)))
                 epoch_losses['rank_violations_count'].append(float(shap_components.get('rank_violations_count', self.last_rank_violations_count)))
                 epoch_losses['shap_clip_active'].append(float(shap_clip_active))
@@ -1193,6 +1223,7 @@ class ShapAwareANFISTrainerImproved:
                 'ea_grad_params': 'ea_grad_params',
                 'grad_params_total': 'grad_params_total',
                 'rank_loss_raw': 'rank_loss_raw',
+                'bottom_inv_loss_raw': 'bottom_inv_loss_raw',
                 'rank_pairs_count': 'rank_pairs_count',
                 'rank_violations_count': 'rank_violations_count',
                 'shap_clip_active': 'shap_clip_active',
@@ -1544,26 +1575,38 @@ class ShapAwareANFISTrainerImproved:
         if self.autonomous_error_shap and q_err_target is not None:
             q_err = torch.clamp(q_err_target.to(self.device, dtype=grad_importance_normalized.dtype), min=1e-10)
             q_err = q_err / (torch.sum(q_err) + 1e-10)
+            if self.ea_target_ablation_mode == 'random_target':
+                q_for_target = torch.rand_like(q_err)
+                q_for_target = q_for_target / (torch.sum(q_for_target) + 1e-10)
+            elif self.ea_target_ablation_mode == 'shuffled_q_err':
+                perm = torch.randperm(q_err.numel(), device=q_err.device)
+                q_for_target = q_err[perm]
+                q_for_target = q_for_target / (torch.sum(q_for_target) + 1e-10)
+            else:
+                q_for_target = q_err
             if self.grad_importance_ema is not None and self.error_target_rho < 1.0:
-                q_target = (1.0 - self.error_target_rho) * self.grad_importance_ema + self.error_target_rho * q_err
+                q_target = (1.0 - self.error_target_rho) * self.grad_importance_ema + self.error_target_rho * q_for_target
                 q_target = q_target / (torch.sum(q_target) + 1e-10)
             else:
-                q_target = q_err
+                q_target = q_for_target
 
+            p_internal, p_gate = self._compose_internal_importance(
+                grad_importance_normalized, gate_probs, batch_X
+            )
             error_consistency, js_err, mse_err, cosine_err = self._compute_alignment_loss(
-                grad_importance_normalized, q_target
+                p_internal, q_target
             )
             rank_mode = self.ea_rank_type
             if rank_mode == 'ranknet_allpairs':
                 rank_loss, rank_pairs_count, rank_violations_count = self._compute_rank_loss_ranknet_allpairs(
-                    grad_importance_normalized,
+                    p_internal,
                     q_target,
                     tau=self.ea_rank_tau,
                     delta=self.ea_rank_delta,
                 )
             elif rank_mode == 'topbottom_ranknet':
                 rank_loss, rank_pairs_count, rank_violations_count = self._compute_rank_loss_topbottom_ranknet(
-                    grad_importance_normalized,
+                    p_internal,
                     q_target,
                     top_k=self.ea_rank_top_k,
                     bottom_k=self.ea_rank_bottom_k,
@@ -1571,7 +1614,7 @@ class ShapAwareANFISTrainerImproved:
                 )
             else:
                 rank_loss, rank_pairs_count, rank_violations_count = self._compute_rank_loss_hinge_allpairs(
-                    grad_importance_normalized,
+                    p_internal,
                     q_target,
                     margin=self.ea_rank_margin,
                     delta=self.ea_rank_delta,
@@ -1579,15 +1622,20 @@ class ShapAwareANFISTrainerImproved:
             self.last_rank_pairs_count = float(rank_pairs_count)
             self.last_rank_violations_count = float(rank_violations_count)
             self._last_rank_loss_tensor = rank_loss
-            self.last_p_q_corr = float(self._vector_corr(grad_importance_normalized, q_target).detach().item())
+            self.last_p_q_corr = float(self._vector_corr(p_internal, q_target).detach().item())
 
-            if gate_probs is not None:
-                p_gate = self._compute_gate_distribution(gate_probs, batch_X)
+            if p_gate is not None:
                 gate_js = self._js_divergence(p_gate, q_err)
                 noise_loss = torch.mean((1.0 - q_err) * torch.clamp(gate_probs, min=0.0, max=1.0))
             else:
                 gate_js = torch.tensor(0.0, device=self.device)
                 noise_loss = torch.tensor(0.0, device=self.device)
+            bottom_inv_loss = self._compute_bottom_invariance_loss(
+                batch_X,
+                predictions,
+                q_target,
+                baseline_values,
+            )
 
             if self._component_enabled('stability') and batch_size > 1:
                 importance_per_sample = torch.abs(grad_input) * torch.abs(batch_X)
@@ -1602,6 +1650,7 @@ class ShapAwareANFISTrainerImproved:
             shap_loss_tensor = (
                 self.error_js_weight * error_consistency
                 + self.ea_rank_weight * rank_loss
+                + self.ea_bottom_invariance_weight * bottom_inv_loss
                 + self.gate_js_weight * gate_js
                 + self.noise_weight * noise_loss
                 + self.rule_stability_weight * stability_loss
@@ -1616,17 +1665,21 @@ class ShapAwareANFISTrainerImproved:
                 'error_mse': float(mse_err.detach().item()),
                 'error_cosine': float(cosine_err.detach().item()),
                 'error_rank': float(rank_loss.detach().item()),
+                'error_bottom_invariance': float(bottom_inv_loss.detach().item()),
                 'rank_pairs_count': float(rank_pairs_count),
                 'rank_violations_count': float(rank_violations_count),
                 'q_err_entropy': float((-q_err * torch.log(q_err)).sum().detach().item()),
                 'q_target_entropy': float((-q_target * torch.log(q_target)).sum().detach().item()),
                 'p_q_corr': float(self.last_p_q_corr),
+                'importance_source': self.ea_importance_source,
                 'weight_consistency': self.error_js_weight,
                 'weight_rank': self.ea_rank_weight,
+                'weight_bottom_invariance': self.ea_bottom_invariance_weight,
                 'rank_type': rank_mode,
                 'weight_sparsity': self.noise_weight,
                 'weight_faithfulness': self.gate_js_weight,
                 'weight_stability': self.rule_stability_weight,
+                'ea_target_ablation_mode': self.ea_target_ablation_mode,
             }
             return shap_loss_tensor, shap_components
         

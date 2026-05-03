@@ -35,7 +35,20 @@ def parse_args():
     p.add_argument("--insertion-baseline", choices=["mean"], default="mean")
     p.add_argument("--seed", type=int, default=42, help="seed для mask/permutation")
     p.add_argument("--random-trials", type=int, default=20, help="число повторов для random deletion")
-    p.add_argument("--eval-importance", choices=["final", "shap", "vanilla"], default="final")
+    p.add_argument(
+        "--eval-importance",
+        choices=[
+            "final",
+            "shap",
+            "ea_raw",
+            "ea-only",
+            "shap-only",
+            "vanilla",
+            "vanilla_gradient",
+            "vanilla_permutation",
+        ],
+        default="final",
+    )
     p.add_argument("--out", default=None, help="output json path")
     return p.parse_args()
 
@@ -170,6 +183,29 @@ def _predict(manager: ANFISManager, state_path: str, X: np.ndarray, y_dim: int) 
         return model.network(torch.tensor(X, dtype=torch.float32)).cpu().numpy()
 
 
+def _permutation_importance(
+    manager: ANFISManager,
+    state_path: str,
+    X: np.ndarray,
+    y: np.ndarray,
+    y_dim: int,
+    mask_mode: str,
+    seed: int,
+) -> np.ndarray:
+    pred0 = _predict(manager, state_path, X, y_dim)
+    mse0 = float(mean_squared_error(y, pred0))
+    vals = np.zeros(X.shape[1], dtype=float)
+    for j in range(X.shape[1]):
+        rng = np.random.default_rng(seed + 9973 * (j + 1))
+        Xm = _apply_mask(X, [j], mask_mode, rng)
+        predm = _predict(manager, state_path, Xm, y_dim)
+        vals[j] = max(0.0, float(mean_squared_error(y, predm) - mse0))
+    s = float(vals.sum())
+    if s <= 1e-12:
+        return np.full(X.shape[1], 1.0 / max(1, X.shape[1]), dtype=float)
+    return vals / s
+
+
 def _get_test_split(base_cfg: dict, seed: int, cache: dict[int, tuple[np.ndarray, np.ndarray]]) -> tuple[np.ndarray, np.ndarray]:
     if seed in cache:
         return cache[seed]
@@ -229,16 +265,20 @@ def main():
         vecs_shap.append(p_shap)
         vecs_vanilla.append(p_van)
 
-        if args.eval_importance == "shap":
+        eval_mode = args.eval_importance
+        if eval_mode in {"shap", "ea_raw", "ea-only", "shap-only"}:
             p_eval = p_shap
-            kind = "shap"
-        elif args.eval_importance == "vanilla":
+            kind = "ea_raw"
+        elif eval_mode in {"vanilla", "vanilla_gradient"}:
             p_eval = p_van
-            kind = "vanilla"
+            kind = "vanilla_gradient"
+        elif eval_mode == "vanilla_permutation":
+            p_eval = None
+            kind = "vanilla_permutation"
         else:
             use_shap = summary.get("metrics_source") == "shap"
             p_eval = p_shap if use_shap else p_van
-            kind = "shap" if use_shap else "vanilla"
+            kind = "ea_raw" if use_shap else "vanilla_gradient"
 
         row = {
             "seed": seed,
@@ -264,6 +304,16 @@ def main():
             X_test, y_test = _get_test_split(base_cfg, seed, test_cache)
             manager = ANFISManager(base_cfg)
             y_dim = y_test.shape[1]
+            if p_eval is None and kind == "vanilla_permutation":
+                p_eval = _permutation_importance(
+                    manager=manager,
+                    state_path=state_path,
+                    X=X_test,
+                    y=y_test,
+                    y_dim=y_dim,
+                    mask_mode=args.mask,
+                    seed=rng_seed + seed,
+                )
             pred0 = _predict(manager, state_path, X_test, y_dim)
             mse0 = float(mean_squared_error(y_test, pred0))
             row["base_mse"] = mse0

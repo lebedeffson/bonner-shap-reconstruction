@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -86,14 +87,53 @@ def run_one(base_cfg: dict, seed: int, tag_prefix: str, python_bin: str, args) -
     if not summaries:
         raise RuntimeError(f"summary not found for tag={tag}")
     s = json.loads(summaries[-1].read_text(encoding="utf-8"))
+    metrics_source = s.get("metrics_source")
+    unstable_flag = bool(s.get("unstable_prediction_flag", False))
+    if metrics_source == "shap":
+        model_mode = "ea_raw"
+    elif metrics_source == "vanilla_fallback":
+        model_mode = "final_policy"
+    elif metrics_source == "unstable_run":
+        model_mode = "unstable_run"
+    else:
+        model_mode = "unknown"
     return {
         "seed": seed,
         "tag": tag,
-        "metrics_source": s.get("metrics_source"),
+        "summary_path": str(summaries[-1]),
+        "metrics_source": metrics_source,
+        "model_mode": model_mode,
+        "fallback_used": bool(metrics_source == "vanilla_fallback"),
+        "unstable_prediction_flag": unstable_flag,
         "r2_final": float(s["metrics"]["r2"]),
         "r2_vanilla": float((s.get("vanilla_metrics") or {}).get("r2", float("nan"))),
         "r2_shap_raw": float((s.get("shap_metrics") or {}).get("r2", float("nan"))),
+        "r2_ea_raw": float((s.get("shap_metrics") or {}).get("r2", float("nan"))),
     }
+
+
+def _is_finite(x):
+    try:
+        return math.isfinite(float(x))
+    except Exception:
+        return False
+
+
+def _aggregate_rows(rows):
+    deltas = [
+        float(r["r2_shap_raw"]) - float(r["r2_vanilla"])
+        for r in rows
+        if _is_finite(r.get("r2_vanilla")) and _is_finite(r.get("r2_shap_raw"))
+    ]
+    out = {"n_runs": len(rows)}
+    if deltas:
+        out["delta_r2_mean"] = sum(deltas) / len(deltas)
+        out["delta_r2_min"] = min(deltas)
+        out["delta_r2_max"] = max(deltas)
+    out["wins"] = int(sum(1 for d in deltas if d > 0))
+    out["losses"] = int(sum(1 for d in deltas if d < 0))
+    out["fallback_rate"] = float(sum(1 for r in rows if r.get("fallback_used")) / max(len(rows), 1))
+    return out
 
 
 def main():
@@ -104,12 +144,24 @@ def main():
     for seed in seeds:
         rows.append(run_one(base_cfg, seed, args.tag_prefix, args.python, args))
 
+    unstable_seeds = [int(r["seed"]) for r in rows if r.get("unstable_prediction_flag")]
+    stable_rows = [r for r in rows if not r.get("unstable_prediction_flag")]
+
     out = {
         "config": str(Path(args.config).resolve()),
         "seeds": seeds,
         "runs": rows,
+        "n_unstable_runs": len(unstable_seeds),
+        "unstable_seeds": unstable_seeds,
+        "aggregate_all_runs": _aggregate_rows(rows),
+        "aggregate_stable_only": _aggregate_rows(stable_rows),
     }
-    deltas = [r["r2_shap_raw"] - r["r2_vanilla"] for r in rows if str(r["r2_vanilla"]) != "nan" and str(r["r2_shap_raw"]) != "nan"]
+    # Backward-compat keys
+    deltas = [
+        float(r["r2_shap_raw"]) - float(r["r2_vanilla"])
+        for r in rows
+        if _is_finite(r.get("r2_vanilla")) and _is_finite(r.get("r2_shap_raw"))
+    ]
     if deltas:
         out["delta_r2_mean"] = sum(deltas) / len(deltas)
         out["delta_r2_min"] = min(deltas)
