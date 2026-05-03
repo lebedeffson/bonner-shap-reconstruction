@@ -1,0 +1,136 @@
+dataset:
+  train_data: data/sml2010.csv
+  validation_data: data/sml2010.csv
+  normalize_sum: false
+  mix_with_real: false
+  mix_ratio: 0.0
+  test_size: 0.2
+  random_state: 42
+  feature_columns:
+  - weather_temperature
+  - co2_comedor_sensor
+  - co2_habitacion_sensor
+  - humedad_comedor_sensor
+  - humedad_habitacion_sensor
+  - lighting_comedor_sensor
+  - lighting_habitacion_sensor
+  - precipitacion
+  - meteo_exterior_crepusculo
+  - meteo_exterior_viento
+  - meteo_exterior_sol_oest
+  - meteo_exterior_sol_est
+  - meteo_exterior_sol_sud
+  - meteo_exterior_piranometro
+  - temperature_exterior_sensor
+  - humedad_exterior_sensor
+  - day_of_week
+  - hour
+  - minute
+  target_columns:
+  - temperature_comedor_sensor
+  - temperature_habitacion_sensor
+  feature_count: 19
+  target_count: 2
+model:
+  num_rules: 12
+  mf_class: Gaussian
+  vanishing_strategy: blend
+  optim: OriginalPSO
+  reg_lambda: 0.01
+  seed: 42
+  n_workers: 4
+  optim_params:
+    epoch: 80
+    pop_size: 60
+    verbose: false
+shap_reg:
+  enabled: true
+  integrated_training: false
+  training_mode: real_only
+  use_pso_init: false
+  pso_epochs: 80
+  epochs: 40
+  batch_size: 64
+  lr: 0.00012
+  train_output_only: false
+  early_stopping_patience: 20
+  early_stopping_min_delta: 5.0e-05
+  restore_best_state: false
+  gamma: 0.02
+  gamma_start: 0.02
+  gamma_end: 0.02
+  gamma_warmup_epochs: 0.0
+  use_adaptive_gamma: false
+  target_shap_ratio: 0.04
+  min_convergence_slowdown: 0.2
+  use_adaptive_weights: false
+  use_true_shap: false
+  active_components:
+  - sparsity
+  use_improved_shap: true
+  gamma_sparsity: 1.0
+  gamma_consistency: 0.0
+  gamma_faithfulness: 0.0
+  gamma_stability: 0.0
+  acceptance_min_delta_r2: -1.0
+  quality_first: false
+  reject_on_val_degrade: false
+  quality_tolerance: 0.0002
+  lr_backoff: 0.5
+  min_lr: 1.0e-06
+  use_distill_anchor: false
+  distill_weight: 0.2
+  max_distill_ratio: 0.2
+  max_coeff_delta_ratio: 0.05
+  accuracy_guard:
+    enabled: false
+    margin: 0.01
+    weight: 5.0
+  max_shap_ratio: 1.0
+  max_guard_ratio: 1.0
+  teacher_distill:
+    enabled: false
+    n_estimators: 800
+    min_samples_leaf: 1
+    max_depth: null
+    random_state: 42
+  use_feature_gates: true
+  gate_init: 0.9999
+  gate_anchor_weight: 0.05
+  autonomous_error_shap: false
+  error_importance_mode: permute
+  error_importance_ema_beta: 0.9
+  grad_importance_ema_beta: 0.9
+  error_target_rho: 0.3
+  ea_alignment_loss: cosine_mse
+  ea_alignment_alpha: 0.5
+  ea_warmup_fraction: 0.0
+  debug_grad_norms: true
+  grad_norm_interval: 20
+  ea_bypass_legacy_normalization: true
+  ea_use_grad_balance: true
+  ea_target_grad_ratio: 0.05
+  ea_scale_min: 0.1
+  ea_scale_max: 10000.0
+  error_js_weight: 1.0
+  error_mse_weight: 0.0
+  gate_js_weight: 0.0
+  noise_weight: 0.0
+  rule_stability_weight: 0.0
+  scalarization:
+    mode: mean
+  tikhonov:
+    enabled: false
+    lambda: 0.0
+    order: 2
+    energy_aware: false
+  nonnegativity:
+    enabled: false
+    lambda: 0.0
+output:
+  results_dir: results/sml2010_ea_minimal
+  save_model: true
+  save_predictions: true
+  save_plots: true
+  save_samples: true
+  sample_size: 8
