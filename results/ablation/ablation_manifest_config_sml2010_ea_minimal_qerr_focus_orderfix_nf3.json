@@ -1,0 +1,64 @@
+{
+  "created_at": "2026-05-04T18:35:06",
+  "base_config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_sml2010_ea_minimal.yaml",
+  "seeds": "42,43,44",
+  "variants": {
+    "full_rho1": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_full_rho1.yaml",
+      "patch": {
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0,
+        "shap_reg.error_target_rho": 1.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_full_rho1_qerr_focus_orderfix_nf3_full_rho1.json",
+      "log": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/logs/full_rho1.log",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_full_rho1_qerr_focus_orderfix_nf3_full_rho1_permute_ea_raw.json"
+    },
+    "random_target": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_random_target.yaml",
+      "patch": {
+        "shap_reg.ea_target_ablation_mode": "random_target",
+        "shap_reg.active_components": [
+          "faithfulness"
+        ]
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_random_target_qerr_focus_orderfix_nf3_random_target.json",
+      "log": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/logs/random_target.log",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_random_target_qerr_focus_orderfix_nf3_random_target_permute_ea_raw.json"
+    },
+    "sparsity_only": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_sparsity_only.yaml",
+      "patch": {
+        "shap_reg.autonomous_error_shap": false,
+        "shap_reg.active_components": [
+          "sparsity"
+        ],
+        "shap_reg.gamma_sparsity": 1.0,
+        "shap_reg.gamma_consistency": 0.0,
+        "shap_reg.gamma_faithfulness": 0.0,
+        "shap_reg.gamma_stability": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_sparsity_only_qerr_focus_orderfix_nf3_sparsity_only.json",
+      "log": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/logs/sparsity_only.log",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_sparsity_only_qerr_focus_orderfix_nf3_sparsity_only_permute_ea_raw.json"
+    },
+    "task_only": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_task_only.yaml",
+      "patch": {
+        "shap_reg.autonomous_error_shap": false,
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0,
+        "shap_reg.gamma_consistency": 0.0,
+        "shap_reg.gamma_faithfulness": 0.0,
+        "shap_reg.gamma_stability": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_task_only_qerr_focus_orderfix_nf3_task_only.json",
+      "log": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/logs/task_only.log",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_task_only_qerr_focus_orderfix_nf3_task_only_permute_ea_raw.json"
+    }
+  }
+}
