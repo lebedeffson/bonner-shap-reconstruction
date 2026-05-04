@@ -162,6 +162,7 @@ Faithfulness modes (permute deletion, random_trials=20):
 - `results/covtype_mlp_eaar_vs_vanilla_5seed_20260503.md`
 - `results/mlp_classifier_eaar_multiseed_config_covtype_mlp_eaar_covtype_cls_eaar5.json`
 - `results/significance_covtype_mlp_eaar_vs_vanilla_auc_gap_ce_5seed.json`
+- `results/covtype_per_class_full_5seed_20260504.md`
 
 Ключевые числа:
 - `ΔAccuracy mean = +0.001270`
@@ -176,6 +177,7 @@ Faithfulness modes (permute deletion, random_trials=20):
 - EAAR улучшает internal faithfulness и на классификации.
 - Это пока **initial evidence**: accuracy/CE сохраняются, macro-F1 требует мониторинга.
 - Статистика по `ΔAUC gap (CE)`: `CI95=[0.0384, 0.1052]`, `wins/losses=5/0`, `N=5`.
+- По per-class блоку: `ΔBalanced accuracy = -0.003970`, worst class `ΔF1 = -0.010755`.
 
 ## 3.2) Classification scaling check (Covertype, 300k subset, 3 seed)
 
@@ -259,6 +261,7 @@ Faithfulness modes (permute deletion, random_trials=20):
 Файлы:
 - `results/ablation_neg_core_v2_fast3_final.md`
 - `results/ablation_gamma_sweep_v2_fast3_final.md`
+- `results/ablation_neg_core_v2_fast3_final_alignment_20260504.md`
 
 Ключ:
 - fast-контур завершен стабильно, но варианты почти совпали по агрегатам.

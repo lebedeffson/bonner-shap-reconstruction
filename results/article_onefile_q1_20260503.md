@@ -112,6 +112,11 @@ Significance (`results/significance_mlp_eaar_vs_vanilla_auc_gap.json`):
 | Faithfulness wins/losses | 5/0 |
 | CI95(ΔAUC gap CE) | [0.0384, 0.1052] |
 
+Per-class / class-balance:
+- `results/covtype_per_class_full_5seed_20260504.md`
+- `ΔBalanced accuracy = -0.003970`
+- worst class `ΔF1 = -0.010755` (class 3)
+
 ### 6.2 Covertype-300k, 3 seeds
 Источник: `results/covtype300k_mlp_eaar_vs_vanilla_3seed_20260503.md`
 
@@ -164,6 +169,7 @@ Significance (`results/significance_mlp_eaar_vs_vanilla_auc_gap.json`):
 Дополнительные fast-completion прогоны:
 - `results/ablation_neg_core_v2_fast3_final.md`
 - `results/ablation_gamma_sweep_v2_fast3_final.md`
+- `results/ablation_neg_core_v2_fast3_final_alignment_20260504.md`
 
 Замечание:
 - в fast-режиме варианты почти совпали, поэтому эти прогоны используем как sanity/stability check, а не как главный механизмный аргумент.
