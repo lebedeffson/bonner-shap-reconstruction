@@ -56,7 +56,7 @@ shap_reg:
   early_stopping_patience: 20
   early_stopping_min_delta: 5.0e-05
   restore_best_state: false
-  gamma: 0.001
+  gamma: 0.01
   gamma_start: 0.0002
   gamma_end: 0.001
   gamma_warmup_epochs: 0.7
@@ -67,14 +67,12 @@ shap_reg:
   use_true_shap: false
   active_components:
   - sparsity
-  - consistency
-  - faithfulness
   use_improved_shap: true
   gamma_sparsity: 1.0
-  gamma_consistency: 0.0
-  gamma_faithfulness: 0.0
+  gamma_consistency: 1.0
+  gamma_faithfulness: 1.0
   gamma_stability: 0.0
-  acceptance_min_delta_r2: -1.0
+  acceptance_min_delta_r2: 0.0
   quality_first: false
   reject_on_val_degrade: false
   quality_tolerance: 0.0002
@@ -129,15 +127,10 @@ shap_reg:
   nonnegativity:
     enabled: false
     lambda: 0.0
-  ea_target_ablation_mode: shuffled_q_err
-  quality_policy:
-    reject_unstable_predictions: false
-    min_r2: -999.0
-    mode: quality_only
 output:
   results_dir: results/sml2010_ea_minimal
   save_model: true
-  save_predictions: false
-  save_plots: false
-  save_samples: false
+  save_predictions: true
+  save_plots: true
+  save_samples: true
   sample_size: 8

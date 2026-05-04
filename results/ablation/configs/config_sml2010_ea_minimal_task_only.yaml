@@ -65,12 +65,9 @@ shap_reg:
   min_convergence_slowdown: 0.2
   use_adaptive_weights: false
   use_true_shap: false
-  active_components:
-  - sparsity
-  - consistency
-  - faithfulness
+  active_components: []
   use_improved_shap: true
-  gamma_sparsity: 1.0
+  gamma_sparsity: 0.0
   gamma_consistency: 0.0
   gamma_faithfulness: 0.0
   gamma_stability: 0.0
@@ -99,7 +96,7 @@ shap_reg:
   use_feature_gates: true
   gate_init: 0.9999
   gate_anchor_weight: 0.05
-  autonomous_error_shap: true
+  autonomous_error_shap: false
   error_importance_mode: permute
   error_importance_ema_beta: 0.9
   grad_importance_ema_beta: 0.9
@@ -129,7 +126,6 @@ shap_reg:
   nonnegativity:
     enabled: false
     lambda: 0.0
-  ea_target_ablation_mode: shuffled_q_err
   quality_policy:
     reject_unstable_predictions: false
     min_r2: -999.0

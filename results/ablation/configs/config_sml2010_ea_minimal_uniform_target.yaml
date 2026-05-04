@@ -129,7 +129,7 @@ shap_reg:
   nonnegativity:
     enabled: false
     lambda: 0.0
-  ea_target_ablation_mode: shuffled_q_err
+  ea_target_ablation_mode: uniform_target
   quality_policy:
     reject_unstable_predictions: false
     min_r2: -999.0

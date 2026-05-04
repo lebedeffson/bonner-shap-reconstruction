@@ -1,0 +1,419 @@
+{
+  "created_at": "2026-05-04T16:50:10",
+  "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_sml_eaar_stability_guard5.json",
+  "seeds_used": [
+    42,
+    43,
+    44
+  ],
+  "bg_size": 512,
+  "eval_size": 512,
+  "permutations": 256,
+  "meta": [
+    {
+      "seed": 42,
+      "corr_sage_vs_vanilla_grad_spearman": -0.0413800265,
+      "corr_sage_vs_eaar_internal_spearman": 0.284262791,
+      "top1_sage": 5,
+      "top3_mass_sage": 0.6100999502
+    },
+    {
+      "seed": 43,
+      "corr_sage_vs_vanilla_grad_spearman": 0.3982878445,
+      "corr_sage_vs_eaar_internal_spearman": 0.2743355634,
+      "top1_sage": 12,
+      "top3_mass_sage": 0.7180115069
+    },
+    {
+      "seed": 44,
+      "corr_sage_vs_vanilla_grad_spearman": -0.370943256,
+      "corr_sage_vs_eaar_internal_spearman": 0.2374036839,
+      "top1_sage": 10,
+      "top3_mass_sage": 0.8022299856
+    }
+  ],
+  "values": [
+    {
+      "seed": 42,
+      "feature": "weather_temperature",
+      "sage": 0.0010892423
+    },
+    {
+      "seed": 42,
+      "feature": "co2_comedor_sensor",
+      "sage": 0.0284685407
+    },
+    {
+      "seed": 42,
+      "feature": "co2_habitacion_sensor",
+      "sage": 0.0594376475
+    },
+    {
+      "seed": 42,
+      "feature": "humedad_comedor_sensor",
+      "sage": 0.0690209602
+    },
+    {
+      "seed": 42,
+      "feature": "humedad_habitacion_sensor",
+      "sage": 0.1755699721
+    },
+    {
+      "seed": 42,
+      "feature": "lighting_comedor_sensor",
+      "sage": 0.2764475539
+    },
+    {
+      "seed": 42,
+      "feature": "lighting_habitacion_sensor",
+      "sage": 0.0591132814
+    },
+    {
+      "seed": 42,
+      "feature": "precipitacion",
+      "sage": 0.0
+    },
+    {
+      "seed": 42,
+      "feature": "meteo_exterior_crepusculo",
+      "sage": 0.0
+    },
+    {
+      "seed": 42,
+      "feature": "meteo_exterior_viento",
+      "sage": 0.0
+    },
+    {
+      "seed": 42,
+      "feature": "meteo_exterior_sol_oest",
+      "sage": 0.0
+    },
+    {
+      "seed": 42,
+      "feature": "meteo_exterior_sol_est",
+      "sage": 0.0486700665
+    },
+    {
+      "seed": 42,
+      "feature": "meteo_exterior_sol_sud",
+      "sage": 0.1580824241
+    },
+    {
+      "seed": 42,
+      "feature": "meteo_exterior_piranometro",
+      "sage": 0.053302474
+    },
+    {
+      "seed": 42,
+      "feature": "temperature_exterior_sensor",
+      "sage": 0.0
+    },
+    {
+      "seed": 42,
+      "feature": "humedad_exterior_sensor",
+      "sage": 0.0116317116
+    },
+    {
+      "seed": 42,
+      "feature": "day_of_week",
+      "sage": 0.0591661258
+    },
+    {
+      "seed": 42,
+      "feature": "hour",
+      "sage": 0.0
+    },
+    {
+      "seed": 42,
+      "feature": "minute",
+      "sage": 0.0
+    },
+    {
+      "seed": 43,
+      "feature": "weather_temperature",
+      "sage": 0.0
+    },
+    {
+      "seed": 43,
+      "feature": "co2_comedor_sensor",
+      "sage": 0.0
+    },
+    {
+      "seed": 43,
+      "feature": "co2_habitacion_sensor",
+      "sage": 0.1642011299
+    },
+    {
+      "seed": 43,
+      "feature": "humedad_comedor_sensor",
+      "sage": 0.0067420405
+    },
+    {
+      "seed": 43,
+      "feature": "humedad_habitacion_sensor",
+      "sage": 0.0
+    },
+    {
+      "seed": 43,
+      "feature": "lighting_comedor_sensor",
+      "sage": 0.0909756731
+    },
+    {
+      "seed": 43,
+      "feature": "lighting_habitacion_sensor",
+      "sage": 0.0
+    },
+    {
+      "seed": 43,
+      "feature": "precipitacion",
+      "sage": 0.009006556
+    },
+    {
+      "seed": 43,
+      "feature": "meteo_exterior_crepusculo",
+      "sage": 0.0
+    },
+    {
+      "seed": 43,
+      "feature": "meteo_exterior_viento",
+      "sage": 0.0650610963
+    },
+    {
+      "seed": 43,
+      "feature": "meteo_exterior_sol_oest",
+      "sage": 0.0
+    },
+    {
+      "seed": 43,
+      "feature": "meteo_exterior_sol_est",
+      "sage": 0.0
+    },
+    {
+      "seed": 43,
+      "feature": "meteo_exterior_sol_sud",
+      "sage": 0.3850760997
+    },
+    {
+      "seed": 43,
+      "feature": "meteo_exterior_piranometro",
+      "sage": 0.1687342772
+    },
+    {
+      "seed": 43,
+      "feature": "temperature_exterior_sensor",
+      "sage": 0.0127296165
+    },
+    {
+      "seed": 43,
+      "feature": "humedad_exterior_sensor",
+      "sage": 0.0309740837
+    },
+    {
+      "seed": 43,
+      "feature": "day_of_week",
+      "sage": 0.0466661255
+    },
+    {
+      "seed": 43,
+      "feature": "hour",
+      "sage": 0.0198333016
+    },
+    {
+      "seed": 43,
+      "feature": "minute",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "weather_temperature",
+      "sage": 0.020163434
+    },
+    {
+      "seed": 44,
+      "feature": "co2_comedor_sensor",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "co2_habitacion_sensor",
+      "sage": 0.0502009286
+    },
+    {
+      "seed": 44,
+      "feature": "humedad_comedor_sensor",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "humedad_habitacion_sensor",
+      "sage": 0.069631603
+    },
+    {
+      "seed": 44,
+      "feature": "lighting_comedor_sensor",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "lighting_habitacion_sensor",
+      "sage": 0.2287559387
+    },
+    {
+      "seed": 44,
+      "feature": "precipitacion",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "meteo_exterior_crepusculo",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "meteo_exterior_viento",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "meteo_exterior_sol_oest",
+      "sage": 0.318167327
+    },
+    {
+      "seed": 44,
+      "feature": "meteo_exterior_sol_est",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "meteo_exterior_sol_sud",
+      "sage": 0.25530672
+    },
+    {
+      "seed": 44,
+      "feature": "meteo_exterior_piranometro",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "temperature_exterior_sensor",
+      "sage": 0.0095866177
+    },
+    {
+      "seed": 44,
+      "feature": "humedad_exterior_sensor",
+      "sage": 0.029096705
+    },
+    {
+      "seed": 44,
+      "feature": "day_of_week",
+      "sage": 0.0024230945
+    },
+    {
+      "seed": 44,
+      "feature": "hour",
+      "sage": 0.0
+    },
+    {
+      "seed": 44,
+      "feature": "minute",
+      "sage": 0.0166676315
+    }
+  ],
+  "aggregate": [
+    {
+      "feature": "meteo_exterior_sol_sud",
+      "mean": 0.2661550813,
+      "std": 0.1138850183
+    },
+    {
+      "feature": "lighting_comedor_sensor",
+      "mean": 0.122474409,
+      "std": 0.1408898162
+    },
+    {
+      "feature": "meteo_exterior_sol_oest",
+      "mean": 0.1060557757,
+      "std": 0.1836939919
+    },
+    {
+      "feature": "lighting_habitacion_sensor",
+      "mean": 0.0959564067,
+      "std": 0.1187450284
+    },
+    {
+      "feature": "co2_habitacion_sensor",
+      "mean": 0.091279902,
+      "std": 0.0633202839
+    },
+    {
+      "feature": "humedad_habitacion_sensor",
+      "mean": 0.0817338584,
+      "std": 0.0884084397
+    },
+    {
+      "feature": "meteo_exterior_piranometro",
+      "mean": 0.0740122504,
+      "std": 0.0862524504
+    },
+    {
+      "feature": "day_of_week",
+      "mean": 0.0360851152,
+      "std": 0.0298146144
+    },
+    {
+      "feature": "humedad_comedor_sensor",
+      "mean": 0.0252543336,
+      "std": 0.0380526212
+    },
+    {
+      "feature": "humedad_exterior_sensor",
+      "mean": 0.0239008335,
+      "std": 0.0106667545
+    },
+    {
+      "feature": "meteo_exterior_viento",
+      "mean": 0.0216870321,
+      "std": 0.0375630415
+    },
+    {
+      "feature": "meteo_exterior_sol_est",
+      "mean": 0.0162233555,
+      "std": 0.028099676
+    },
+    {
+      "feature": "co2_comedor_sensor",
+      "mean": 0.0094895136,
+      "std": 0.0164363196
+    },
+    {
+      "feature": "temperature_exterior_sensor",
+      "mean": 0.0074387448,
+      "std": 0.0066310484
+    },
+    {
+      "feature": "weather_temperature",
+      "mean": 0.0070842254,
+      "std": 0.0113400126
+    },
+    {
+      "feature": "hour",
+      "mean": 0.0066111005,
+      "std": 0.011450762
+    },
+    {
+      "feature": "minute",
+      "mean": 0.0055558772,
+      "std": 0.0096230615
+    },
+    {
+      "feature": "precipitacion",
+      "mean": 0.0030021853,
+      "std": 0.0051999375
+    },
+    {
+      "feature": "meteo_exterior_crepusculo",
+      "mean": 0.0,
+      "std": 0.0
+    }
+  ]
+}

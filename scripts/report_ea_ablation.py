@@ -51,12 +51,15 @@ def _ms_stats(ms: dict):
 
 def _exp_stats(exp: dict):
     agg = exp.get("aggregate", {})
+    top_random_ratio = _safe_get(agg, "auc_ratio_top_random_mean", default=np.nan)
+    if not np.isfinite(top_random_ratio):
+        top_random_ratio = _safe_get(agg, "auc_del_top_random_ratio_mean", default=np.nan)
     return {
         "auc_top": float(_safe_get(agg, "auc_deletion_top_mean")),
         "auc_random": float(_safe_get(agg, "auc_deletion_random_mean")),
         "auc_bottom": float(_safe_get(agg, "auc_deletion_bottom_mean")),
         "auc_gap": float(_safe_get(agg, "auc_deletion_gap_top_bottom_mean", default=np.nan)),
-        "auc_top_random_ratio": float(_safe_get(agg, "auc_ratio_top_random_mean", default=np.nan)),
+        "auc_top_random_ratio": float(top_random_ratio),
         "n_eff_shap": float(_safe_get(agg, "n_eff_shap_mean", default=np.nan)),
         "mass3_shap": float(_safe_get(agg, "mass3_shap_mean", default=np.nan)),
         "entropy_shap": float(_safe_get(agg, "entropy_shap_mean", default=np.nan)),

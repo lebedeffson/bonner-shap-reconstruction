@@ -49,6 +49,11 @@ def parse_args():
     p.add_argument("--shap-epochs", type=int, default=15)
     p.add_argument("--fast-save-model", action="store_true")
     p.add_argument("--unmasked", action="store_true", help="Disable quality/fallback gates")
+    p.add_argument(
+        "--internal-only-no-fallback",
+        action="store_true",
+        help="Force internal-only diagnostics: disable fallback gates/policy and keep EA metrics as final",
+    )
     return p.parse_args()
 
 
@@ -112,9 +117,11 @@ def _default_variants():
             "shap_reg.use_feature_gates": False,
         },
         "random_target": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.ea_target_ablation_mode": "random_target",
         },
         "shuffled_q_err": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.ea_target_ablation_mode": "shuffled_q_err",
         },
         "sparsity_only": {
@@ -134,48 +141,59 @@ def _default_variants():
             "shap_reg.gamma_stability": 0.0,
         },
         "uniform_target": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.ea_target_ablation_mode": "uniform_target",
         },
         "anti_q_err": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.ea_target_ablation_mode": "anti_q_err",
         },
         "full_rho1": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.gamma_consistency": 1.0,
             "shap_reg.gamma_faithfulness": 1.0,
         },
         "gamma_x03_rho1": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.gamma": 0.0003,
             "shap_reg.gamma_consistency": 1.0,
             "shap_reg.gamma_faithfulness": 1.0,
         },
         "gamma_x10_rho1": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.gamma": 0.0010,
             "shap_reg.gamma_consistency": 1.0,
             "shap_reg.gamma_faithfulness": 1.0,
         },
         "gamma_x30_rho1": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.gamma": 0.0030,
             "shap_reg.gamma_consistency": 1.0,
             "shap_reg.gamma_faithfulness": 1.0,
         },
         "gamma_x100_rho1": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.gamma": 0.0100,
             "shap_reg.gamma_consistency": 1.0,
             "shap_reg.gamma_faithfulness": 1.0,
         },
         "div_cosine_mse": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.ea_alignment_loss": "cosine_mse",
             "shap_reg.ea_alignment_alpha": 0.5,
         },
         "div_js": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.ea_alignment_loss": "js",
             "shap_reg.ea_alignment_alpha": 0.5,
         },
         "div_mse": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.ea_alignment_loss": "mse",
             "shap_reg.ea_alignment_alpha": 0.5,
         },
         "div_js_mse": {
+            "shap_reg.active_components": ["sparsity", "consistency", "faithfulness"],
             "shap_reg.ea_alignment_loss": "js_mse",
             "shap_reg.ea_alignment_alpha": 0.5,
         },
@@ -263,6 +281,20 @@ def main():
                 "shap_reg.reject_on_val_degrade": False,
                 "shap_reg.restore_best_state": False,
                 "shap_reg.accuracy_guard.enabled": False,
+            })
+        if args.internal_only_no_fallback:
+            patch.update({
+                "shap_reg.quality_first": False,
+                "shap_reg.reject_on_val_degrade": False,
+                "shap_reg.restore_best_state": False,
+                "shap_reg.accuracy_guard.enabled": False,
+                "shap_reg.acceptance_min_delta_r2": -1.0,
+                "shap_reg.quality_policy.reject_unstable_predictions": False,
+                "shap_reg.quality_policy.min_r2": -999.0,
+                "shap_reg.quality_policy.mode": "quality_only",
+                "output.save_plots": False,
+                "output.save_predictions": False,
+                "output.save_samples": False,
             })
         cfg_v = _apply_patch(base_cfg, patch)
         cfg_path = cfg_dir / f"{base_cfg_path.stem}_{vname}.yaml"

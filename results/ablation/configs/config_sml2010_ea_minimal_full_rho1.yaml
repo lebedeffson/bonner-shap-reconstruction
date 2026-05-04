@@ -71,8 +71,8 @@ shap_reg:
   - faithfulness
   use_improved_shap: true
   gamma_sparsity: 1.0
-  gamma_consistency: 0.0
-  gamma_faithfulness: 0.0
+  gamma_consistency: 1.0
+  gamma_faithfulness: 1.0
   gamma_stability: 0.0
   acceptance_min_delta_r2: -1.0
   quality_first: false
@@ -129,7 +129,6 @@ shap_reg:
   nonnegativity:
     enabled: false
     lambda: 0.0
-  ea_target_ablation_mode: shuffled_q_err
   quality_policy:
     reject_unstable_predictions: false
     min_r2: -999.0
