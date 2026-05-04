@@ -35,6 +35,8 @@
   - `results/covtype300k_mlp_eaar_vs_vanilla_3seed_20260503.md`
 - Per-class delta:
   - `results/covtype_per_class_delta_5seed_20260504.md`
+- Per-class full summary:
+  - `results/covtype_per_class_full_5seed_20260504.md`
 - Conclusion: initial classification evidence, macro-F1 drift is small and explicitly monitored.
 
 ## 5) Extra model check: ResMLP (Energy, 5 seed)
@@ -50,6 +52,7 @@
 - Latest fast completion runs:
   - `results/ablation_neg_core_v2_fast3_final.md`
   - `results/ablation_gamma_sweep_v2_fast3_final.md`
+  - `results/ablation_neg_core_v2_fast3_final_alignment_20260504.md`
 - Honest reading:
   - random target is weaker than full in part of runs;
   - `sparsity_only` remains competitive;
@@ -75,3 +78,6 @@
 ## 9) Submission-ready wording
 - Use: `initial evidence`, `preliminary classification evidence`, `major-revision package`.
 - Avoid: `proved general applicability`, `production-ready final policy`, `better than permutation`.
+
+## 10) Reviewer-ready facts
+- `results/reviewer_response_facts_20260504.md`
