@@ -199,6 +199,26 @@ Faithfulness modes (permute deletion, random_trials=20):
 
 ---
 
+## 3.3) Extra model portability check: ResMLP regression (Energy, 5 seed)
+
+Файлы:
+- `results/resmlp_eaar_vs_vanilla_energy_5seed_20260504.md`
+- `results/resmlp_eaar_multiseed_config_energy_resmlp_ea_energy_resmlp_eaar5.json`
+- `results/significance_energy_resmlp_eaar_vs_vanilla_auc_gap_5seed.json`
+
+Ключевые числа:
+- `ΔR² mean = -0.002107`
+- `vanilla AUC gap mean = 148.1323`
+- `EAAR AUC gap mean = 144.9934`
+- `ΔAUC gap = -3.1389` (wins/losses `3/2`)
+- `CI95(ΔAUC gap) = [-21.6565, 15.3787]`, `wilcoxon_p = 1.0000`
+
+Вывод:
+- Это boundary-case: перенос EAAR на `ResMLP + Energy` смешанный.
+- Вклад useful для честного claim boundary и ограничения универсальности.
+
+---
+
 ## 4) Negative controls
 
 ### 4.1 Fast sanity
@@ -233,6 +253,19 @@ Faithfulness modes (permute deletion, random_trials=20):
 Ключ:
 - матрица `task_only / random_target / shuffled_q_err / sparsity_only / anti_q_err` собрана в единой сводке;
 - на текущей настройке варианты близки по `AUC gap` (dominant `q_err`-effect пока не изолирован).
+
+### 4.4 Fast completion runs (v2, 3 seed)
+
+Файлы:
+- `results/ablation_neg_core_v2_fast3_final.md`
+- `results/ablation_gamma_sweep_v2_fast3_final.md`
+
+Ключ:
+- fast-контур завершен стабильно, но варианты почти совпали по агрегатам.
+
+Вывод:
+- эти прогоны использовать как sanity/stability check;
+- основной механизмный вывод оставляем за non-fast блоком.
 
 ---
 
@@ -284,6 +317,7 @@ Faithfulness modes (permute deletion, random_trials=20):
 1. Final-policy сейчас слабее по faithfulness из-за quality-gate/fallback.
 2. Negative controls пока не дают идеального разрыва между всеми вариантами.
 3. Classification-часть подтверждена на subset-уровне (100k/300k), но без full-Covertype.
+3.1. Дополнительная проверка `ResMLP + Energy` не дала устойчивого среднего прироста faithfulness.
 4. Timing-таблица добавлена; полноценный scaling-блок (N/d sweep) ещё нужен.
 5. Deletion-протокол пока без полного ROAR/KAR retraining.
 6. SAGE baseline пока не реализован.

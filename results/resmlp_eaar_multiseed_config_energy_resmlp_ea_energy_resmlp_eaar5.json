@@ -1,0 +1,92 @@
+{
+  "created_at": "2026-05-04T11:59:57",
+  "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_energy_resmlp_ea.yaml",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "k_list": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "mask": "permute",
+  "random_trials": 20,
+  "aggregate": {
+    "n_runs": 5,
+    "delta_r2_mean": -0.002106739692737114,
+    "delta_r2_std": 0.0061949536998691,
+    "wins": 1,
+    "losses": 4,
+    "vanilla_auc_gap_mean": 148.13228272570547,
+    "ea_auc_gap_mean": 144.99337623111714,
+    "vanilla_top_random_mean": 2.7785955507212043,
+    "ea_top_random_mean": 2.775460922209464
+  },
+  "runs": [
+    {
+      "seed": 42,
+      "vanilla_r2": 0.9932904583826498,
+      "ea_r2": 0.9858662793704798,
+      "delta_r2": -0.0074241790121700735,
+      "vanilla_auc_gap": 129.58240878092016,
+      "ea_auc_gap": 148.05935278434305,
+      "vanilla_top_random": 2.5041289528830353,
+      "ea_top_random": 2.750382371886663,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115838_energy_resmlp_eaar5_s42_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115850_energy_resmlp_eaar5_s42_ea.json"
+    },
+    {
+      "seed": 43,
+      "vanilla_r2": 0.993471531276638,
+      "ea_r2": 0.9919733136494618,
+      "delta_r2": -0.0014982176271761682,
+      "vanilla_auc_gap": 129.8509991885129,
+      "ea_auc_gap": 131.88850907191514,
+      "vanilla_top_random": 2.377422461172306,
+      "ea_top_random": 2.298092209592426,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115855_energy_resmlp_eaar5_s43_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115906_energy_resmlp_eaar5_s43_ea.json"
+    },
+    {
+      "seed": 44,
+      "vanilla_r2": 0.9929018391977196,
+      "ea_r2": 0.9847618385896354,
+      "delta_r2": -0.008140000608084175,
+      "vanilla_auc_gap": 183.4764304871843,
+      "ea_auc_gap": 150.32913575297326,
+      "vanilla_top_random": 2.735485624356675,
+      "ea_top_random": 2.620385895153886,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115912_energy_resmlp_eaar5_s44_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115923_energy_resmlp_eaar5_s44_ea.json"
+    },
+    {
+      "seed": 45,
+      "vanilla_r2": 0.9810619336346308,
+      "ea_r2": 0.988248457944306,
+      "delta_r2": 0.007186524309675257,
+      "vanilla_auc_gap": 167.05851971964185,
+      "ea_auc_gap": 151.6444500909706,
+      "vanilla_top_random": 3.4178211257760873,
+      "ea_top_random": 3.38119695383225,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115928_energy_resmlp_eaar5_s45_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115940_energy_resmlp_eaar5_s45_ea.json"
+    },
+    {
+      "seed": 46,
+      "vanilla_r2": 0.9883695367307632,
+      "ea_r2": 0.9877117112048328,
+      "delta_r2": -0.0006578255259304111,
+      "vanilla_auc_gap": 130.69305545226808,
+      "ea_auc_gap": 143.0454334553837,
+      "vanilla_top_random": 2.8581195894179166,
+      "ea_top_random": 2.8272471805820976,
+      "vanilla_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115945_energy_resmlp_eaar5_s46_vanilla.json",
+      "ea_summary": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/energy_resmlp_ea/training_summary_20260504_115956_energy_resmlp_eaar5_s46_ea.json"
+    }
+  ]
+}

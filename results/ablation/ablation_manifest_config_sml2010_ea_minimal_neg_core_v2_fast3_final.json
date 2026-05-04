@@ -1,0 +1,93 @@
+{
+  "created_at": "2026-05-04T12:17:23",
+  "base_config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_sml2010_ea_minimal.yaml",
+  "seeds": "42,43,44",
+  "variants": {
+    "full_rho1": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_full_rho1.yaml",
+      "patch": {
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0,
+        "shap_reg.error_target_rho": 1.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_full_rho1_neg_core_v2_fast3_final_full_rho1.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_full_rho1_neg_core_v2_fast3_final_full_rho1_permute_ea_raw.json"
+    },
+    "random_target": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_random_target.yaml",
+      "patch": {
+        "shap_reg.ea_target_ablation_mode": "random_target",
+        "shap_reg.active_components": [
+          "faithfulness"
+        ]
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_random_target_neg_core_v2_fast3_final_random_target.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_random_target_neg_core_v2_fast3_final_random_target_permute_ea_raw.json"
+    },
+    "shuffled_q_err": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_shuffled_q_err.yaml",
+      "patch": {
+        "shap_reg.ea_target_ablation_mode": "shuffled_q_err",
+        "shap_reg.active_components": [
+          "faithfulness"
+        ]
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_shuffled_q_err_neg_core_v2_fast3_final_shuffled_q_err.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_shuffled_q_err_neg_core_v2_fast3_final_shuffled_q_err_permute_ea_raw.json"
+    },
+    "uniform_target": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_uniform_target.yaml",
+      "patch": {
+        "shap_reg.ea_target_ablation_mode": "uniform_target",
+        "shap_reg.active_components": [
+          "faithfulness"
+        ]
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_uniform_target_neg_core_v2_fast3_final_uniform_target.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_uniform_target_neg_core_v2_fast3_final_uniform_target_permute_ea_raw.json"
+    },
+    "anti_q_err": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_anti_q_err.yaml",
+      "patch": {
+        "shap_reg.ea_target_ablation_mode": "anti_q_err",
+        "shap_reg.active_components": [
+          "faithfulness"
+        ]
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_anti_q_err_neg_core_v2_fast3_final_anti_q_err.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_anti_q_err_neg_core_v2_fast3_final_anti_q_err_permute_ea_raw.json"
+    },
+    "sparsity_only": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_sparsity_only.yaml",
+      "patch": {
+        "shap_reg.autonomous_error_shap": false,
+        "shap_reg.active_components": [
+          "sparsity"
+        ],
+        "shap_reg.gamma_sparsity": 1.0,
+        "shap_reg.gamma_consistency": 0.0,
+        "shap_reg.gamma_faithfulness": 0.0,
+        "shap_reg.gamma_stability": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_sparsity_only_neg_core_v2_fast3_final_sparsity_only.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_sparsity_only_neg_core_v2_fast3_final_sparsity_only_permute_ea_raw.json"
+    },
+    "task_only": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_task_only.yaml",
+      "patch": {
+        "shap_reg.autonomous_error_shap": false,
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0,
+        "shap_reg.gamma_consistency": 0.0,
+        "shap_reg.gamma_faithfulness": 0.0,
+        "shap_reg.gamma_stability": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_task_only_neg_core_v2_fast3_final_task_only.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_task_only_neg_core_v2_fast3_final_task_only_permute_ea_raw.json"
+    }
+  }
+}

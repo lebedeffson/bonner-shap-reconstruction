@@ -1,0 +1,74 @@
+{
+  "created_at": "2026-05-04T12:22:55",
+  "base_config": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_sml2010_ea_minimal.yaml",
+  "seeds": "42,43,44",
+  "variants": {
+    "task_only": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_task_only.yaml",
+      "patch": {
+        "shap_reg.autonomous_error_shap": false,
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0,
+        "shap_reg.gamma_consistency": 0.0,
+        "shap_reg.gamma_faithfulness": 0.0,
+        "shap_reg.gamma_stability": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_task_only_gamma_sweep_v2_fast3_final_task_only.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_task_only_gamma_sweep_v2_fast3_final_task_only_permute_ea_raw.json"
+    },
+    "gamma_x03_rho1": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_gamma_x03_rho1.yaml",
+      "patch": {
+        "shap_reg.gamma": 0.0003,
+        "shap_reg.error_target_rho": 1.0,
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_gamma_x03_rho1_gamma_sweep_v2_fast3_final_gamma_x03_rho1.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_gamma_x03_rho1_gamma_sweep_v2_fast3_final_gamma_x03_rho1_permute_ea_raw.json"
+    },
+    "gamma_x10_rho1": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_gamma_x10_rho1.yaml",
+      "patch": {
+        "shap_reg.gamma": 0.001,
+        "shap_reg.error_target_rho": 1.0,
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_gamma_x10_rho1_gamma_sweep_v2_fast3_final_gamma_x10_rho1.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_gamma_x10_rho1_gamma_sweep_v2_fast3_final_gamma_x10_rho1_permute_ea_raw.json"
+    },
+    "gamma_x30_rho1": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_gamma_x30_rho1.yaml",
+      "patch": {
+        "shap_reg.gamma": 0.003,
+        "shap_reg.error_target_rho": 1.0,
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_gamma_x30_rho1_gamma_sweep_v2_fast3_final_gamma_x30_rho1.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_gamma_x30_rho1_gamma_sweep_v2_fast3_final_gamma_x30_rho1_permute_ea_raw.json"
+    },
+    "gamma_x100_rho1": {
+      "config": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/ablation/configs/config_sml2010_ea_minimal_gamma_x100_rho1.yaml",
+      "patch": {
+        "shap_reg.gamma": 0.01,
+        "shap_reg.error_target_rho": 1.0,
+        "shap_reg.active_components": [
+          "faithfulness"
+        ],
+        "shap_reg.gamma_sparsity": 0.0
+      },
+      "multiseed": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/multiseed_config_sml2010_ea_minimal_gamma_x100_rho1_gamma_sweep_v2_fast3_final_gamma_x100_rho1.json",
+      "explainability": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/explainability_multiseed_config_sml2010_ea_minimal_gamma_x100_rho1_gamma_sweep_v2_fast3_final_gamma_x100_rho1_permute_ea_raw.json"
+    }
+  }
+}
