@@ -48,6 +48,7 @@ def parse_args():
     p.add_argument("--pso-pop", type=int, default=30)
     p.add_argument("--shap-epochs", type=int, default=15)
     p.add_argument("--fast-save-model", action="store_true")
+    p.add_argument("--unmasked", action="store_true", help="Disable quality/fallback gates")
     return p.parse_args()
 
 
@@ -124,6 +125,60 @@ def _default_variants():
             "shap_reg.gamma_faithfulness": 0.0,
             "shap_reg.gamma_stability": 0.0,
         },
+        "task_only": {
+            "shap_reg.autonomous_error_shap": False,
+            "shap_reg.active_components": [],
+            "shap_reg.gamma_sparsity": 0.0,
+            "shap_reg.gamma_consistency": 0.0,
+            "shap_reg.gamma_faithfulness": 0.0,
+            "shap_reg.gamma_stability": 0.0,
+        },
+        "uniform_target": {
+            "shap_reg.ea_target_ablation_mode": "uniform_target",
+        },
+        "anti_q_err": {
+            "shap_reg.ea_target_ablation_mode": "anti_q_err",
+        },
+        "full_rho1": {
+            "shap_reg.gamma_consistency": 1.0,
+            "shap_reg.gamma_faithfulness": 1.0,
+        },
+        "gamma_x03_rho1": {
+            "shap_reg.gamma": 0.0003,
+            "shap_reg.gamma_consistency": 1.0,
+            "shap_reg.gamma_faithfulness": 1.0,
+        },
+        "gamma_x10_rho1": {
+            "shap_reg.gamma": 0.0010,
+            "shap_reg.gamma_consistency": 1.0,
+            "shap_reg.gamma_faithfulness": 1.0,
+        },
+        "gamma_x30_rho1": {
+            "shap_reg.gamma": 0.0030,
+            "shap_reg.gamma_consistency": 1.0,
+            "shap_reg.gamma_faithfulness": 1.0,
+        },
+        "gamma_x100_rho1": {
+            "shap_reg.gamma": 0.0100,
+            "shap_reg.gamma_consistency": 1.0,
+            "shap_reg.gamma_faithfulness": 1.0,
+        },
+        "div_cosine_mse": {
+            "shap_reg.ea_alignment_loss": "cosine_mse",
+            "shap_reg.ea_alignment_alpha": 0.5,
+        },
+        "div_js": {
+            "shap_reg.ea_alignment_loss": "js",
+            "shap_reg.ea_alignment_alpha": 0.5,
+        },
+        "div_mse": {
+            "shap_reg.ea_alignment_loss": "mse",
+            "shap_reg.ea_alignment_alpha": 0.5,
+        },
+        "div_js_mse": {
+            "shap_reg.ea_alignment_loss": "js_mse",
+            "shap_reg.ea_alignment_alpha": 0.5,
+        },
     }
 
 
@@ -159,10 +214,37 @@ def main():
     base_cfg = yaml.safe_load(base_cfg_path.read_text(encoding="utf-8"))
 
     variants_def = _default_variants()
-    variants_req = (
-        list(variants_def.keys()) if args.variants.strip().lower() == "default"
-        else [v.strip() for v in args.variants.split(",") if v.strip()]
-    )
+    alias = {
+        "neg_core_v2": [
+            "full_rho1",
+            "random_target",
+            "shuffled_q_err",
+            "uniform_target",
+            "anti_q_err",
+            "sparsity_only",
+            "task_only",
+        ],
+        "gamma_sweep_v2": [
+            "task_only",
+            "gamma_x03_rho1",
+            "gamma_x10_rho1",
+            "gamma_x30_rho1",
+            "gamma_x100_rho1",
+        ],
+        "divergence_sweep_v1": [
+            "div_cosine_mse",
+            "div_js",
+            "div_mse",
+            "div_js_mse",
+        ],
+    }
+    varg = args.variants.strip().lower()
+    if varg == "default":
+        variants_req = list(variants_def.keys())
+    elif varg in alias:
+        variants_req = alias[varg]
+    else:
+        variants_req = [v.strip() for v in args.variants.split(",") if v.strip()]
 
     manifest = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
@@ -174,7 +256,14 @@ def main():
     for vname in variants_req:
         if vname not in variants_def:
             raise ValueError(f"Unknown variant: {vname}")
-        patch = variants_def[vname]
+        patch = dict(variants_def[vname])
+        if args.unmasked:
+            patch.update({
+                "shap_reg.quality_first": False,
+                "shap_reg.reject_on_val_degrade": False,
+                "shap_reg.restore_best_state": False,
+                "shap_reg.accuracy_guard.enabled": False,
+            })
         cfg_v = _apply_patch(base_cfg, patch)
         cfg_path = cfg_dir / f"{base_cfg_path.stem}_{vname}.yaml"
         cfg_path.write_text(yaml.safe_dump(cfg_v, sort_keys=False, allow_unicode=True), encoding="utf-8")

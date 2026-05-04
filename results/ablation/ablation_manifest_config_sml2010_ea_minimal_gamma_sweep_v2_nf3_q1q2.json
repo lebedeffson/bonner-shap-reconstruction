@@ -1,0 +1,80 @@
+{
+  "created_at": "2026-05-04T14:42:44",
+  "base_config": "/tmp/bonner-q1q2/configs/config_sml2010_ea_minimal.yaml",
+  "seeds": "42,43,44",
+  "variants": {
+    "task_only": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_task_only.yaml",
+      "patch": {
+        "shap_reg.autonomous_error_shap": false,
+        "shap_reg.active_components": [],
+        "shap_reg.gamma_sparsity": 0.0,
+        "shap_reg.gamma_consistency": 0.0,
+        "shap_reg.gamma_faithfulness": 0.0,
+        "shap_reg.gamma_stability": 0.0,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_task_only_gamma_sweep_v2_nf3_q1q2_task_only.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_task_only_gamma_sweep_v2_nf3_q1q2_task_only_permute_ea_raw.json"
+    },
+    "gamma_x03_rho1": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_gamma_x03_rho1.yaml",
+      "patch": {
+        "shap_reg.gamma": 0.0003,
+        "shap_reg.gamma_consistency": 1.0,
+        "shap_reg.gamma_faithfulness": 1.0,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_gamma_x03_rho1_gamma_sweep_v2_nf3_q1q2_gamma_x03_rho1.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_gamma_x03_rho1_gamma_sweep_v2_nf3_q1q2_gamma_x03_rho1_permute_ea_raw.json"
+    },
+    "gamma_x10_rho1": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_gamma_x10_rho1.yaml",
+      "patch": {
+        "shap_reg.gamma": 0.001,
+        "shap_reg.gamma_consistency": 1.0,
+        "shap_reg.gamma_faithfulness": 1.0,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_gamma_x10_rho1_gamma_sweep_v2_nf3_q1q2_gamma_x10_rho1.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_gamma_x10_rho1_gamma_sweep_v2_nf3_q1q2_gamma_x10_rho1_permute_ea_raw.json"
+    },
+    "gamma_x30_rho1": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_gamma_x30_rho1.yaml",
+      "patch": {
+        "shap_reg.gamma": 0.003,
+        "shap_reg.gamma_consistency": 1.0,
+        "shap_reg.gamma_faithfulness": 1.0,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_gamma_x30_rho1_gamma_sweep_v2_nf3_q1q2_gamma_x30_rho1.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_gamma_x30_rho1_gamma_sweep_v2_nf3_q1q2_gamma_x30_rho1_permute_ea_raw.json"
+    },
+    "gamma_x100_rho1": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_gamma_x100_rho1.yaml",
+      "patch": {
+        "shap_reg.gamma": 0.01,
+        "shap_reg.gamma_consistency": 1.0,
+        "shap_reg.gamma_faithfulness": 1.0,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_gamma_x100_rho1_gamma_sweep_v2_nf3_q1q2_gamma_x100_rho1.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_gamma_x100_rho1_gamma_sweep_v2_nf3_q1q2_gamma_x100_rho1_permute_ea_raw.json"
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "created_at": "2026-05-04T15:05:24",
+  "base_config": "/tmp/bonner-q1q2/configs/config_sml2010_ea_minimal.yaml",
+  "seeds": "42,43,44",
+  "variants": {
+    "div_cosine_mse": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_div_cosine_mse.yaml",
+      "patch": {
+        "shap_reg.ea_alignment_loss": "cosine_mse",
+        "shap_reg.ea_alignment_alpha": 0.5,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_div_cosine_mse_divergence_sweep_v1_nf3_q1q2_div_cosine_mse.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_div_cosine_mse_divergence_sweep_v1_nf3_q1q2_div_cosine_mse_permute_ea_raw.json"
+    },
+    "div_js": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_div_js.yaml",
+      "patch": {
+        "shap_reg.ea_alignment_loss": "js",
+        "shap_reg.ea_alignment_alpha": 0.5,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_div_js_divergence_sweep_v1_nf3_q1q2_div_js.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_div_js_divergence_sweep_v1_nf3_q1q2_div_js_permute_ea_raw.json"
+    },
+    "div_mse": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_div_mse.yaml",
+      "patch": {
+        "shap_reg.ea_alignment_loss": "mse",
+        "shap_reg.ea_alignment_alpha": 0.5,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_div_mse_divergence_sweep_v1_nf3_q1q2_div_mse.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_div_mse_divergence_sweep_v1_nf3_q1q2_div_mse_permute_ea_raw.json"
+    },
+    "div_js_mse": {
+      "config": "/tmp/bonner-q1q2/results/ablation/configs/config_sml2010_ea_minimal_div_js_mse.yaml",
+      "patch": {
+        "shap_reg.ea_alignment_loss": "js_mse",
+        "shap_reg.ea_alignment_alpha": 0.5,
+        "shap_reg.quality_first": false,
+        "shap_reg.reject_on_val_degrade": false,
+        "shap_reg.restore_best_state": false,
+        "shap_reg.accuracy_guard.enabled": false
+      },
+      "multiseed": "/tmp/bonner-q1q2/results/multiseed_config_sml2010_ea_minimal_div_js_mse_divergence_sweep_v1_nf3_q1q2_div_js_mse.json",
+      "explainability": "/tmp/bonner-q1q2/results/explainability_multiseed_config_sml2010_ea_minimal_div_js_mse_divergence_sweep_v1_nf3_q1q2_div_js_mse_permute_ea_raw.json"
+    }
+  }
+}
