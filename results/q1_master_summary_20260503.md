@@ -270,6 +270,23 @@ Faithfulness modes (permute deletion, random_trials=20):
 - эти прогоны использовать как sanity/stability check;
 - основной механизмный вывод оставляем за non-fast блоком.
 
+### 4.5 Internal-only no-fallback (order-fix, qerr-focus, non-fast 3 seed)
+
+Файлы:
+- `results/ablation/ablation_manifest_config_sml2010_ea_minimal_qerr_focus_orderfix_nf3.json`
+- `results/qerr_focus_orderfix_nf3_summary.md`
+
+Ключ:
+- `fallback_rate = 0.0` для всех вариантов (policy collapse устранён).
+- `AUC gap`:
+  - `full_rho1 = 0.5144`
+  - `random_target = 0.4566`
+  - `sparsity_only = 0.5288`
+  - `task_only = 0.4744`
+
+Вывод:
+- абляция стала корректной механистически (без fallback-артефакта);
+- `q_err` вклад остаётся частично неотделённым от compactness/sparsity (full не доминирует над sparsity_only).
 ---
 
 ## 5) Statistical evidence (ANFIS main)

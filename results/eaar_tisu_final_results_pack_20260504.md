@@ -53,6 +53,10 @@
   - `results/ablation_neg_core_v2_fast3_final.md`
   - `results/ablation_gamma_sweep_v2_fast3_final.md`
   - `results/ablation_neg_core_v2_fast3_final_alignment_20260504.md`
+- Internal-only mechanism run (order-fix, non-fast, 3 seed):
+  - `results/ablation/ablation_manifest_config_sml2010_ea_minimal_qerr_focus_orderfix_nf3.json`
+  - `results/qerr_focus_orderfix_nf3_summary.md`
+  - key: `fallback_rate=0.0` for all variants; `full_rho1` is not the top AUC-gap variant (`full=0.5144`, `random=0.4566`, `sparsity=0.5288`, `task=0.4744`)
 - Honest reading:
   - random target is weaker than full in part of runs;
   - `sparsity_only` remains competitive;

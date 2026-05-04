@@ -106,8 +106,16 @@ class ShapAwareANFISTrainerImproved:
             self.ea_target_ablation_mode = 'shuffled_q_err'
         if self.ea_target_ablation_mode in {'random', 'rand'}:
             self.ea_target_ablation_mode = 'random_target'
-        if self.ea_target_ablation_mode not in {'none', 'random_target', 'shuffled_q_err'}:
+        if self.ea_target_ablation_mode in {'frozen', 'freeze', 'frozen_target'}:
+            self.ea_target_ablation_mode = 'frozen_q_err'
+        if self.ea_target_ablation_mode in {'anti', 'inverse', 'anti_q', 'anti_q_err'}:
+            self.ea_target_ablation_mode = 'anti_q_err'
+        if self.ea_target_ablation_mode in {'uniform', 'uniform_target', 'flat'}:
+            self.ea_target_ablation_mode = 'uniform_target'
+        if self.ea_target_ablation_mode not in {'none', 'random_target', 'shuffled_q_err', 'frozen_q_err', 'anti_q_err', 'uniform_target'}:
             self.ea_target_ablation_mode = 'none'
+        self.ea_positive_clipping = bool(shap_config.get('ea_positive_clipping', True))
+        self.frozen_q_target = None
         self.ea_importance_source = str(shap_config.get('ea_importance_source', 'grad')).strip().lower()
         if self.ea_importance_source not in {'grad', 'gate', 'mixed'}:
             self.ea_importance_source = 'grad'
@@ -414,7 +422,7 @@ class ShapAwareANFISTrainerImproved:
         pair_mask = diff_q > float(max(delta, 0.0))
         pairs_count = int(torch.count_nonzero(pair_mask).item())
         if pairs_count == 0:
-            z = torch.tensor(0.0, device=p.device, dtype=p.dtype)
+            z = p.sum() * 0.0
             return z, 0.0, 0.0
         diff_p = p.unsqueeze(1) - p.unsqueeze(0)
         losses = torch.relu(float(max(margin, 0.0)) - diff_p)
@@ -432,7 +440,7 @@ class ShapAwareANFISTrainerImproved:
         pair_mask = diff_q > float(max(delta, 0.0))
         pairs_count = int(torch.count_nonzero(pair_mask).item())
         if pairs_count == 0:
-            z = torch.tensor(0.0, device=p.device, dtype=p.dtype)
+            z = p.sum() * 0.0
             return z, 0.0, 0.0
         abs_dq = torch.abs(diff_q[pair_mask])
         w = abs_dq / (torch.mean(abs_dq) + 1e-10)
@@ -499,6 +507,7 @@ class ShapAwareANFISTrainerImproved:
             ema_state=self.error_importance_ema,
             ema_beta=self.error_importance_ema_beta,
             prev_q=self.prev_error_importance_raw,
+            positive_clipping=self.ea_positive_clipping,
         )
         self.error_importance_ema = q_ema.detach().clone()
         self.prev_error_importance_raw = torch.clamp(q_raw.detach(), min=1e-10)
@@ -536,6 +545,7 @@ class ShapAwareANFISTrainerImproved:
         """
         start_time = time.time()
         self._seed_training()
+        self.frozen_q_target = None
         
         # Инициализация для адаптивного gamma
         self.total_epochs = epochs
@@ -1582,6 +1592,16 @@ class ShapAwareANFISTrainerImproved:
                 perm = torch.randperm(q_err.numel(), device=q_err.device)
                 q_for_target = q_err[perm]
                 q_for_target = q_for_target / (torch.sum(q_for_target) + 1e-10)
+            elif self.ea_target_ablation_mode == 'frozen_q_err':
+                if self.frozen_q_target is None:
+                    self.frozen_q_target = q_err.detach().clone()
+                q_for_target = self.frozen_q_target
+                q_for_target = q_for_target / (torch.sum(q_for_target) + 1e-10)
+            elif self.ea_target_ablation_mode == 'anti_q_err':
+                q_for_target = torch.clamp(1.0 - q_err, min=1e-10)
+                q_for_target = q_for_target / (torch.sum(q_for_target) + 1e-10)
+            elif self.ea_target_ablation_mode == 'uniform_target':
+                q_for_target = torch.ones_like(q_err) / max(1, q_err.numel())
             else:
                 q_for_target = q_err
             if self.grad_importance_ema is not None and self.error_target_rho < 1.0:
@@ -1680,6 +1700,7 @@ class ShapAwareANFISTrainerImproved:
                 'weight_faithfulness': self.gate_js_weight,
                 'weight_stability': self.rule_stability_weight,
                 'ea_target_ablation_mode': self.ea_target_ablation_mode,
+                'ea_positive_clipping': bool(self.ea_positive_clipping),
             }
             return shap_loss_tensor, shap_components
         
