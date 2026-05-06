@@ -42,7 +42,8 @@ shap_reg:
   min_convergence_slowdown: 0.25
   use_adaptive_weights: true
   use_true_shap: true
-  shap_estimator: exact_coalition
+  shap_estimator: exact_shap
+  strict_exact_shap: true
   max_exact_features: 12
   mc_permutations: 256
   active_components:

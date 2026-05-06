@@ -41,9 +41,14 @@ class ShapAwareANFISTrainerImproved:
         self.true_shap_update_frequency = shap_config.get('true_shap_update_frequency', 10)
         self.true_shap_batch_count = 0
         self.true_shap_importance = None
-        self.shap_estimator = str(shap_config.get('shap_estimator', 'exact_coalition')).strip().lower()
+        raw_estimator = str(shap_config.get('shap_estimator', 'exact_shap')).strip().lower()
+        # Backward compatibility: старое имя exact_coalition теперь exact_shap.
+        if raw_estimator == 'exact_coalition':
+            raw_estimator = 'exact_shap'
+        self.shap_estimator = raw_estimator
         self.max_exact_features = int(shap_config.get('max_exact_features', 12))
         self.mc_permutations = int(shap_config.get('mc_permutations', 128))
+        self.strict_exact_shap = bool(shap_config.get('strict_exact_shap', True))
         
         # Параметры улучшенной SHAP регуляризации
         self.use_improved_shap = shap_config.get('use_improved_shap', True)
@@ -805,7 +810,7 @@ class ShapAwareANFISTrainerImproved:
         return shap_values / total
 
     def _calculate_shap_approximation(self, X_batch, baseline):
-        """SHAP значения: exact_coalition (предпочтительно) или permutation_mc fallback."""
+        """SHAP значения для регуляризации (по умолчанию: полный exact SHAP)."""
         self.model.eval()
         with torch.no_grad():
             if not isinstance(X_batch, torch.Tensor):
@@ -819,9 +824,21 @@ class ShapAwareANFISTrainerImproved:
             X_numpy = X_tensor.cpu().numpy()
             n_features = X_numpy.shape[1]
 
-            use_exact = (self.shap_estimator == 'exact_coalition') and (n_features <= self.max_exact_features)
-            if use_exact:
-                return self._calculate_exact_coalition_shap(X_numpy, baseline)
+            if self.shap_estimator != 'exact_shap':
+                raise ValueError(
+                    f"Unsupported shap_estimator='{self.shap_estimator}'. "
+                    "Use shap_estimator: exact_shap"
+                )
+
+            if n_features <= self.max_exact_features:
+                return self._calculate_exact_shap(X_numpy, baseline)
+
+            if self.strict_exact_shap:
+                raise ValueError(
+                    f"Exact SHAP requires n_features <= max_exact_features "
+                    f"({n_features} > {self.max_exact_features}). "
+                    "Increase max_exact_features or reduce feature dimension."
+                )
 
             return self._calculate_permutation_mc_shap(X_numpy, baseline, self.mc_permutations)
 
@@ -845,8 +862,8 @@ class ShapAwareANFISTrainerImproved:
             m >>= 1
         return X_masked
 
-    def _calculate_exact_coalition_shap(self, X_np, baseline):
-        """Точные коалиционные значения Шепли (полный перебор подмножеств)."""
+    def _calculate_exact_shap(self, X_np, baseline):
+        """Точные SHAP-значения (полный перебор подмножеств)."""
         n_features = X_np.shape[1]
         total_masks = 1 << n_features
         factorial = [math.factorial(i) for i in range(n_features + 1)]

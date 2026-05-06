@@ -1,6 +1,6 @@
 # Bonner Spectrum Reconstruction
 
-ANFIS-based repository for neutron spectrum reconstruction from Bonner sphere channels (`Q1..Q10`) with train-time feature-importance regularization.
+ANFIS-based repository for neutron spectrum reconstruction from Bonner sphere channels (`Q1..Q10`) with full SHAP regularization at training time.
 
 ## Scope
 This repository contains the SHAP-regularization line for Bonner/spectra experiments.
@@ -15,11 +15,9 @@ EAAR-focused experiments are maintained separately:
 - `scripts/report_faithfulness_top_random_bottom.py` — deletion-faithfulness report (`top/random/bottom`).
 
 ## SHAP mode in this repo
-Two estimators are supported:
-1. `permutation_mc` (SHAP-like, fast)
-2. `exact_coalition` (strict coalition-based, expensive)
-
-Set in config: `shap_reg.shap_estimator`.
+Default and recommended mode is full SHAP regularization:
+- `shap_reg.shap_estimator: exact_shap`
+- `shap_reg.strict_exact_shap: true`
 
 ## Quick start
 ```bash
@@ -32,7 +30,7 @@ Baseline:
 python train_vanilla_real_only.py --config configs/config_vanilla_r2_09.yaml --tag vanilla_run
 ```
 
-Regularized run (exact coalition):
+Regularized run (full SHAP):
 ```bash
 python train.py --config configs/config_shap_exact_accuracy_first.yaml --tag shap_exact_run
 ```

@@ -48,8 +48,9 @@ shap_reg:
   use_adaptive_weights: true
   use_true_shap: true
 
-  # Full coalition SHAP (exact for d=10)
-  shap_estimator: exact_coalition
+  # Full SHAP regularization (exact SHAP for d=10)
+  shap_estimator: exact_shap
+  strict_exact_shap: true
   max_exact_features: 12
   mc_permutations: 256
 
