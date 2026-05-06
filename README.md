@@ -42,6 +42,15 @@ PYTHONPATH=. python scripts/report_faithfulness_top_random_bottom.py \
   --k-max 4 --random-trials 20 --masking permute
 ```
 
+Importance-alignment report (SHAP target vs internal importance):
+```bash
+PYTHONPATH=. python scripts/report_importance_alignment.py \
+  --ref results/feature_importance_shap_<timestamp>.csv \
+  --cand results/feature_importance_<timestamp>.csv \
+  --label-ref shap_target --label-cand internal_grad \
+  --k 3,5
+```
+
 ## Key configs
 - `configs/config_vanilla_r2_09.yaml`
 - `configs/config_integrated_shap.yaml`

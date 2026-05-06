@@ -62,3 +62,11 @@ final_send_package_*/
 article_math_full.pdf
 math.pdf
 MonteCarlo_Calculated_spectra_from_IAEA_Comp_for_comparison.csv
+
+# Legacy experiment dumps (keep local if needed, but exclude from git)
+results/ablation_study_*/
+results/uncertainty_*/
+results/final_figures_*/
+results/method_comparison_*/
+results/vanilla_full_*/
+results/*_20260319*

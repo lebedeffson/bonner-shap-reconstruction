@@ -1,0 +1,21 @@
+{
+  "ref": "results/feature_importance_shap_20260506_232134_shap_exact_check_20260506.csv",
+  "cand": "results/feature_importance_20260506_232134_shap_exact_check_20260506.csv",
+  "label_ref": "shap_target",
+  "label_cand": "internal_grad",
+  "n_features_common": 10,
+  "pearson": 0.4333793586296024,
+  "spearman": 0.3696969696969697,
+  "cosine_similarity": 0.7948480964271788,
+  "js_divergence": 0.08697255973223354,
+  "topk": {
+    "3": {
+      "intersection": 1,
+      "jaccard": 0.2
+    },
+    "5": {
+      "intersection": 3,
+      "jaccard": 0.42857142857142855
+    }
+  }
+}
