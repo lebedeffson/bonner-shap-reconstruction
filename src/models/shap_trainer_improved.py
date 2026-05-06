@@ -49,6 +49,7 @@ class ShapAwareANFISTrainerImproved:
         self.max_exact_features = int(shap_config.get('max_exact_features', 12))
         self.mc_permutations = int(shap_config.get('mc_permutations', 128))
         self.strict_exact_shap = bool(shap_config.get('strict_exact_shap', True))
+        self.true_shap_samples_per_batch = int(shap_config.get('true_shap_samples_per_batch', 2))
         
         # Параметры улучшенной SHAP регуляризации
         self.use_improved_shap = shap_config.get('use_improved_shap', True)
@@ -57,6 +58,10 @@ class ShapAwareANFISTrainerImproved:
         self.main_loss_ema = None  # Скользящее среднее main loss
         self.ema_alpha = 0.9  # Коэффициент для экспоненциального скользящего среднего
         self.target_shap_ratio = shap_config.get('target_shap_ratio', 0.2)  # Целевое соотношение SHAP/main
+        self.min_shap_ratio = float(shap_config.get('min_shap_ratio', 0.08))
+        self.max_shap_ratio = float(shap_config.get('max_shap_ratio', 0.35))
+        self.min_scale_factor = float(shap_config.get('min_scale_factor', 0.25))
+        self.max_scale_factor = float(shap_config.get('max_scale_factor', 8.0))
         self.min_convergence_slowdown = float(shap_config.get('min_convergence_slowdown', 0.0))
         
         # Адаптивный gamma schedule для плавной сходимости
@@ -89,6 +94,18 @@ class ShapAwareANFISTrainerImproved:
             'faithfulness': 0.0,
             'stability': float(shap_config.get('gamma_stability', 0.05)),
         })
+        self.min_component_weights = {
+            'consistency': float(shap_config.get('min_weight_consistency', 0.12)),
+            'sparsity': float(shap_config.get('min_weight_sparsity', 0.12)),
+            'faithfulness': float(shap_config.get('min_weight_faithfulness', 0.05)),
+            'stability': float(shap_config.get('min_weight_stability', 0.05)),
+        }
+        self.max_component_weights = {
+            'consistency': float(shap_config.get('max_weight_consistency', 1.0)),
+            'sparsity': float(shap_config.get('max_weight_sparsity', 1.0)),
+            'faithfulness': float(shap_config.get('max_weight_faithfulness', 1.0)),
+            'stability': float(shap_config.get('max_weight_stability', 1.0)),
+        }
         
         # Улучшенная Sparsity с Gini coefficient
         self.use_gini_sparsity = shap_config.get('use_gini_sparsity', True)
@@ -301,10 +318,14 @@ class ShapAwareANFISTrainerImproved:
                 
                 convergence_slowdown = max(convergence_slowdown, self.min_convergence_slowdown)
                 
+                # Используем effective_gamma уже на этапе нормализации,
+                # чтобы target_shap_ratio управлял финальным вкладом в total_loss.
+                effective_gamma = current_gamma if self.use_adaptive_gamma else self.gamma
+
                 # Адаптивная нормализация SHAP loss
                 if shap_loss_detached > eps and self.main_loss_ema > eps:
-                    # Вычисляем текущее соотношение
-                    current_ratio = shap_loss_detached / self.main_loss_ema
+                    # Текущее итоговое соотношение: (gamma * shap_loss) / main_loss
+                    current_ratio_final = (effective_gamma * shap_loss_detached) / (self.main_loss_ema + eps)
                     
                     # Плавная нормализация с учетом прогресса обучения
                     progress = epoch / self.total_epochs if self.total_epochs else 0.5
@@ -312,27 +333,22 @@ class ShapAwareANFISTrainerImproved:
                     # На ранних этапах: меньше влияния SHAP (больше focus на основную задачу)
                     # На поздних этапах: больше влияния SHAP (больше focus на интерпретируемость)
                     target_ratio_dynamic = self.target_shap_ratio * (0.5 + 0.5 * progress)
-                    
-                    # Если соотношение слишком большое или маленькое, нормализуем
-                    if current_ratio > target_ratio_dynamic * 2:
-                        scale_factor = target_ratio_dynamic / current_ratio
-                    elif current_ratio < target_ratio_dynamic / 2:
-                        scale_factor = target_ratio_dynamic / current_ratio
-                    else:
-                        scale_factor = 1.0
+                    target_ratio_dynamic = float(np.clip(target_ratio_dynamic, self.min_shap_ratio, self.max_shap_ratio))
+                    scale_factor = target_ratio_dynamic / (current_ratio_final + eps)
+                    scale_factor = float(np.clip(scale_factor, self.min_scale_factor, self.max_scale_factor))
                     
                     # Применяем замедление сходимости
                     scale_factor *= convergence_slowdown
                     shap_loss_normalized = shap_loss_tensor * scale_factor
                 else:
-                    # Fallback: используем простую нормализацию
-                    scale_factor = self.target_shap_ratio / (shap_loss_detached / (self.main_loss_ema + eps) + eps)
+                    # Fallback: поддерживаем минимально полезный вклад SHAP
+                    current_ratio_final = (effective_gamma * max(shap_loss_detached, eps)) / (self.main_loss_ema + eps)
+                    scale_factor = self.min_shap_ratio / (current_ratio_final + eps)
+                    scale_factor = float(np.clip(scale_factor, self.min_scale_factor, self.max_scale_factor))
                     scale_factor *= convergence_slowdown
                     shap_loss_normalized = shap_loss_tensor * scale_factor
 
                 # АДАПТИВНАЯ ФУНКЦИЯ ПОТЕРЬ: балансировка двух задач
-                # Используем адаптивный gamma (может меняться в процессе обучения)
-                effective_gamma = current_gamma if self.use_adaptive_gamma else self.gamma
                 shap_contribution = effective_gamma * shap_loss_normalized
                 tikhonov_contribution = self.tikhonov_lambda * tikhonov_loss
                 total_loss = main_loss + shap_contribution + tikhonov_contribution
@@ -525,9 +541,16 @@ class ShapAwareANFISTrainerImproved:
             
             if (self.true_shap_importance is None or 
                 self.true_shap_batch_count % update_frequency == 0):
-                
-                mean_sample = torch.mean(batch_X, dim=0).detach().cpu().numpy()
-                true_shap = self._calculate_shap_approximation(mean_sample, baseline_values)
+                # Усредняем exact SHAP по нескольким объектам батча, чтобы повысить
+                # стабильность consistency-сигнала и убрать артефакт "одной средней точки".
+                n_samples = max(1, min(self.true_shap_samples_per_batch, batch_size))
+                idx = torch.linspace(0, batch_size - 1, steps=n_samples, device=batch_X.device).long()
+                shap_acc = []
+                for i in idx:
+                    sample_np = batch_X[i].detach().cpu().numpy()
+                    sample_shap = self._calculate_shap_approximation(sample_np, baseline_values)
+                    shap_acc.append(np.asarray(sample_shap, dtype=float))
+                true_shap = np.mean(np.stack(shap_acc, axis=0), axis=0)
                 true_shap = np.nan_to_num(true_shap, nan=0.0, posinf=0.0, neginf=0.0)
                 
                 if true_shap.ndim != 1 or true_shap.size == 0:
@@ -643,6 +666,7 @@ class ShapAwareANFISTrainerImproved:
                 )
                 
                 adaptive_weights = self._normalize_component_weights(weights_result['weights'])
+                adaptive_weights = self._apply_min_weight_floor(adaptive_weights)
                 
                 # Сохраняем веса для анализа
                 self.component_weights_history.append(adaptive_weights)
@@ -715,6 +739,31 @@ class ShapAwareANFISTrainerImproved:
             return {key: 0.0 for key in self.COMPONENT_NAMES}
 
         return {key: value / total for key, value in cleaned.items()}
+
+    def _apply_min_weight_floor(self, weights):
+        constrained = dict(weights)
+        active_keys = [k for k in self.COMPONENT_NAMES if self._component_enabled(k)]
+        if not active_keys:
+            return {key: 0.0 for key in self.COMPONENT_NAMES}
+
+        for _ in range(3):
+            for key in self.COMPONENT_NAMES:
+                if not self._component_enabled(key):
+                    constrained[key] = 0.0
+                    continue
+                floor = max(0.0, float(self.min_component_weights.get(key, 0.0)))
+                cap = max(floor, float(self.max_component_weights.get(key, 1.0)))
+                value = float(constrained.get(key, 0.0))
+                constrained[key] = min(max(value, floor), cap)
+
+            total = sum(float(constrained.get(k, 0.0)) for k in active_keys)
+            if total <= 0:
+                constrained = self._normalize_component_weights(weights)
+            else:
+                for k in active_keys:
+                    constrained[k] = float(constrained.get(k, 0.0)) / total
+
+        return constrained
 
     def _component_enabled(self, component_name):
         return component_name in self.active_components

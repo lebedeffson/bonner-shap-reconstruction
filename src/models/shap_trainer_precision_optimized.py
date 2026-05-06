@@ -169,7 +169,7 @@ class PrecisionOptimizedSHAPRegularization:
         stability_loss: float,
         target_main_loss: float = 0.02,
     ) -> dict:
-        """Adaptive weights based on inverse loss magnitude."""
+        """Adaptive weights that prioritize larger unresolved component losses."""
         eps = 1e-8
         losses = np.array(
             [consistency_loss, sparsity_loss, faithfulness_loss, stability_loss],
@@ -179,11 +179,11 @@ class PrecisionOptimizedSHAPRegularization:
         losses = np.nan_to_num(losses, nan=1.0, posinf=1.0, neginf=1.0)
         losses = np.maximum(losses, eps)
 
-        inv = 1.0 / losses
-        weights = inv / np.sum(inv)
+        weights = losses / np.sum(losses)
 
         if current_main_loss > target_main_loss:
             scale = target_main_loss / (current_main_loss + eps)
+            scale = float(np.clip(scale, 0.4, 1.0))
             weights = weights * np.array([1.0, 1.0, scale, scale], dtype=float)
             weights = weights / np.sum(weights)
 
