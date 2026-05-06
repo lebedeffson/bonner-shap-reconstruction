@@ -13,6 +13,8 @@ EAAR-focused experiments are maintained separately:
 - `train.py` — two-stage training with regularization.
 - `src/models/shap_trainer_improved.py` — SHAP/importance regularization logic.
 - `scripts/report_faithfulness_top_random_bottom.py` — deletion-faithfulness report (`top/random/bottom`).
+- `scripts/practical_readiness_gate.py` — practical gate (quality + regularization strength + faithfulness/alignment).
+- `scripts/cleanup_results_heavy.py` — cleanup heavy local artifacts in `results/`.
 
 ## SHAP mode in this repo
 Default and recommended mode is full SHAP regularization:
@@ -49,6 +51,24 @@ PYTHONPATH=. python scripts/report_importance_alignment.py \
   --cand results/feature_importance_<timestamp>.csv \
   --label-ref shap_target --label-cand internal_grad \
   --k 3,5
+```
+
+Practical readiness gate:
+```bash
+PYTHONPATH=. python scripts/practical_readiness_gate.py \
+  --summary results/training_summary_<timestamp>.json \
+  --faithfulness results/faithfulness_<timestamp>.json \
+  --alignment results/importance_alignment_<timestamp>.json
+```
+
+Cleanup heavy local artifacts (dry-run):
+```bash
+python scripts/cleanup_results_heavy.py
+```
+
+Cleanup heavy local artifacts (apply):
+```bash
+python scripts/cleanup_results_heavy.py --apply
 ```
 
 ## Key configs
