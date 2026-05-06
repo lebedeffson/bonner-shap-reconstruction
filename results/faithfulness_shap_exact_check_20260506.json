@@ -1,0 +1,40 @@
+{
+  "summary_path": "results/training_summary_20260506_232134_shap_exact_check_20260506.json",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/anfis_model_state_20260506_232134_shap_exact_check_20260506.pt",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_shap_exact_accuracy_first.yaml",
+  "masking": "permute",
+  "k_max": 4,
+  "random_trials": 20,
+  "base_mse": 0.07202179771386563,
+  "auc_top": 0.017218750534572606,
+  "auc_random": 0.006821613157371179,
+  "auc_bottom": 0.0008423561397295776,
+  "auc_gap_top_minus_bottom": 0.01637639439484303,
+  "top_random_ratio": 2.524146434988405,
+  "curve": [
+    {
+      "k": 1,
+      "delta_mse_top": 0.002150355946038851,
+      "delta_mse_random": 0.0006752051150302745,
+      "delta_mse_bottom": -4.951533455739565e-05
+    },
+    {
+      "k": 2,
+      "delta_mse_top": 0.0023146140351906486,
+      "delta_mse_random": 0.0017632245431090509,
+      "delta_mse_bottom": 0.00044283178878790075
+    },
+    {
+      "k": 3,
+      "delta_mse_top": 0.009211344908761854,
+      "delta_mse_random": 0.002898093826271154,
+      "delta_mse_bottom": 0.00026517757046329304
+    },
+    {
+      "k": 4,
+      "delta_mse_top": 0.009235227235201357,
+      "delta_mse_random": 0.0036453844609516755,
+      "delta_mse_bottom": 0.0003182088955141632
+    }
+  ]
+}

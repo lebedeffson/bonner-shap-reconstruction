@@ -1,0 +1,72 @@
+{
+  "timestamp": "20260506_230524_vanilla_check_20260506",
+  "tag": "vanilla_check_20260506",
+  "config_path": "configs/config_vanilla_r2_09.yaml",
+  "model_state": "anfis_model_state_20260506_230524_vanilla_check_20260506.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/anfis_model_state_20260506_230524_vanilla_check_20260506.pt",
+  "train_size": 281,
+  "test_size": 94,
+  "normalize_sum": true,
+  "metrics": {
+    "mse": 0.008686238395663905,
+    "rmse": 0.0931999913930463,
+    "mae": 0.04352614296838632,
+    "r2": 0.8638355152937782,
+    "r2_weighted": 0.8638355152937782,
+    "r2_mean": 0.5910618756685228
+  },
+  "metrics_denorm": {
+    "mse": 0.008686238395663898,
+    "rmse": 0.09319999139304627,
+    "mae": 0.043526142968386305,
+    "r2": 0.5910618756685228
+  },
+  "band_metrics": {
+    "band_0_19": {
+      "mse": 0.005514489896389248,
+      "rmse": 0.07425961147480672,
+      "mae": 0.03363007951999614,
+      "r2": 0.5485464647736495
+    },
+    "band_20_39": {
+      "mse": 0.0074023244893944365,
+      "rmse": 0.08603676242975694,
+      "mae": 0.052551237851472234,
+      "r2": 0.6880907712826128
+    },
+    "band_40_59": {
+      "mse": 0.013141900801208037,
+      "rmse": 0.11463812978764107,
+      "mae": 0.044397111533690595,
+      "r2": 0.5365483909493064
+    }
+  },
+  "metrics_source": "vanilla_real_only",
+  "training_time": 328.07683753967285,
+  "model_config": {
+    "num_rules": 50,
+    "reg_lambda": 0.001,
+    "pso_epochs": 150,
+    "pso_pop_size": 200
+  },
+  "saved_files": {
+    "predictions": "predictions_20260506_230524_vanilla_check_20260506.npy",
+    "targets_test": "targets_test_20260506_230524_vanilla_check_20260506.npy",
+    "predictions_denorm": "predictions_denorm_20260506_230524_vanilla_check_20260506.npy",
+    "targets_denorm": "targets_test_denorm_20260506_230524_vanilla_check_20260506.npy",
+    "samples": {
+      "indices": [
+        8,
+        40,
+        60,
+        70,
+        93
+      ],
+      "X": "samples_20260506_230524_vanilla_check_20260506_X.npy",
+      "y": "samples_20260506_230524_vanilla_check_20260506_y.npy",
+      "pred": "samples_20260506_230524_vanilla_check_20260506_pred.npy",
+      "sum": "samples_20260506_230524_vanilla_check_20260506_sum.npy"
+    },
+    "metrics_csv": "metrics_20260506_230524_vanilla_check_20260506.csv"
+  }
+}

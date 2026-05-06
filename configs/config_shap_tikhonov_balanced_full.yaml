@@ -46,6 +46,9 @@ shap_reg:
   min_convergence_slowdown: 0.25
   use_adaptive_weights: true
   use_true_shap: true
+  shap_estimator: exact_coalition
+  max_exact_features: 12
+  mc_permutations: 256
   active_components:
     - consistency
     - sparsity

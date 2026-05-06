@@ -4,6 +4,7 @@
 Работает в двухэтапном режиме: сначала vanilla ANFIS, потом SHAP регуляризация
 """
 
+import math
 import time
 import torch
 import numpy as np
@@ -40,6 +41,9 @@ class ShapAwareANFISTrainerImproved:
         self.true_shap_update_frequency = shap_config.get('true_shap_update_frequency', 10)
         self.true_shap_batch_count = 0
         self.true_shap_importance = None
+        self.shap_estimator = str(shap_config.get('shap_estimator', 'exact_coalition')).strip().lower()
+        self.max_exact_features = int(shap_config.get('max_exact_features', 12))
+        self.mc_permutations = int(shap_config.get('mc_permutations', 128))
         
         # Параметры улучшенной SHAP регуляризации
         self.use_improved_shap = shap_config.get('use_improved_shap', True)
@@ -178,6 +182,7 @@ class ShapAwareANFISTrainerImproved:
                 self.logger.info(f"   Gamma: {self.gamma}")
             if self.use_improved_shap:
                 self.logger.info(f"   Используется улучшенная SHAP регуляризация (4 компонента)")
+            self.logger.info(f"   SHAP estimator: {self.shap_estimator}")
             if self.use_convergence_smoothing:
                 self.logger.info(f"   Плавная сходимость: включена (patience: {self.convergence_patience})")
             if self.tikhonov_enabled and self.tikhonov_lambda > 0:
@@ -800,7 +805,7 @@ class ShapAwareANFISTrainerImproved:
         return shap_values / total
 
     def _calculate_shap_approximation(self, X_batch, baseline):
-        """Приближенные SHAP значения"""
+        """SHAP значения: exact_coalition (предпочтительно) или permutation_mc fallback."""
         self.model.eval()
         with torch.no_grad():
             if not isinstance(X_batch, torch.Tensor):
@@ -811,29 +816,77 @@ class ShapAwareANFISTrainerImproved:
             if X_tensor.ndim == 1:
                 X_tensor = X_tensor.unsqueeze(0)
             
-            original_predictions = self.model(X_tensor).detach().cpu().numpy()
-
-            if original_predictions.ndim > 1:
-                original_predictions = np.mean(original_predictions, axis=1)
-
-            shap_values = []
             X_numpy = X_tensor.cpu().numpy()
+            n_features = X_numpy.shape[1]
 
-            for feature_index in range(X_numpy.shape[1]):
-                X_masked = X_numpy.copy()
-                X_masked[:, feature_index] = baseline[feature_index]
+            use_exact = (self.shap_estimator == 'exact_coalition') and (n_features <= self.max_exact_features)
+            if use_exact:
+                return self._calculate_exact_coalition_shap(X_numpy, baseline)
 
-                X_masked_tensor = torch.tensor(X_masked, dtype=torch.float32, device=self.device)
-                masked_predictions = self.model(X_masked_tensor).detach().cpu().numpy()
+            return self._calculate_permutation_mc_shap(X_numpy, baseline, self.mc_permutations)
 
-                if masked_predictions.ndim > 1:
-                    masked_predictions = np.mean(masked_predictions, axis=1)
+    def _predict_scalar_batch_mean(self, X_np):
+        """Скалярная utility-функция v(S): средний прогноз по батчу и выходам."""
+        X_tensor = torch.tensor(X_np, dtype=torch.float32, device=self.device)
+        pred = self.model(X_tensor).detach().cpu().numpy()
+        if pred.ndim > 1:
+            pred = np.mean(pred, axis=1)
+        return float(np.mean(pred))
 
-                if np.isscalar(original_predictions) and np.isscalar(masked_predictions):
-                    feature_importance = abs(float(original_predictions) - float(masked_predictions))
-                else:
-                    feature_importance = float(np.mean(np.abs(original_predictions - masked_predictions)))
+    def _masked_by_subset(self, X_np, baseline, subset_mask):
+        """Оставляет только признаки из subset_mask, остальные заменяет baseline."""
+        X_masked = np.tile(np.asarray(baseline, dtype=np.float32), (X_np.shape[0], 1))
+        j = 0
+        m = subset_mask
+        while m:
+            if m & 1:
+                X_masked[:, j] = X_np[:, j]
+            j += 1
+            m >>= 1
+        return X_masked
 
-                shap_values.append(feature_importance)
+    def _calculate_exact_coalition_shap(self, X_np, baseline):
+        """Точные коалиционные значения Шепли (полный перебор подмножеств)."""
+        n_features = X_np.shape[1]
+        total_masks = 1 << n_features
+        factorial = [math.factorial(i) for i in range(n_features + 1)]
+        denom = float(factorial[n_features])
 
-        return np.asarray(shap_values, dtype=float)
+        v_cache = np.zeros(total_masks, dtype=np.float64)
+        popcnt = np.zeros(total_masks, dtype=np.int32)
+        for mask in range(total_masks):
+            popcnt[mask] = int(mask.bit_count())
+            X_masked = self._masked_by_subset(X_np, baseline, mask)
+            v_cache[mask] = self._predict_scalar_batch_mean(X_masked)
+
+        phi = np.zeros(n_features, dtype=np.float64)
+        for i in range(n_features):
+            bit = 1 << i
+            for mask in range(total_masks):
+                if mask & bit:
+                    continue
+                s = popcnt[mask]
+                weight = (factorial[s] * factorial[n_features - s - 1]) / denom
+                phi[i] += weight * (v_cache[mask | bit] - v_cache[mask])
+
+        return np.asarray(np.abs(phi), dtype=float)
+
+    def _calculate_permutation_mc_shap(self, X_np, baseline, n_perm):
+        """Monte-Carlo Шепли по случайным перестановкам (fallback для больших d)."""
+        n_features = X_np.shape[1]
+        n_perm = max(1, int(n_perm))
+        phi = np.zeros(n_features, dtype=np.float64)
+        rng = np.random.default_rng(42)
+
+        for _ in range(n_perm):
+            perm = rng.permutation(n_features)
+            current_mask = 0
+            v_prev = self._predict_scalar_batch_mean(self._masked_by_subset(X_np, baseline, current_mask))
+            for feat in perm:
+                current_mask |= (1 << feat)
+                v_curr = self._predict_scalar_batch_mean(self._masked_by_subset(X_np, baseline, current_mask))
+                phi[feat] += (v_curr - v_prev)
+                v_prev = v_curr
+
+        phi /= float(n_perm)
+        return np.asarray(np.abs(phi), dtype=float)

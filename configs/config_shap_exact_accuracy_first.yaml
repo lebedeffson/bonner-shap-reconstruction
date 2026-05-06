@@ -6,12 +6,13 @@ dataset:
   mix_ratio: 0.0
   test_size: 0.2
   random_state: 42
-  feature_prefix: Q
+  feature_prefix: "Q"
   feature_count: 10
   feature_index_start: 1
-  target_prefix: ''
+  target_prefix: ""
   target_count: 60
   target_index_start: 1
+
 model:
   num_rules: 50
   mf_class: Gaussian
@@ -24,41 +25,46 @@ model:
     epoch: 150
     pop_size: 100
     verbose: false
+
 shap_reg:
   enabled: true
   integrated_training: false
   training_mode: real_only
   use_pso_init: false
   pso_epochs: 150
-  epochs: 300
+  epochs: 220
   batch_size: 32
   lr: 0.001
-  gamma: 0.1
-  gamma_start: 0.02
-  gamma_end: 0.1
-  gamma_warmup_epochs: 0.5
+
+  # Accuracy-first regularization strength
+  gamma: 0.05
+  gamma_start: 0.005
+  gamma_end: 0.05
+  gamma_warmup_epochs: 0.60
+
   use_adaptive_gamma: true
-  target_shap_ratio: 0.4
-  min_convergence_slowdown: 0.25
+  target_shap_ratio: 0.15
+  min_convergence_slowdown: 0.10
   use_adaptive_weights: true
   use_true_shap: true
+
+  # Full coalition SHAP (exact for d=10)
   shap_estimator: exact_coalition
   max_exact_features: 12
   mc_permutations: 256
-  active_components:
-  - consistency
-  - sparsity
-  - faithfulness
-  - stability
+
+  active_components: [consistency, sparsity, faithfulness, stability]
   use_improved_shap: true
-  gamma_sparsity: 0.7
-  gamma_consistency: 0.2
-  gamma_faithfulness: 0.05
+  gamma_sparsity: 0.70
+  gamma_consistency: 0.18
+  gamma_faithfulness: 0.07
   gamma_stability: 0.05
+
   tikhonov:
-    enabled: false
-    lambda: 0.0
+    enabled: true
+    lambda: 0.001
     order: 2
+
 output:
   results_dir: results
   save_model: true

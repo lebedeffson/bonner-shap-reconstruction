@@ -370,7 +370,7 @@ def train_and_save(args):
         manager.set_feature_names(X_train.columns)
     results = manager.train_vanilla_model(X_train_array, y_train_array, X_real_val_array, y_real_val_array)
     
-    print("\n🧭 Этап 2: SHAP-регуляризация с улучшенной регуляризацией (4 компонента)...")
+    print("\n🧭 Этап 2: коалиционная SHAP-регуляризация (4 компонента)...")
     
     # Используем подвыборку для SHAP обучения, если указано
     shap_subset = shap_config.get('train_samples')

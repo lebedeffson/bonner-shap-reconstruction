@@ -57,6 +57,10 @@ shap_reg:
   min_convergence_slowdown: 0.25
   use_adaptive_weights: true
   use_true_shap: true
+  # Полный коалиционный SHAP для d=10 (без SHAP-подобных упрощений)
+  shap_estimator: exact_coalition
+  max_exact_features: 12
+  mc_permutations: 256
   active_components: [consistency, sparsity, faithfulness, stability]
   
   # Улучшенная регуляризация (Consistency, Sparsity, Faithfulness, Stability)

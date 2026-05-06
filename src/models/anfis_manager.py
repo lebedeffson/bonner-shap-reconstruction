@@ -3,6 +3,7 @@
 """
 
 import time
+import inspect
 import numpy as np
 import torch
 from sklearn.metrics import (
@@ -11,6 +12,7 @@ from sklearn.metrics import (
     r2_score
 )
 from xanfis import BioAnfisRegressor
+from mealpy import get_optimizer_by_class
 from src.utils.logger import get_logger
 
 
@@ -94,17 +96,49 @@ class ANFISManager:
         Returns:
             BioAnfisRegressor: Созданная модель
         """
+        optim_value = self.model_config['optim']
+        optim_params_value = self.model_config['optim_params']
+
+        # Совместимость xanfis <-> mealpy 3.x:
+        # xanfis ожидает class-name, а mealpy.get_optimizer_by_name() в новых версиях
+        # ищет module-name и может вернуть dict, что ломает build_model().
+        # Поэтому конвертируем строковое имя оптимизатора в экземпляр mealpy заранее.
+        if isinstance(optim_value, str):
+            try:
+                opt_cls = get_optimizer_by_class(optim_value, verbose=False)
+                if opt_cls is not None:
+                    if isinstance(optim_params_value, dict):
+                        optim_value = opt_cls(**optim_params_value)
+                    else:
+                        optim_value = opt_cls()
+                    # Уже сконфигурирован: в xanfis передаем без повторной настройки.
+                    optim_params_value = None
+            except Exception as exc:
+                self.logger.warning(
+                    f"Не удалось подготовить optimizer '{optim_value}' через mealpy class API: {exc}. "
+                    "Пробую исходный путь xanfis."
+                )
+
         base_params = {
             'num_rules': self.model_config['num_rules'],
             'mf_class': self._normalize_mf_class(self.model_config['mf_class']),
             'vanishing_strategy': self.model_config.get('vanishing_strategy', 'prod'),
-            'optim': self.model_config['optim'],
-            'optim_params': self.model_config['optim_params'],
+            'optim': optim_value,
+            'optim_params': optim_params_value,
             'reg_lambda': self.model_config['reg_lambda'],
             'seed': self.model_config['seed'],
-            'n_workers': self.model_config.get('n_workers', 4),
             'verbose': verbose
         }
+
+        # Совместимость с разными версиями X-ANFIS:
+        # добавляем n_workers только если конструктор его поддерживает.
+        try:
+            sig = inspect.signature(BioAnfisRegressor.__init__)
+            if 'n_workers' in sig.parameters:
+                base_params['n_workers'] = self.model_config.get('n_workers', 4)
+        except Exception:
+            # Безопасный fallback: просто не передаем n_workers.
+            pass
 
         model = BioAnfisRegressor(**base_params)
 

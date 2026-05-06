@@ -1,0 +1,40 @@
+{
+  "summary_path": "results/training_summary_20260506_230524_vanilla_check_20260506.json",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/anfis_model_state_20260506_230524_vanilla_check_20260506.pt",
+  "config_path": "configs/config_vanilla_r2_09.yaml",
+  "masking": "permute",
+  "k_max": 4,
+  "random_trials": 20,
+  "base_mse": 0.07186852497938502,
+  "auc_top": 0.021205901947981026,
+  "auc_random": 0.009107613528871877,
+  "auc_bottom": 0.00014792999141460123,
+  "auc_gap_top_minus_bottom": 0.021057971956566425,
+  "top_random_ratio": 2.328370860097238,
+  "curve": [
+    {
+      "k": 1,
+      "delta_mse_top": 0.0007391318236151107,
+      "delta_mse_random": 0.001054013892644902,
+      "delta_mse_bottom": 0.00012076111303709058
+    },
+    {
+      "k": 2,
+      "delta_mse_top": 0.007560709466291532,
+      "delta_mse_random": 0.00250480340753729,
+      "delta_mse_bottom": 0.00019681433330639986
+    },
+    {
+      "k": 3,
+      "delta_mse_top": 0.00867980690177754,
+      "delta_mse_random": 0.003823800958893555,
+      "delta_mse_bottom": -4.475561189772048e-05
+    },
+    {
+      "k": 4,
+      "delta_mse_top": 0.009191639336208798,
+      "delta_mse_random": 0.004504004432237163,
+      "delta_mse_bottom": -0.00012901857302524689
+    }
+  ]
+}

@@ -37,15 +37,15 @@ ENV/
 # Разрешаем ноутбуки в корне проекта (если нужны)
 # *.ipynb
 
-# Results - разрешаем всю папку results в git
-# results/  # Раскомментировано - results/ добавляется в git
-*.png
-*.pdf
-*.csv
-!normalized_*.csv
-!results/**/*.png
-!results/**/*.pdf
-!results/**/*.csv
+# Results
+# Тяжёлые артефакты экспериментов в git не храним
+results/**/*.pt
+results/**/*.npy
+results/**/*.png
+results/**/*.pdf
+results/spectra/**
+results/bonner_counts/**
+results/**/__pycache__/
 # Исключаем тяжёлый тренировочный набор (доступен отдельно)
 normalized_linear_data_with_q_500K.csv
 
@@ -56,3 +56,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Local artifacts (not for git)
+data/
+final_send_package_*/
+article_math_full.pdf
+math.pdf
+MonteCarlo_Calculated_spectra_from_IAEA_Comp_for_comparison.csv
