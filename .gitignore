@@ -70,3 +70,17 @@ results/final_figures_*/
 results/method_comparison_*/
 results/vanilla_full_*/
 results/*_20260319*
+
+# Intermediate experiment artifacts (keep compact summaries explicitly)
+results/feature_importance_*.csv
+results/feature_importance_internal_*.csv
+results/feature_importance_shap_*.csv
+results/metrics_*.csv
+results/shap_history_*.json
+results/faithfulness_*.md
+results/vanilla_ms_short120/feature_importance_*.csv
+results/vanilla_ms_short120/metrics_*.csv
+configs/multiseed_gapaware_v2/
+results/faithfulness_gapaware_v*.json
+results/training_summary_*_gapaware_v*.json
+results/faithfulness_vanilla_ref_perm_k4.json
