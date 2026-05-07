@@ -1,0 +1,276 @@
+{
+  "timestamp": "20260507_113428_ms120_s43",
+  "tag": "ms120_s43",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/multiseed_gapaware_v2_short/config_integrated_shap_short120_seed43.yaml",
+  "model_state": "anfis_model_state_20260507_113428_ms120_s43.pt",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/anfis_model_state_20260507_113428_ms120_s43.pt",
+  "train_size": 300,
+  "shap_train_size": 225,
+  "test_size": 75,
+  "vanilla_train_count": 300,
+  "shap_train_count": 225,
+  "real_test_count": 75,
+  "normalize_sum": true,
+  "metrics": {
+    "mse": 0.009183907724968078,
+    "rmse": 0.09583270696880099,
+    "mae": 0.04771197335600889,
+    "r2": 0.8216602266311651,
+    "r2_weighted": 0.8216602266311651,
+    "r2_mean": 0.5093258254674063
+  },
+  "band_metrics": {
+    "band_0_19": {
+      "mse": 0.007479962467441243,
+      "rmse": 0.0864867762576525,
+      "mae": 0.04319128771903468,
+      "r2": 0.4828666013586404
+    },
+    "band_20_39": {
+      "mse": 0.00965051225983599,
+      "rmse": 0.09823702082125653,
+      "mae": 0.0579662730792206,
+      "r2": 0.5746682706790291
+    },
+    "band_40_59": {
+      "mse": 0.01042124844762701,
+      "rmse": 0.10208451619921118,
+      "mae": 0.0419783592697714,
+      "r2": 0.4704426043645496
+    }
+  },
+  "metrics_source": "shap",
+  "shap_config_enabled": true,
+  "shap_applied": true,
+  "training_time_total": 520.0455491542816,
+  "training_time_shap": 397.4035758972168,
+  "saved_files": {
+    "predictions": "predictions_20260507_113428_ms120_s43.npy",
+    "targets_test": "targets_test_20260507_113428_ms120_s43.npy",
+    "predictions_denorm": "predictions_denorm_20260507_113428_ms120_s43.npy",
+    "targets_denorm": "targets_test_denorm_20260507_113428_ms120_s43.npy",
+    "samples": {
+      "indices": [
+        3,
+        29,
+        35,
+        43,
+        46
+      ],
+      "X": "samples_20260507_113428_ms120_s43_X.npy",
+      "y": "samples_20260507_113428_ms120_s43_y.npy",
+      "pred": "samples_20260507_113428_ms120_s43_pred.npy",
+      "sum": "samples_20260507_113428_ms120_s43_sum.npy"
+    },
+    "metrics_csv": "metrics_20260507_113428_ms120_s43.csv",
+    "feature_importance": "feature_importance_20260507_113428_ms120_s43.csv",
+    "shap": {
+      "feature_importance_shap": "feature_importance_shap_20260507_113428_ms120_s43.csv",
+      "feature_importance_internal": "feature_importance_internal_20260507_113428_ms120_s43.csv",
+      "history": "shap_history_20260507_113428_ms120_s43.json"
+    }
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.09893274259753525,
+      "std": 0.21053881707991456,
+      "min": -0.13069629669189453,
+      "max": 4.4049177169799805,
+      "zero_fraction": 0.0
+    },
+    "target_stats": {
+      "mean": 0.09870688907495737,
+      "std": 0.24276463012940455,
+      "min": 0.0,
+      "max": 4.5025200567816475
+    },
+    "coeff_stats": {
+      "mean": 0.01333623938018479,
+      "std": 1.2015993603628006,
+      "min": -20.944154739379883,
+      "max": 43.647193908691406,
+      "abs_mean": 0.5240394041255717,
+      "finite_fraction": 1.0,
+      "nonzero": 32340,
+      "total": 33000
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [
+        "consistency",
+        "sparsity",
+        "faithfulness",
+        "stability"
+      ],
+      "shap_contribution": {
+        "mean": 0.002630734424201364,
+        "last": 0.002439530973788351,
+        "max": 0.006099786143749952
+      },
+      "tikhonov_contribution": {
+        "mean": 0.00042715250645836513,
+        "last": 0.0007314571157621685,
+        "max": 0.0008755729850236094
+      },
+      "regularization_share": {
+        "mean": 0.2676151712191864,
+        "last": 0.2830392864978859,
+        "max": 0.4252354651487771
+      },
+      "shap_scale_factor": {
+        "mean": 0.07254550129931113,
+        "last": 0.0625,
+        "max": 0.24147727272727273
+      },
+      "shap_loss_normalized": {
+        "mean": 0.037451321076756965,
+        "last": 0.024395308922976255,
+        "max": 0.14607451856136322
+      },
+      "component_terms": {
+        "consistency": {
+          "mean": 0.039166834431913836,
+          "last": 0.025112327828537673,
+          "max": 0.10724662989377975
+        },
+        "sparsity": {
+          "mean": 0.6413977051774661,
+          "last": 0.500122856348753,
+          "max": 0.767608992755413
+        },
+        "faithfulness": {
+          "mean": 0.0014565460286877219,
+          "last": 0.001060420072406032,
+          "max": 0.0026544687571004033
+        },
+        "stability": {
+          "mean": 0.00018550896350764864,
+          "last": 0.00018680160610529128,
+          "max": 0.00022160726621223148
+        }
+      },
+      "component_weights": {
+        "consistency": {
+          "mean": 0.12095486113754973,
+          "last": 0.1304789990273406,
+          "max": 0.14229446787724395
+        },
+        "sparsity": {
+          "mean": 0.7796723688879789,
+          "last": 0.7702086208639667,
+          "max": 0.7816945274895738
+        },
+        "faithfulness": {
+          "mean": 0.04968638498723578,
+          "last": 0.04965619005434638,
+          "max": 0.0499560321782839
+        },
+        "stability": {
+          "mean": 0.04968638498723578,
+          "last": 0.04965619005434638,
+          "max": 0.0499560321782839
+        }
+      },
+      "weighted_component_signal": {
+        "consistency": {
+          "mean": 0.0047724376837308645,
+          "last": 0.003276631398314025,
+          "max": 0.01422462730531679
+        },
+        "sparsity": {
+          "mean": 0.5001993361406653,
+          "last": 0.38519893545092077,
+          "max": 0.5998645400008642
+        },
+        "faithfulness": {
+          "mean": 7.236924722614771e-05,
+          "last": 5.265642065283767e-05,
+          "max": 0.00013181135830193566
+        },
+        "stability": {
+          "mean": 9.217359877832558e-06,
+          "last": 9.275856055221495e-06,
+          "max": 1.099772074399511e-05
+        }
+      },
+      "dominant_shap_component": "sparsity",
+      "dominant_regularizer": "shap"
+    },
+    "gap_selection": {
+      "enabled": true,
+      "eval_every_epochs": 5,
+      "k_max": 4,
+      "random_trials": 20,
+      "masking": "permute",
+      "importance_key": "internal",
+      "quality_metric": "r2_var_weighted",
+      "min_r2": 0.83,
+      "alpha_top_random": 0.0,
+      "beta_alignment": 0.0,
+      "lambda_r2_penalty": 1.0,
+      "r2_penalty_power": 2.0,
+      "best": {
+        "epoch": 70,
+        "score": 0.05442090937867761,
+        "auc_gap": 0.05442090937867761,
+        "auc_top": 0.066767408978194,
+        "auc_bottom": 0.012346499599516392,
+        "top_random_ratio": 0.7277435523725723,
+        "r2_quality": 0.8730175417917359,
+        "r2_mean": 0.604269234097694,
+        "r2_var_weighted": 0.8730175417917359,
+        "alignment": 0.0,
+        "quality_metric": "r2_var_weighted"
+      }
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "mix_with_real": false,
+    "mix_ratio": 0.0,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 43,
+    "shap_uses_real_data_only": true,
+    "test_uses_real_data_only": true
+  },
+  "metrics_denorm": {
+    "mse": 0.009183907724968073,
+    "rmse": 0.09583270696880096,
+    "mae": 0.04771197335600887,
+    "r2": 0.8216602266311652,
+    "r2_weighted": 0.8216602266311652,
+    "r2_mean": 0.5093258254674063
+  },
+  "band_metrics_denorm": {
+    "band_0_19": {
+      "mse": 0.007479962467441238,
+      "rmse": 0.08648677625765247,
+      "mae": 0.043191287719034674,
+      "r2": 0.4828666013586404
+    },
+    "band_20_39": {
+      "mse": 0.009650512259835979,
+      "rmse": 0.09823702082125647,
+      "mae": 0.05796627307922057,
+      "r2": 0.5746682706790291
+    },
+    "band_40_59": {
+      "mse": 0.010421248447627,
+      "rmse": 0.10208451619921113,
+      "mae": 0.04197835926977138,
+      "r2": 0.47044260436454965
+    }
+  },
+  "shap_files": {
+    "feature_importance_shap": "feature_importance_shap_20260507_113428_ms120_s43.csv",
+    "feature_importance_internal": "feature_importance_internal_20260507_113428_ms120_s43.csv",
+    "history": "shap_history_20260507_113428_ms120_s43.json"
+  }
+}

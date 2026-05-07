@@ -1,0 +1,109 @@
+{
+  "timestamp": "20260507_113705_vanilla_ms120_s43",
+  "tag": "vanilla_ms120_s43",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/multiseed_gapaware_v2_short/config_integrated_shap_short120_seed43.yaml",
+  "model_state": "anfis_model_state_20260507_113705_vanilla_ms120_s43.pt",
+  "model_state_path": "results/vanilla_ms_short120/anfis_model_state_20260507_113705_vanilla_ms120_s43.pt",
+  "train_size": 300,
+  "test_size": 75,
+  "vanilla_train_count": 300,
+  "real_test_count": 75,
+  "normalize_sum": true,
+  "metrics": {
+    "mse": 0.008341080209324458,
+    "rmse": 0.09132951444809316,
+    "mae": 0.042694759573731665,
+    "r2": 0.8380268619056309,
+    "r2_weighted": 0.8380268619056309,
+    "r2_mean": 0.5582196789613888
+  },
+  "band_metrics": {
+    "band_0_19": {
+      "mse": 0.00727024073996374,
+      "rmse": 0.0852657067053557,
+      "mae": 0.039178177100927365,
+      "r2": 0.5186044348576856
+    },
+    "band_20_39": {
+      "mse": 0.007862558929894972,
+      "rmse": 0.08867107155039332,
+      "mae": 0.05399776850916158,
+      "r2": 0.6433627080943584
+    },
+    "band_40_59": {
+      "mse": 0.009890440958114668,
+      "rmse": 0.0994506961167928,
+      "mae": 0.03490833311110607,
+      "r2": 0.512691893932122
+    }
+  },
+  "metrics_source": "vanilla_real_only",
+  "shap_config_enabled": false,
+  "shap_applied": false,
+  "training_time_total": 117.67982149124146,
+  "saved_files": {
+    "predictions": "predictions_20260507_113705_vanilla_ms120_s43.npy",
+    "targets_test": "targets_test_20260507_113705_vanilla_ms120_s43.npy",
+    "predictions_denorm": "predictions_denorm_20260507_113705_vanilla_ms120_s43.npy",
+    "targets_denorm": "targets_test_denorm_20260507_113705_vanilla_ms120_s43.npy",
+    "metrics_csv": "metrics_20260507_113705_vanilla_ms120_s43.csv",
+    "feature_importance": "feature_importance_20260507_113705_vanilla_ms120_s43.csv"
+  },
+  "diagnostics": {
+    "prediction_stats": {
+      "mean": 0.10081558020917389,
+      "std": 0.20919679653660256,
+      "min": 0.0,
+      "max": 4.306526184082031,
+      "zero_fraction": 0.1648888888888889
+    },
+    "target_stats": {
+      "mean": 0.09870688907495737,
+      "std": 0.24276463012940455,
+      "min": 0.0,
+      "max": 4.5025200567816475
+    },
+    "nonfinite_parameters": {},
+    "regularization": {
+      "active_components": [],
+      "shap_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "tikhonov_contribution": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "regularization_share": {
+        "mean": 0.0,
+        "last": 0.0,
+        "max": 0.0
+      },
+      "dominant_regularizer": "none"
+    }
+  },
+  "dataset_settings": {
+    "train_limit": null,
+    "train_fraction": null,
+    "synthetic_test_size": 0.2,
+    "test_size": 0.2,
+    "real_data_split": {
+      "train": 0.6,
+      "validation": 0.2,
+      "test": 0.2
+    },
+    "random_state": 43,
+    "shap_uses_real_data_only": false,
+    "test_uses_real_data_only": true
+  },
+  "metrics_denorm": {
+    "mse": 0.008341080209324453,
+    "rmse": 0.09132951444809313,
+    "mae": 0.04269475957373165,
+    "r2": 0.8380268619056307,
+    "r2_weighted": 0.8380268619056307,
+    "r2_mean": 0.5582196789613886
+  }
+}

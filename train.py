@@ -401,7 +401,10 @@ def train_and_save(args):
         shap_y_train,
         epochs=shap_config.get('epochs', 25),
         batch_size=shap_config.get('batch_size', 32),
-        lr=shap_config.get('lr', 0.003)
+        lr=shap_config.get('lr', 0.003),
+        X_val=X_real_val_array,
+        y_val=y_real_val_array,
+        selection_config=shap_config.get('gap_aware_selection', {}),
     )
     
     results['shap_history'] = shap_history
@@ -655,6 +658,7 @@ def train_and_save(args):
             'coeff_stats': coeff_stats,
             'nonfinite_parameters': _to_serializable(results.get('nonfinite_report', {})),
             'regularization': _summarize_regularization_history(results.get('shap_history'), shap_config),
+            'gap_selection': _to_serializable(results.get('shap_history', {}).get('gap_selection')),
         },
         'dataset_settings': {
             'train_limit': dataset_config.get('train_limit'),

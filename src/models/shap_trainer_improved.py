@@ -139,7 +139,17 @@ class ShapAwareANFISTrainerImproved:
             else:
                 self.logger.info(f"Используется устройство: {self.device}")
 
-    def fit(self, X_train, y_train, epochs=25, batch_size=32, lr=0.005):
+    def fit(
+        self,
+        X_train,
+        y_train,
+        epochs=25,
+        batch_size=32,
+        lr=0.005,
+        X_val=None,
+        y_val=None,
+        selection_config=None,
+    ):
         """
         Обучение с улучшенной SHAP-регуляризацией
         
@@ -194,6 +204,43 @@ class ShapAwareANFISTrainerImproved:
             'tikhonov_contribution': [],
             'regularization_share': [],
         }
+
+        # Gap-aware checkpoint selection (опционально)
+        selection_cfg = selection_config or {}
+        selection_enabled = bool(selection_cfg.get('enabled', False)) and X_val is not None and y_val is not None
+        selection_eval_every = max(1, int(selection_cfg.get('eval_every_epochs', 10)))
+        selection_k_max = max(1, int(selection_cfg.get('k_max', 4)))
+        selection_random_trials = max(1, int(selection_cfg.get('random_trials', 20)))
+        selection_masking = str(selection_cfg.get('masking', 'permute')).strip().lower()
+        selection_seed = int(selection_cfg.get('seed', 42))
+        selection_quality_metric = str(selection_cfg.get('quality_metric', 'r2_var_weighted')).strip().lower()
+        selection_alpha_top_random = float(selection_cfg.get('alpha_top_random', 0.0))
+        selection_beta_alignment = float(selection_cfg.get('beta_alignment', selection_cfg.get('alpha_alignment', 0.0)))
+        selection_lambda_r2_penalty = float(selection_cfg.get('lambda_r2_penalty', selection_cfg.get('beta_r2_penalty', 1.0)))
+        selection_penalty_power = float(selection_cfg.get('r2_penalty_power', 2.0))
+        selection_min_r2 = float(selection_cfg.get('min_r2', -1e9))
+        selection_restore_best = bool(selection_cfg.get('restore_best', True))
+        selection_importance_key = str(selection_cfg.get('importance_key', 'internal')).strip().lower()
+
+        best_selection_score = -np.inf
+        best_selection_epoch = None
+        best_selection_state = None
+        best_selection_metrics = {}
+
+        if selection_enabled:
+            X_val_array = np.asarray(X_val, dtype=np.float32)
+            y_val_array = np.asarray(y_val, dtype=np.float32)
+            X_val_array = np.nan_to_num(X_val_array, nan=0.0, posinf=0.0, neginf=0.0)
+            y_val_array = np.nan_to_num(y_val_array, nan=0.0, posinf=0.0, neginf=0.0)
+            val_rng = np.random.default_rng(selection_seed)
+            history['selection_auc_gap'] = []
+            history['selection_top_random_ratio'] = []
+            history['selection_auc_top'] = []
+            history['selection_auc_bottom'] = []
+            history['selection_r2'] = []
+            history['selection_r2_mean'] = []
+            history['selection_r2_var_weighted'] = []
+            history['selection_score'] = []
 
         if self.verbose:
             self.logger.info(f"🟠 Начинаю обучение ANFIS с улучшенной SHAP-регуляризацией...")
@@ -432,6 +479,81 @@ class ShapAwareANFISTrainerImproved:
                     history[history_key].append(float(np.mean(weight_values)) if weight_values else float('nan'))
 
             # Прогресс с адаптивными параметрами
+            if selection_enabled and (((epoch + 1) % selection_eval_every == 0) or (epoch + 1 == epochs)):
+                val_pred = self.predict(X_val_array)
+                r2_mean_val = self._r2_uniform(y_val_array, val_pred)
+                r2_var_weighted_val = self._r2_var_weighted(y_val_array, val_pred)
+                if selection_quality_metric == 'r2_mean':
+                    r2_quality_val = r2_mean_val
+                else:
+                    r2_quality_val = r2_var_weighted_val
+
+                if selection_importance_key == 'shap':
+                    val_importance = self.get_global_shap_importance(X_val_array)
+                else:
+                    val_importance = self.get_internal_gradient_importance(X_val_array)
+
+                gap_metrics = self._compute_deletion_gap_metrics(
+                    X_val_array,
+                    y_val_array,
+                    val_importance,
+                    k_max=selection_k_max,
+                    random_trials=selection_random_trials,
+                    masking=selection_masking,
+                    rng=val_rng,
+                )
+                auc_gap = float(gap_metrics['auc_gap'])
+                top_random_ratio = float(gap_metrics['top_random_ratio'])
+                auc_top = float(gap_metrics['auc_top'])
+                auc_bottom = float(gap_metrics['auc_bottom'])
+
+                alignment = 0.0
+                if selection_beta_alignment != 0.0:
+                    shap_val_importance = self.get_global_shap_importance(X_val_array)
+                    alignment = self._safe_cosine(val_importance, shap_val_importance)
+
+                r2_penalty_raw = max(0.0, selection_min_r2 - r2_quality_val)
+                if selection_penalty_power <= 1.0:
+                    r2_penalty = r2_penalty_raw
+                else:
+                    r2_penalty = r2_penalty_raw ** selection_penalty_power
+                selection_score = (
+                    auc_gap
+                    + selection_alpha_top_random * top_random_ratio
+                    + selection_beta_alignment * alignment
+                    - selection_lambda_r2_penalty * r2_penalty
+                )
+
+                history['selection_auc_gap'].append(auc_gap)
+                history['selection_top_random_ratio'].append(top_random_ratio)
+                history['selection_auc_top'].append(auc_top)
+                history['selection_auc_bottom'].append(auc_bottom)
+                history['selection_r2'].append(float(r2_quality_val))
+                history['selection_r2_mean'].append(float(r2_mean_val))
+                history['selection_r2_var_weighted'].append(float(r2_var_weighted_val))
+                history['selection_score'].append(float(selection_score))
+
+                if selection_score > best_selection_score:
+                    best_selection_score = selection_score
+                    best_selection_epoch = epoch + 1
+                    best_selection_state = {
+                        key: value.detach().cpu().clone()
+                        for key, value in self.model.state_dict().items()
+                    }
+                    best_selection_metrics = {
+                        'epoch': int(epoch + 1),
+                        'score': float(selection_score),
+                        'auc_gap': auc_gap,
+                        'auc_top': auc_top,
+                        'auc_bottom': auc_bottom,
+                        'top_random_ratio': top_random_ratio,
+                        'r2_quality': float(r2_quality_val),
+                        'r2_mean': float(r2_mean_val),
+                        'r2_var_weighted': float(r2_var_weighted_val),
+                        'alignment': float(alignment),
+                        'quality_metric': selection_quality_metric,
+                    }
+
             if self.verbose and (epoch + 1) % 5 == 0:
                 msg = f"   Эпоха {epoch + 1}/{epochs}: Total: {history['total_loss'][-1]:.6f}, Main: {history['main_loss'][-1]:.6f}, SHAP: {history['shap_loss'][-1]:.6f}"
                 if self.tikhonov_enabled and 'tikhonov_loss' in history:
@@ -447,7 +569,36 @@ class ShapAwareANFISTrainerImproved:
                     msg += f" | Gamma: {history['adaptive_gamma'][-1]:.4f}"
                 if self.use_convergence_smoothing and 'convergence_slowdown' in history:
                     msg += f" | Slowdown: {history['convergence_slowdown'][-1]:.3f}"
+                if selection_enabled and history.get('selection_score'):
+                    msg += (
+                        f" | SelScore: {history['selection_score'][-1]:.4f}"
+                        f" (gap {history['selection_auc_gap'][-1]:.4f}, r2 {history['selection_r2'][-1]:.4f})"
+                    )
                 self.logger.info(msg)
+
+        if selection_enabled:
+            history['gap_selection'] = {
+                'enabled': True,
+                'eval_every_epochs': int(selection_eval_every),
+                'k_max': int(selection_k_max),
+                'random_trials': int(selection_random_trials),
+                'masking': selection_masking,
+                'importance_key': selection_importance_key,
+                'quality_metric': selection_quality_metric,
+                'min_r2': float(selection_min_r2),
+                'alpha_top_random': float(selection_alpha_top_random),
+                'beta_alignment': float(selection_beta_alignment),
+                'lambda_r2_penalty': float(selection_lambda_r2_penalty),
+                'r2_penalty_power': float(selection_penalty_power),
+                'best': best_selection_metrics if best_selection_metrics else None,
+            }
+            if selection_restore_best and best_selection_state is not None:
+                self.model.load_state_dict(best_selection_state, strict=False)
+                if self.verbose and best_selection_epoch is not None:
+                    self.logger.info(
+                        f"🎯 Gap-aware restore: epoch {best_selection_epoch} "
+                        f"(score={best_selection_score:.6f})"
+                    )
 
         self.training_time = time.time() - start_time
         if self.verbose:
@@ -816,6 +967,126 @@ class ShapAwareANFISTrainerImproved:
         shap_components = {'simple': shap_loss.detach().item()}
         
         return shap_loss_tensor, shap_components
+
+    def _predict_numpy(self, X_np):
+        self.model.eval()
+        with torch.no_grad():
+            X_tensor = torch.tensor(X_np, dtype=torch.float32, device=self.device)
+            pred = self.model(X_tensor).detach().cpu().numpy()
+        return np.nan_to_num(pred, nan=0.0, posinf=0.0, neginf=0.0)
+
+    @staticmethod
+    def _mse_np(y_true, y_pred):
+        return float(np.mean((y_true - y_pred) ** 2))
+
+    @staticmethod
+    def _r2_uniform(y_true, y_pred):
+        y_true = np.asarray(y_true, dtype=float)
+        y_pred = np.asarray(y_pred, dtype=float)
+        y_true = np.nan_to_num(y_true, nan=0.0, posinf=0.0, neginf=0.0)
+        y_pred = np.nan_to_num(y_pred, nan=0.0, posinf=0.0, neginf=0.0)
+        ss_res = np.sum((y_true - y_pred) ** 2, axis=0)
+        ss_tot = np.sum((y_true - np.mean(y_true, axis=0, keepdims=True)) ** 2, axis=0)
+        r2_per_target = 1.0 - ss_res / (ss_tot + 1e-12)
+        return float(np.mean(r2_per_target))
+
+    @staticmethod
+    def _r2_var_weighted(y_true, y_pred):
+        y_true = np.asarray(y_true, dtype=float)
+        y_pred = np.asarray(y_pred, dtype=float)
+        y_true = np.nan_to_num(y_true, nan=0.0, posinf=0.0, neginf=0.0)
+        y_pred = np.nan_to_num(y_pred, nan=0.0, posinf=0.0, neginf=0.0)
+        ss_res = np.sum((y_true - y_pred) ** 2, axis=0)
+        ss_tot = np.sum((y_true - np.mean(y_true, axis=0, keepdims=True)) ** 2, axis=0)
+        num = float(np.sum(ss_res))
+        den = float(np.sum(ss_tot) + 1e-12)
+        return float(1.0 - num / den)
+
+    @staticmethod
+    def _mask_columns_np(X_np, cols, mode, rng):
+        masked = np.array(X_np, copy=True)
+        for j in cols:
+            if mode == 'permute':
+                masked[:, j] = rng.permutation(masked[:, j])
+            elif mode == 'mean':
+                masked[:, j] = float(np.mean(masked[:, j]))
+            else:
+                raise ValueError(f"Unknown masking mode: {mode}")
+        return masked
+
+    @staticmethod
+    def _auc_from_curve(values):
+        if len(values) == 1:
+            return float(values[0])
+        x = np.arange(1, len(values) + 1, dtype=float)
+        y = np.asarray(values, dtype=float)
+        if hasattr(np, 'trapz'):
+            return float(np.trapz(y, x=x))
+        return float(np.trapezoid(y, x=x))
+
+    @staticmethod
+    def _safe_cosine(vec_a, vec_b):
+        a = np.asarray(vec_a, dtype=float).reshape(-1)
+        b = np.asarray(vec_b, dtype=float).reshape(-1)
+        a = np.nan_to_num(a, nan=0.0, posinf=0.0, neginf=0.0)
+        b = np.nan_to_num(b, nan=0.0, posinf=0.0, neginf=0.0)
+        na = float(np.linalg.norm(a))
+        nb = float(np.linalg.norm(b))
+        if na <= 1e-12 or nb <= 1e-12:
+            return 0.0
+        return float(np.dot(a, b) / (na * nb + 1e-12))
+
+    def _compute_deletion_gap_metrics(self, X_np, y_np, importance, *, k_max, random_trials, masking, rng):
+        importance = np.asarray(importance, dtype=float).reshape(-1)
+        importance = np.nan_to_num(importance, nan=0.0, posinf=0.0, neginf=0.0)
+        d = X_np.shape[1]
+        if importance.size != d:
+            raise ValueError(f"Importance size mismatch: {importance.size} != {d}")
+
+        order_desc = np.argsort(-importance)
+        order_asc = np.argsort(importance)
+        k_max = min(int(k_max), d)
+
+        base_pred = self._predict_numpy(X_np)
+        base_mse = self._mse_np(y_np, base_pred)
+
+        top_curve = []
+        rnd_curve = []
+        bot_curve = []
+
+        for k in range(1, k_max + 1):
+            top_idx = order_desc[:k]
+            bot_idx = order_asc[:k]
+
+            X_top = self._mask_columns_np(X_np, top_idx, masking, rng)
+            X_bot = self._mask_columns_np(X_np, bot_idx, masking, rng)
+
+            d_top = self._mse_np(y_np, self._predict_numpy(X_top)) - base_mse
+            d_bot = self._mse_np(y_np, self._predict_numpy(X_bot)) - base_mse
+
+            rnd_values = []
+            for _ in range(int(random_trials)):
+                rnd_idx = rng.choice(d, size=k, replace=False)
+                X_rnd = self._mask_columns_np(X_np, rnd_idx, masking, rng)
+                rnd_values.append(self._mse_np(y_np, self._predict_numpy(X_rnd)) - base_mse)
+            d_rnd = float(np.mean(rnd_values))
+
+            top_curve.append(float(d_top))
+            rnd_curve.append(float(d_rnd))
+            bot_curve.append(float(d_bot))
+
+        auc_top = self._auc_from_curve(top_curve)
+        auc_rnd = self._auc_from_curve(rnd_curve)
+        auc_bot = self._auc_from_curve(bot_curve)
+        auc_gap = float(auc_top - auc_bot)
+        top_random_ratio = float(auc_top / (auc_rnd + 1e-12))
+        return {
+            'auc_top': float(auc_top),
+            'auc_random': float(auc_rnd),
+            'auc_bottom': float(auc_bot),
+            'auc_gap': auc_gap,
+            'top_random_ratio': top_random_ratio,
+        }
 
     def predict(self, X_test):
         """Получение предсказаний"""

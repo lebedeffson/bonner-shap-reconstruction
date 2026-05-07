@@ -1,0 +1,40 @@
+{
+  "summary_path": "results/vanilla_ms_short120/training_summary_20260507_113705_vanilla_ms120_s43.json",
+  "model_state_path": "results/vanilla_ms_short120/anfis_model_state_20260507_113705_vanilla_ms120_s43.pt",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/multiseed_gapaware_v2_short/config_integrated_shap_short120_seed43.yaml",
+  "masking": "permute",
+  "k_max": 4,
+  "random_trials": 20,
+  "base_mse": 0.058551739474073855,
+  "auc_top": 0.0012870810719759346,
+  "auc_random": 0.00516121993605073,
+  "auc_bottom": 0.00932837221278459,
+  "auc_gap_top_minus_bottom": -0.008041291140808655,
+  "top_random_ratio": 0.24937535847608341,
+  "curve": [
+    {
+      "k": 1,
+      "delta_mse_top": 0.0005155192649702323,
+      "delta_mse_random": 0.0004229362902644449,
+      "delta_mse_bottom": 6.937949388695352e-05
+    },
+    {
+      "k": 2,
+      "delta_mse_top": 0.00028518900319826623,
+      "delta_mse_random": 0.001330083514465042,
+      "delta_mse_bottom": 9.446660865046475e-05
+    },
+    {
+      "k": 3,
+      "delta_mse_top": 0.0004476386524050052,
+      "delta_mse_random": 0.002208595973203403,
+      "delta_mse_bottom": 0.005790321963280637
+    },
+    {
+      "k": 4,
+      "delta_mse_top": 0.000592987567775094,
+      "delta_mse_random": 0.0028221446065001244,
+      "delta_mse_bottom": 0.006817787787820023
+    }
+  ]
+}

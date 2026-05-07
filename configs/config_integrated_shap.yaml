@@ -72,6 +72,24 @@ shap_reg:
   gamma_faithfulness: 0.05
   gamma_stability: 0.05
 
+  # Gap-aware checkpoint selection:
+  # выбираем лучший чекпоинт по deletion AUC gap при ограничении на R².
+  gap_aware_selection:
+    enabled: true
+    eval_every_epochs: 10
+    k_max: 4
+    random_trials: 20
+    masking: permute
+    importance_key: internal   # internal | shap
+    quality_metric: r2_var_weighted   # r2_var_weighted | r2_mean
+    min_r2: 0.83
+    alpha_top_random: 0.0
+    beta_alignment: 0.0
+    lambda_r2_penalty: 1.0
+    r2_penalty_power: 2.0
+    restore_best: true
+    seed: 42
+
   # Тихоновская регуляризация (гладкость спектра)
   tikhonov:
     enabled: true
