@@ -5,6 +5,8 @@ Benchmark unfolding-style proxy baselines on Bonner data.
 Proxies:
 1) Direct linear inverse with Tikhonov smoothing.
 2) Non-negative Tikhonov (NNLS on augmented system).
+3) MAXED-like entropy-regularized mirror descent.
+4) GRAVEL-like multiplicative iterative correction.
 """
 
 import argparse
@@ -110,6 +112,60 @@ def solve_tikhonov_batch(X_test, R, L, lam, nonnegative=False, normalize_sum=Fal
     return Y
 
 
+def solve_maxed_like_batch(X_test, R, prior, lam, normalize_sum=False, steps=220, lr=0.08):
+    """
+    MAXED-like proxy:
+      min_y 0.5||R y - x||^2 + lam * KL(y || prior), y>=0
+    Optimized via mirror-descent multiplicative updates.
+    """
+    prior = np.maximum(np.asarray(prior, dtype=float), 1e-12)
+    if normalize_sum:
+        prior = prior / np.maximum(np.sum(prior), 1e-12)
+    eps = 1e-12
+    Y = np.zeros((X_test.shape[0], R.shape[1]), dtype=float)
+    for i, x in enumerate(X_test):
+        y = prior.copy()
+        for _ in range(steps):
+            ry = R @ y
+            grad_data = R.T @ (ry - x)
+            grad_kl = np.log((y + eps) / (prior + eps))
+            grad = grad_data + lam * grad_kl
+            y *= np.exp(-lr * grad)
+            y = np.maximum(y, eps)
+            if normalize_sum:
+                y /= np.maximum(np.sum(y), eps)
+        Y[i] = y
+    return np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+def solve_gravel_like_batch(X_test, R, lam, L, normalize_sum=False, steps=220, eta=0.8):
+    """
+    GRAVEL-like proxy:
+      multiplicative correction using response residual ratio,
+      with optional smoothness damping by second-difference operator.
+    """
+    eps = 1e-12
+    n_bins = R.shape[1]
+    rt1 = np.maximum(R.T @ np.ones(R.shape[0], dtype=float), eps)
+    LtL = L.T @ L if L.size else np.zeros((n_bins, n_bins), dtype=float)
+    Y = np.zeros((X_test.shape[0], n_bins), dtype=float)
+    for i, x in enumerate(X_test):
+        y = np.ones(n_bins, dtype=float)
+        if normalize_sum:
+            y /= np.maximum(np.sum(y), eps)
+        for _ in range(steps):
+            ry = np.maximum(R @ y, eps)
+            ratio = np.maximum(x, 0.0) / ry
+            corr = np.maximum((R.T @ ratio) / rt1, eps)
+            y *= corr ** eta
+            if lam > 0.0 and L.size:
+                y = np.maximum(y - lam * (LtL @ y), eps)
+            if normalize_sum:
+                y /= np.maximum(np.sum(y), eps)
+        Y[i] = y
+    return np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
+
+
 def main():
     args = parse_args()
     cfg = load_config(args.config)
@@ -133,16 +189,36 @@ def main():
     for seed in seeds:
         X_train, X_test, y_train, y_test = split_real(X, y, random_state=seed)
         R = estimate_response(y_train, X_train)
+        prior = np.maximum(np.mean(y_train, axis=0), 1e-12)
+        if normalize_sum:
+            prior = prior / np.maximum(np.sum(prior), 1e-12)
         for lam in lambdas:
-            for method in ["tikhonov_linear", "tikhonov_nnls"]:
-                pred = solve_tikhonov_batch(
-                    X_test,
-                    R=R,
-                    L=L,
-                    lam=lam,
-                    nonnegative=(method == "tikhonov_nnls"),
-                    normalize_sum=normalize_sum,
-                )
+            for method in ["tikhonov_linear", "tikhonov_nnls", "maxed_like", "gravel_like"]:
+                if method in ("tikhonov_linear", "tikhonov_nnls"):
+                    pred = solve_tikhonov_batch(
+                        X_test,
+                        R=R,
+                        L=L,
+                        lam=lam,
+                        nonnegative=(method == "tikhonov_nnls"),
+                        normalize_sum=normalize_sum,
+                    )
+                elif method == "maxed_like":
+                    pred = solve_maxed_like_batch(
+                        X_test,
+                        R=R,
+                        prior=prior,
+                        lam=lam,
+                        normalize_sum=normalize_sum,
+                    )
+                else:
+                    pred = solve_gravel_like_batch(
+                        X_test,
+                        R=R,
+                        lam=lam,
+                        L=L,
+                        normalize_sum=normalize_sum,
+                    )
                 m = metrics(y_test, pred)
                 records.append(
                     {

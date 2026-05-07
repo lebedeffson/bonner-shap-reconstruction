@@ -217,7 +217,7 @@ python scripts/benchmark_ml_baselines.py \
   --output-md results/ml_baselines_benchmark_3seed_20260507.md
 ```
 
-Unfolding-style proxy baselines (Tikhonov/NNLS):
+Unfolding-style proxy baselines (Tikhonov/NNLS + MAXED-like + GRAVEL-like):
 
 ```bash
 python scripts/benchmark_unfolding_proxies.py \
