@@ -84,6 +84,7 @@ def main():
     parser.add_argument("--masking", choices=["permute", "mean"], default="permute")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--importance-key", choices=["shap", "feature"], default="shap")
+    parser.add_argument("--importance-path", default="", help="Path to importance csv with column 'importance'")
     parser.add_argument("--output-md", default="")
     parser.add_argument("--output-json", default="")
     args = parser.parse_args()
@@ -124,13 +125,17 @@ def main():
     base_mse = _mse(y_test, y_base)
 
     saved = summary.get("saved_files", {})
-    if args.importance_key == "shap":
-        fi_name = saved.get("shap", {}).get("feature_importance_shap")
+    fi_path = args.importance_path.strip()
+    if fi_path:
+        fi_path = os.path.abspath(fi_path)
     else:
-        fi_name = saved.get("feature_importance")
+        if args.importance_key == "shap":
+            fi_name = saved.get("shap", {}).get("feature_importance_shap")
+        else:
+            fi_name = saved.get("feature_importance")
+        fi_path = os.path.join(config["output"]["results_dir"], fi_name) if fi_name else ""
 
-    if fi_name:
-        fi_path = os.path.join(config["output"]["results_dir"], fi_name)
+    if fi_path:
         fi_df = pd.read_csv(fi_path)
         if "importance" not in fi_df.columns:
             raise ValueError(f"'importance' column not found: {fi_path}")
