@@ -1,7 +1,7 @@
 {
   "version": "2026-05-07",
   "line": "bonner_shap_regularization",
-  "status": "finalized_short_cycle",
+  "status": "finalized_internal_importance_fix_cycle",
   "core_configs": [
     "configs/config_integrated_shap.yaml",
     "configs/multiseed_gapaware_v2_short/config_integrated_shap_short120_seed42.yaml",
@@ -14,6 +14,9 @@
     "results/training_summary_20260507_114617_ms120_s44.json",
     "results/training_summary_20260507_121253_dev_rank_es_fastpso.json",
     "results/training_summary_20260507_121747_dev_rank_es_fastpso_s43.json",
+    "results/training_summary_20260507_135615_internalfix_ms120_s42.json",
+    "results/training_summary_20260507_140135_internalfix_ms120_s43.json",
+    "results/training_summary_20260507_140904_internalfix_ms120_s44.json",
     "results/vanilla_ms_short120/training_summary_20260507_112519_vanilla_ms120_s42.json",
     "results/vanilla_ms_short120/training_summary_20260507_113705_vanilla_ms120_s43.json",
     "results/vanilla_ms_short120/training_summary_20260507_114901_vanilla_ms120_s44.json"
@@ -31,11 +34,22 @@
     "results/faithfulness_dev_rank_es_fastpso_shap.json",
     "results/faithfulness_dev_rank_es_fastpso_s43_shap.json",
     "results/faithfulness_dev_rank_es_fastpso_internal.json",
-    "results/faithfulness_dev_rank_es_fastpso_s43_internal.json"
+    "results/faithfulness_dev_rank_es_fastpso_s43_internal.json",
+    "results/faithfulness_internalfix_ms120_s42_shap.json",
+    "results/faithfulness_internalfix_ms120_s43_shap.json",
+    "results/faithfulness_internalfix_ms120_s44_shap.json",
+    "results/faithfulness_internalfix_ms120_s42_internal.json",
+    "results/faithfulness_internalfix_ms120_s43_internal.json",
+    "results/faithfulness_internalfix_ms120_s44_internal.json",
+    "results/faithfulness_internalfix_ms120_s42_vanilla.json",
+    "results/faithfulness_internalfix_ms120_s43_vanilla.json",
+    "results/faithfulness_internalfix_ms120_s44_vanilla.json"
   ],
   "summary_packs": [
     "results/gapaware_ms120_3seed_summary_20260507.md",
     "results/gapaware_rankes_fastpso_2seed_summary_20260507.md",
+    "results/internalfix_ms120_3seed_summary_20260507.md",
+    "results/q1_reviewer_closure_20260507.md",
     "results/release_final_pack_20260507.md"
   ],
   "notes": [

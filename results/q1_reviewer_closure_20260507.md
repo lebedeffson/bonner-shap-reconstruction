@@ -50,8 +50,27 @@
 2. Есть sensitivity sweep по SHAP-семантике.
 3. Есть отдельный классический unfolding baseline-блок (включая MAXED/GRAVEL-like proxy).
 4. Скрипты запускаются напрямую (`python scripts/...`) без `PYTHONPATH` костылей.
+5. Внутренняя важность переведена на `task-loss gradient` режим и теперь проходит deletion-тест на multi-seed.
 
-## 4) Остаточные ограничения (честно)
+## 4) Internal-importance fix (target-aware gradient mode)
+
+Файлы:
+- `results/internalfix_ms120_3seed_summary_20260507.md`
+- `results/faithfulness_internalfix_ms120_s42_internal.json`
+- `results/faithfulness_internalfix_ms120_s43_internal.json`
+- `results/faithfulness_internalfix_ms120_s44_internal.json`
+
+Ключ:
+- `AUC gap Internal mean = +0.015399` (std `0.003545`)
+- `AUC gap Vanilla-importance mean = -0.004065` (std `0.003574`)
+- `Wins Internal vs Vanilla-importance = 3/3`
+- `Top/random Internal > 1.0` во всех `3/3` запусках
+
+Вывод:
+- критичный пункт рецензии по deletion-тесту внутренней карты закрыт практическим кодовым фиксом;
+- внутренняя важность стала функционально валидной на multi-seed.
+
+## 5) Остаточные ограничения (честно)
 
 1. MAXED/GRAVEL реализованы как proxy-версии, не как полные reference-реализации исторических пакетов.
 2. Sensitivity sweep выполнен на `short40` контуре (оперативный Q1 validation loop).

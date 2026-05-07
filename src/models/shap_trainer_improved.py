@@ -71,6 +71,17 @@ class ShapAwareANFISTrainerImproved:
         self.rank_consistency_weight = float(shap_config.get('rank_consistency_weight', 0.35))
         self.rank_consistency_topk_frac = float(shap_config.get('rank_consistency_topk_frac', 0.3))
         self.rank_consistency_margin = float(shap_config.get('rank_consistency_margin', 0.02))
+        self.internal_importance_mode = str(
+            shap_config.get('internal_importance_mode', 'task_loss')
+        ).strip().lower()
+        self.internal_importance_task_weight = float(
+            shap_config.get('internal_importance_task_weight', 0.7)
+        )
+        if self.internal_importance_mode not in {'output_mean', 'task_loss', 'hybrid'}:
+            self.internal_importance_mode = 'task_loss'
+        self.internal_importance_task_weight = float(
+            np.clip(self.internal_importance_task_weight, 0.0, 1.0)
+        )
         
         # Адаптивная нормализация SHAP loss
         self.main_loss_ema = None  # Скользящее среднее main loss
@@ -353,7 +364,7 @@ class ShapAwareANFISTrainerImproved:
                     # Вычисляем main_loss до вызова регуляризации для адаптации
                     main_loss_value = main_loss.detach().item()
                     shap_loss_tensor, shap_components = self._compute_improved_shap_regularization(
-                        batch_X, baseline_values, predictions, main_loss_value=main_loss_value
+                        batch_X, baseline_values, predictions, batch_y=batch_y, main_loss_value=main_loss_value
                     )
                 else:
                     # Простая SHAP регуляризация (для совместимости) / отключена на warmup
@@ -538,7 +549,7 @@ class ShapAwareANFISTrainerImproved:
                 if selection_importance_key == 'shap':
                     val_importance = self.get_global_shap_importance(X_val_array)
                 else:
-                    val_importance = self.get_internal_gradient_importance(X_val_array)
+                    val_importance = self.get_internal_gradient_importance(X_val_array, y_sample=y_val_array)
 
                 gap_metrics = self._compute_deletion_gap_metrics(
                     X_val_array,
@@ -673,15 +684,17 @@ class ShapAwareANFISTrainerImproved:
                         f"(score={best_selection_score:.6f})"
                     )
 
-        history['shap_spec'] = {
-            'estimator': self.shap_estimator,
-            'max_exact_features': int(self.max_exact_features),
-            'strict_exact_shap': bool(self.strict_exact_shap),
-            'mc_permutations': int(self.mc_permutations),
-            'baseline_mode': self.shap_baseline_mode,
-            'baseline_clip_nonnegative': bool(self.shap_baseline_clip_nonnegative),
-            'value_function': self.shap_value_function,
-        }
+            history['shap_spec'] = {
+                'estimator': self.shap_estimator,
+                'max_exact_features': int(self.max_exact_features),
+                'strict_exact_shap': bool(self.strict_exact_shap),
+                'mc_permutations': int(self.mc_permutations),
+                'baseline_mode': self.shap_baseline_mode,
+                'baseline_clip_nonnegative': bool(self.shap_baseline_clip_nonnegative),
+                'value_function': self.shap_value_function,
+                'internal_importance_mode': self.internal_importance_mode,
+                'internal_importance_task_weight': float(self.internal_importance_task_weight),
+            }
         history['shap_compute'] = dict(self.shap_compute_stats)
 
         self.training_time = time.time() - start_time
@@ -712,7 +725,7 @@ class ShapAwareANFISTrainerImproved:
 
         return torch.mean(diffs ** 2)
 
-    def _compute_improved_shap_regularization(self, batch_X, baseline_values, predictions, main_loss_value=None):
+    def _compute_improved_shap_regularization(self, batch_X, baseline_values, predictions, batch_y=None, main_loss_value=None):
         """
         Вычисляет улучшенную SHAP регуляризацию с 4 компонентами:
         - Consistency: согласованность с настоящими Shapley values
@@ -731,18 +744,58 @@ class ShapAwareANFISTrainerImproved:
         
         # Вычисляем gradient-based importance (дифференцируемо!)
         batch_X.requires_grad_(True)
-        
-        output_dim = predictions.shape[1] if predictions.ndim > 1 else 1
-        grad_outputs = torch.ones_like(predictions) / output_dim
-        
-        grad_input = torch.autograd.grad(
-            outputs=predictions,
-            inputs=batch_X,
-            grad_outputs=grad_outputs,
-            create_graph=True,
-            retain_graph=True,
-            only_inputs=True
-        )[0]  # [batch_size, n_features]
+
+        grad_input_output = None
+        grad_input_task = None
+
+        if self.internal_importance_mode in {'output_mean', 'hybrid'}:
+            output_dim = predictions.shape[1] if predictions.ndim > 1 else 1
+            grad_outputs = torch.ones_like(predictions) / output_dim
+            grad_input_output = torch.autograd.grad(
+                outputs=predictions,
+                inputs=batch_X,
+                grad_outputs=grad_outputs,
+                create_graph=True,
+                retain_graph=True,
+                only_inputs=True
+            )[0]
+
+        if self.internal_importance_mode in {'task_loss', 'hybrid'} and batch_y is not None:
+            if predictions.shape != batch_y.shape:
+                min_dim = min(predictions.shape[-1], batch_y.shape[-1])
+                y_for_grad = batch_y[..., :min_dim]
+                p_for_grad = predictions[..., :min_dim]
+            else:
+                y_for_grad = batch_y
+                p_for_grad = predictions
+            per_sample_mse = torch.mean((p_for_grad - y_for_grad) ** 2, dim=1)
+            task_scalar = torch.mean(per_sample_mse)
+            grad_input_task = torch.autograd.grad(
+                outputs=task_scalar,
+                inputs=batch_X,
+                create_graph=True,
+                retain_graph=True,
+                only_inputs=True
+            )[0]
+
+        if grad_input_task is not None and grad_input_output is not None:
+            w = float(self.internal_importance_task_weight)
+            grad_input = w * grad_input_task + (1.0 - w) * grad_input_output
+        elif grad_input_task is not None:
+            grad_input = grad_input_task
+        elif grad_input_output is not None:
+            grad_input = grad_input_output
+        else:
+            output_dim = predictions.shape[1] if predictions.ndim > 1 else 1
+            grad_outputs = torch.ones_like(predictions) / output_dim
+            grad_input = torch.autograd.grad(
+                outputs=predictions,
+                inputs=batch_X,
+                grad_outputs=grad_outputs,
+                create_graph=True,
+                retain_graph=True,
+                only_inputs=True
+            )[0]
         
         # Важность признаков через градиенты
         grad_importance = torch.abs(grad_input) * torch.abs(batch_X)
@@ -1207,8 +1260,8 @@ class ShapAwareANFISTrainerImproved:
         shap_values = self._calculate_shap_approximation(X_sample_array, baseline_values)
         return self._normalize_global_importance(shap_values)
 
-    def get_internal_gradient_importance(self, X_sample, batch_size=128):
-        """Внутренняя важность из того же градиентного механизма, что в consistency-loss."""
+    def get_internal_gradient_importance(self, X_sample, y_sample=None, batch_size=128):
+        """Внутренняя важность из того же механизма, что оптимизируется в train-time."""
         X_sample_array = np.array(X_sample) if not isinstance(X_sample, np.ndarray) else X_sample
         X_sample_array = np.asarray(X_sample_array, dtype=np.float32)
         if X_sample_array.ndim == 1:
@@ -1216,6 +1269,16 @@ class ShapAwareANFISTrainerImproved:
         if X_sample_array.size == 0:
             return np.empty((0,), dtype=float)
         X_sample_array = np.nan_to_num(X_sample_array, nan=0.0, posinf=0.0, neginf=0.0)
+
+        y_sample_array = None
+        if y_sample is not None:
+            y_sample_array = np.array(y_sample) if not isinstance(y_sample, np.ndarray) else y_sample
+            y_sample_array = np.asarray(y_sample_array, dtype=np.float32)
+            if y_sample_array.ndim == 1:
+                y_sample_array = y_sample_array.reshape(-1, 1)
+            y_sample_array = np.nan_to_num(y_sample_array, nan=0.0, posinf=0.0, neginf=0.0)
+            if y_sample_array.shape[0] != X_sample_array.shape[0]:
+                y_sample_array = None
 
         self.model.eval()
         n = X_sample_array.shape[0]
@@ -1227,16 +1290,59 @@ class ShapAwareANFISTrainerImproved:
             end = min(n, start + max(1, int(batch_size)))
             xb = torch.tensor(X_sample_array[start:end], dtype=torch.float32, device=self.device, requires_grad=True)
             pred = self.model(xb)
-            output_dim = pred.shape[1] if pred.ndim > 1 else 1
-            grad_outputs = torch.ones_like(pred) / output_dim
-            grad_input = torch.autograd.grad(
-                outputs=pred,
-                inputs=xb,
-                grad_outputs=grad_outputs,
-                create_graph=False,
-                retain_graph=False,
-                only_inputs=True,
-            )[0]
+            grad_input_output = None
+            grad_input_task = None
+
+            mode = self.internal_importance_mode
+            if mode in {'output_mean', 'hybrid'}:
+                output_dim = pred.shape[1] if pred.ndim > 1 else 1
+                grad_outputs = torch.ones_like(pred) / output_dim
+                grad_input_output = torch.autograd.grad(
+                    outputs=pred,
+                    inputs=xb,
+                    grad_outputs=grad_outputs,
+                    create_graph=False,
+                    retain_graph=True,
+                    only_inputs=True,
+                )[0]
+
+            if mode in {'task_loss', 'hybrid'} and y_sample_array is not None:
+                yb = torch.tensor(y_sample_array[start:end], dtype=torch.float32, device=self.device)
+                if pred.shape != yb.shape:
+                    min_dim = min(pred.shape[-1], yb.shape[-1])
+                    pred_for_grad = pred[..., :min_dim]
+                    yb_for_grad = yb[..., :min_dim]
+                else:
+                    pred_for_grad = pred
+                    yb_for_grad = yb
+                per_sample_mse = torch.mean((pred_for_grad - yb_for_grad) ** 2, dim=1)
+                task_scalar = torch.mean(per_sample_mse)
+                grad_input_task = torch.autograd.grad(
+                    outputs=task_scalar,
+                    inputs=xb,
+                    create_graph=False,
+                    retain_graph=False,
+                    only_inputs=True,
+                )[0]
+
+            if grad_input_task is not None and grad_input_output is not None:
+                w = float(self.internal_importance_task_weight)
+                grad_input = w * grad_input_task + (1.0 - w) * grad_input_output
+            elif grad_input_task is not None:
+                grad_input = grad_input_task
+            elif grad_input_output is not None:
+                grad_input = grad_input_output
+            else:
+                output_dim = pred.shape[1] if pred.ndim > 1 else 1
+                grad_outputs = torch.ones_like(pred) / output_dim
+                grad_input = torch.autograd.grad(
+                    outputs=pred,
+                    inputs=xb,
+                    grad_outputs=grad_outputs,
+                    create_graph=False,
+                    retain_graph=False,
+                    only_inputs=True,
+                )[0]
             imp = (torch.abs(grad_input) * torch.abs(xb)).detach().cpu().numpy()
             imp = np.nan_to_num(imp, nan=0.0, posinf=0.0, neginf=0.0)
             acc += np.sum(imp, axis=0)

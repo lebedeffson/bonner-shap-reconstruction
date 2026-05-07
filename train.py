@@ -446,7 +446,9 @@ def train_and_save(args):
     shap_importance_data = X_real_shap_array
     
     shap_importance = shap_trainer.get_global_shap_importance(shap_importance_data)
-    internal_importance = shap_trainer.get_internal_gradient_importance(shap_importance_data)
+    internal_importance = shap_trainer.get_internal_gradient_importance(
+        shap_importance_data, y_sample=y_real_shap_array
+    )
     
     # Проверка на NaN/Inf
     metrics_array = np.array(list(shap_metrics.values()), dtype=float)

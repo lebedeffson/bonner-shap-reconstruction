@@ -111,6 +111,19 @@ python train.py \
 
 This run performs vanilla pretraining and then applies SHAP-regularized fine-tuning. The regularized stage is designed to preserve reconstruction quality while improving the alignment between internal importance and exact SHAP targets.
 
+To make internal attribution functionally faithful in deletion tests, use target-aware internal gradients in SHAP config:
+
+```yaml
+shap:
+  internal_importance_mode: task_loss
+  internal_importance_task_weight: 0.7
+```
+
+Supported modes are:
+- `output_mean` (legacy)
+- `task_loss` (recommended)
+- `hybrid` (blend with `internal_importance_task_weight`)
+
 ## Faithfulness Evaluation
 
 The repository includes a deletion-based faithfulness report. The evaluation compares how the model behaves when top-ranked, randomly selected, and bottom-ranked input channels are masked. A faithful importance ranking should assign higher impact to top-ranked channels than to bottom-ranked channels.
