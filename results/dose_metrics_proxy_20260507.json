@@ -1,0 +1,12 @@
+{
+  "summary_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/training_summary_20260507_121747_dev_rank_es_fastpso_s43.json",
+  "coeffs_source": "flat_ones_proxy",
+  "n_samples": 75,
+  "n_bins": 60,
+  "dose_mae_abs": 0.38554084248104636,
+  "dose_rmse_abs": 0.4997719705276803,
+  "dose_mape_mean": 0.07462470480519175,
+  "dose_bias_mean": 0.01988300813947771,
+  "dose_bias_std": 0.10613672835562733,
+  "dose_corr_pearson": 0.9684758007570212
+}

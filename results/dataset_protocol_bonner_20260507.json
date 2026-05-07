@@ -1,0 +1,19 @@
+{
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/config_integrated_shap.yaml",
+  "data_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/normalized_data_with_q_375.csv",
+  "n_samples": 375,
+  "n_features": 10,
+  "n_targets": 60,
+  "split": {
+    "train": 225,
+    "validation": 75,
+    "test": 75,
+    "train_frac": 0.6,
+    "validation_frac": 0.2,
+    "test_frac": 0.2
+  },
+  "meta_columns": [],
+  "meta_column_count": 0,
+  "unique_spectra": 374,
+  "duplicate_spectra": 1
+}
