@@ -5,7 +5,7 @@ dataset:
   mix_with_real: false
   mix_ratio: 0.0
   test_size: 0.2
-  random_state: 43
+  random_state: 42
   feature_prefix: Q
   feature_count: 10
   feature_index_start: 1
@@ -18,11 +18,11 @@ model:
   vanishing_strategy: blend
   optim: OriginalPSO
   reg_lambda: 0.001
-  seed: 43
+  seed: 42
   n_workers: 4
   optim_params:
-    epoch: 150
-    pop_size: 100
+    epoch: 20
+    pop_size: 30
     verbose: false
 shap_reg:
   enabled: true
@@ -30,7 +30,7 @@ shap_reg:
   training_mode: real_only
   use_pso_init: false
   pso_epochs: 150
-  epochs: 120
+  epochs: 40
   batch_size: 32
   lr: 0.001
   regularization_start_ratio: 0.12
@@ -75,10 +75,10 @@ shap_reg:
     lambda_r2_penalty: 1.0
     r2_penalty_power: 2.0
     early_stop_patience: 6
-    early_stop_min_epochs: 45
+    early_stop_min_epochs: 15
     early_stop_min_delta: 0.0005
     restore_best: true
-    seed: 43
+    seed: 42
   tikhonov:
     enabled: true
     lambda: 0.002

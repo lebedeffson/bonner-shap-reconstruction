@@ -6,6 +6,21 @@ Bonner spectrum reconstruction is an ill-posed inverse problem. The input vector
 
 EAAR experiments are maintained in a separate repository at https://github.com/lebedeffson/eaar-regularization. The present repository is dedicated to the SHAP-regularized Bonner spectrum reconstruction line.
 
+## Latest Result Snapshot (2026-05-07)
+
+The current repository state is finalized around a short multi-seed validation cycle and a method-refinement cycle.
+
+- Multi-seed short benchmark (`seeds 42/43/44`):
+  - SHAP `AUC gap mean = 0.011759`
+  - SHAP wins vs vanilla by `AUC gap`: `3/3`
+- Rank/early-stop refinement (`seeds 42/43`, fast PSO smoke):
+  - SHAP `AUC gap mean = 0.020822`
+  - Relative gain vs previous short baseline (`seeds 42/43`): `+63.90%`
+
+Compact release artifacts:
+- `results/release_final_pack_20260507.md`
+- `results/results_manifest.json`
+
 ## Method
 
 The model is trained with a reconstruction loss and an additional SHAP-aware regularization term. The total objective has the following form.

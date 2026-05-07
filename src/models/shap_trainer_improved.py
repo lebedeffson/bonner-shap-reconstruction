@@ -53,6 +53,12 @@ class ShapAwareANFISTrainerImproved:
         
         # Параметры улучшенной SHAP регуляризации
         self.use_improved_shap = shap_config.get('use_improved_shap', True)
+        self.regularization_start_ratio = float(shap_config.get('regularization_start_ratio', 0.0))
+        self.regularization_start_ratio = float(np.clip(self.regularization_start_ratio, 0.0, 0.95))
+        self.rank_consistency_enabled = bool(shap_config.get('rank_consistency_enabled', True))
+        self.rank_consistency_weight = float(shap_config.get('rank_consistency_weight', 0.35))
+        self.rank_consistency_topk_frac = float(shap_config.get('rank_consistency_topk_frac', 0.3))
+        self.rank_consistency_margin = float(shap_config.get('rank_consistency_margin', 0.02))
         
         # Адаптивная нормализация SHAP loss
         self.main_loss_ema = None  # Скользящее среднее main loss
@@ -221,11 +227,17 @@ class ShapAwareANFISTrainerImproved:
         selection_min_r2 = float(selection_cfg.get('min_r2', -1e9))
         selection_restore_best = bool(selection_cfg.get('restore_best', True))
         selection_importance_key = str(selection_cfg.get('importance_key', 'internal')).strip().lower()
+        selection_early_stop_patience = max(0, int(selection_cfg.get('early_stop_patience', 0)))
+        selection_early_stop_min_epochs = max(1, int(selection_cfg.get('early_stop_min_epochs', 1)))
+        selection_early_stop_min_delta = float(selection_cfg.get('early_stop_min_delta', 0.0))
+        selection_early_stop_counter = 0
+        selection_stopped_epoch = None
 
         best_selection_score = -np.inf
         best_selection_epoch = None
         best_selection_state = None
         best_selection_metrics = {}
+        stop_training = False
 
         if selection_enabled:
             X_val_array = np.asarray(X_val, dtype=np.float32)
@@ -251,6 +263,8 @@ class ShapAwareANFISTrainerImproved:
                 self.logger.info(f"   Gamma: {self.gamma}")
             if self.use_improved_shap:
                 self.logger.info(f"   Используется улучшенная SHAP регуляризация (4 компонента)")
+            if self.regularization_start_ratio > 0:
+                self.logger.info(f"   Delayed regularization start: {self.regularization_start_ratio:.0%} эпох")
             self.logger.info(f"   SHAP estimator: {self.shap_estimator}")
             if self.use_convergence_smoothing:
                 self.logger.info(f"   Плавная сходимость: включена (patience: {self.convergence_patience})")
@@ -273,6 +287,7 @@ class ShapAwareANFISTrainerImproved:
             epoch_shap_components = {
                 'consistency': [], 'sparsity': [], 'faithfulness': [], 'stability': []
             }
+            epoch_shap_rank_loss = []
             epoch_shap_weights = {
                 'consistency': [], 'sparsity': [], 'faithfulness': [], 'stability': []
             }
@@ -319,17 +334,30 @@ class ShapAwareANFISTrainerImproved:
                     tikhonov_loss = torch.tensor(0.0, device=self.device)
 
                 # Улучшенная SHAP регуляризация
-                if self.use_improved_shap:
+                progress = epoch / max(1, self.total_epochs)
+                use_regularization = progress >= self.regularization_start_ratio
+                if use_regularization and self.use_improved_shap:
                     # Вычисляем main_loss до вызова регуляризации для адаптации
                     main_loss_value = main_loss.detach().item()
                     shap_loss_tensor, shap_components = self._compute_improved_shap_regularization(
                         batch_X, baseline_values, predictions, main_loss_value=main_loss_value
                     )
                 else:
-                    # Простая SHAP регуляризация (для совместимости)
-                    shap_loss_tensor, shap_components = self._compute_simple_shap_regularization(
-                        batch_X, baseline_values, predictions
-                    )
+                    # Простая SHAP регуляризация (для совместимости) / отключена на warmup
+                    if use_regularization:
+                        shap_loss_tensor, shap_components = self._compute_simple_shap_regularization(
+                            batch_X, baseline_values, predictions
+                        )
+                    else:
+                        shap_loss_tensor = torch.tensor(0.0, device=self.device, requires_grad=True)
+                        shap_components = {name: 0.0 for name in self.COMPONENT_NAMES}
+                        shap_components['mse'] = 0.0
+                        shap_components['js'] = 0.0
+                        shap_components['rank_loss'] = 0.0
+                        shap_components['weight_consistency'] = 0.0
+                        shap_components['weight_sparsity'] = 0.0
+                        shap_components['weight_faithfulness'] = 0.0
+                        shap_components['weight_stability'] = 0.0
 
                 # УЛУЧШЕННАЯ АДАПТИВНАЯ ФУНКЦИЯ ПОТЕРЬ ДЛЯ 2 ЗАДАЧ:
                 # 1. Основная задача: предсказание спектра (main_loss)
@@ -435,6 +463,7 @@ class ShapAwareANFISTrainerImproved:
                 for component_name in self.COMPONENT_NAMES:
                     epoch_shap_components[component_name].append(float(shap_components.get(component_name, 0.0)))
                     epoch_shap_weights[component_name].append(float(shap_components.get(f'weight_{component_name}', 0.0)))
+                epoch_shap_rank_loss.append(float(shap_components.get('rank_loss', 0.0)))
 
             # Усреднение потерь по эпохе
             history_sources = {
@@ -477,6 +506,11 @@ class ShapAwareANFISTrainerImproved:
                         history[history_key] = []
                     weight_values = epoch_shap_weights[comp_name]
                     history[history_key].append(float(np.mean(weight_values)) if weight_values else float('nan'))
+                if 'shap_rank_loss' not in history:
+                    history['shap_rank_loss'] = []
+                history['shap_rank_loss'].append(
+                    float(np.mean(epoch_shap_rank_loss)) if epoch_shap_rank_loss else 0.0
+                )
 
             # Прогресс с адаптивными параметрами
             if selection_enabled and (((epoch + 1) % selection_eval_every == 0) or (epoch + 1 == epochs)):
@@ -533,7 +567,8 @@ class ShapAwareANFISTrainerImproved:
                 history['selection_r2_var_weighted'].append(float(r2_var_weighted_val))
                 history['selection_score'].append(float(selection_score))
 
-                if selection_score > best_selection_score:
+                improved = selection_score > (best_selection_score + selection_early_stop_min_delta)
+                if improved:
                     best_selection_score = selection_score
                     best_selection_epoch = epoch + 1
                     best_selection_state = {
@@ -553,6 +588,17 @@ class ShapAwareANFISTrainerImproved:
                         'alignment': float(alignment),
                         'quality_metric': selection_quality_metric,
                     }
+                    selection_early_stop_counter = 0
+                else:
+                    selection_early_stop_counter += 1
+
+                if (
+                    selection_early_stop_patience > 0
+                    and (epoch + 1) >= selection_early_stop_min_epochs
+                    and selection_early_stop_counter >= selection_early_stop_patience
+                ):
+                    stop_training = True
+                    selection_stopped_epoch = epoch + 1
 
             if self.verbose and (epoch + 1) % 5 == 0:
                 msg = f"   Эпоха {epoch + 1}/{epochs}: Total: {history['total_loss'][-1]:.6f}, Main: {history['main_loss'][-1]:.6f}, SHAP: {history['shap_loss'][-1]:.6f}"
@@ -574,7 +620,17 @@ class ShapAwareANFISTrainerImproved:
                         f" | SelScore: {history['selection_score'][-1]:.4f}"
                         f" (gap {history['selection_auc_gap'][-1]:.4f}, r2 {history['selection_r2'][-1]:.4f})"
                     )
+                    if selection_early_stop_patience > 0:
+                        msg += f" | NoImp: {selection_early_stop_counter}/{selection_early_stop_patience}"
                 self.logger.info(msg)
+
+            if stop_training:
+                if self.verbose:
+                    self.logger.info(
+                        f"🛑 Early stop on selection score at epoch {selection_stopped_epoch} "
+                        f"(patience={selection_early_stop_patience})"
+                    )
+                break
 
         if selection_enabled:
             history['gap_selection'] = {
@@ -590,6 +646,10 @@ class ShapAwareANFISTrainerImproved:
                 'beta_alignment': float(selection_beta_alignment),
                 'lambda_r2_penalty': float(selection_lambda_r2_penalty),
                 'r2_penalty_power': float(selection_penalty_power),
+                'early_stop_patience': int(selection_early_stop_patience),
+                'early_stop_min_epochs': int(selection_early_stop_min_epochs),
+                'early_stop_min_delta': float(selection_early_stop_min_delta),
+                'stopped_epoch': int(selection_stopped_epoch) if selection_stopped_epoch is not None else None,
                 'best': best_selection_metrics if best_selection_metrics else None,
             }
             if selection_restore_best and best_selection_state is not None:
@@ -735,12 +795,16 @@ class ShapAwareANFISTrainerImproved:
                     grad_importance_normalized,
                     true_shap_normalized,
                     current_main_loss,
-                    use_adaptive=True
+                    use_adaptive=True,
+                    rank_weight=self.rank_consistency_weight if self.rank_consistency_enabled else 0.0,
+                    rank_topk_frac=self.rank_consistency_topk_frac,
+                    rank_margin=self.rank_consistency_margin,
                 )
-                
+
                 consistency_loss = consistency_result['consistency_loss']
                 mse_loss = consistency_result['mse_loss']
                 js_loss = consistency_result['js_loss']
+                rank_loss = consistency_result.get('rank_loss', torch.tensor(0.0, device=self.device))
         
         # 2. SPARSITY: разреженность важности признаков (МАТЕМАТИЧЕСКИ УЛУЧШЕНО)
         # Адаптивная формула, которая не мешает точности модели
@@ -863,8 +927,10 @@ class ShapAwareANFISTrainerImproved:
             shap_components['consistency'] = consistency_loss.detach().item()
             shap_components['mse'] = mse_loss.detach().item()
             shap_components['js'] = js_loss.detach().item()
+            shap_components['rank_loss'] = rank_loss.detach().item() if 'rank_loss' in locals() else 0.0
         else:
             shap_components['consistency'] = 0.0
+            shap_components['rank_loss'] = 0.0
         
         # Добавляем именно те веса компонентов, которые использовались для этого батча.
         if component_weights_used is None:

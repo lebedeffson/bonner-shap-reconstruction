@@ -33,6 +33,7 @@ shap_reg:
   epochs: 120
   batch_size: 32
   lr: 0.001
+  regularization_start_ratio: 0.12
   gamma: 0.1
   gamma_start: 0.02
   gamma_end: 0.1
@@ -56,6 +57,10 @@ shap_reg:
   gamma_consistency: 0.2
   gamma_faithfulness: 0.05
   gamma_stability: 0.05
+  rank_consistency_enabled: true
+  rank_consistency_weight: 0.35
+  rank_consistency_topk_frac: 0.3
+  rank_consistency_margin: 0.02
   gap_aware_selection:
     enabled: true
     eval_every_epochs: 5
@@ -69,6 +74,9 @@ shap_reg:
     beta_alignment: 0.0
     lambda_r2_penalty: 1.0
     r2_penalty_power: 2.0
+    early_stop_patience: 6
+    early_stop_min_epochs: 45
+    early_stop_min_delta: 0.0005
     restore_best: true
     seed: 42
   tikhonov:

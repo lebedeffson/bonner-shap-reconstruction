@@ -36,15 +36,29 @@ class PrecisionOptimizedSHAPRegularization:
         current_main_loss: float,
         use_adaptive: bool = True,
         js_weight: float = 0.5,
+        rank_weight: float = 0.0,
+        rank_topk_frac: float = 0.3,
+        rank_margin: float = 0.02,
     ) -> dict:
-        """Consistency = MSE + JS divergence, scaled by model precision."""
+        """Consistency = MSE + JS + rank-margin term, scaled by model precision."""
         eps = 1e-10
         p = PrecisionOptimizedSHAPRegularization._safe_normalize(grad_importance_normalized, eps=eps)
         q = PrecisionOptimizedSHAPRegularization._safe_normalize(true_shap_normalized, eps=eps)
 
         mse_loss = torch.mean((p - q) ** 2)
         js_loss = PrecisionOptimizedSHAPRegularization._js_divergence(p, q, eps=eps)
-        consistency_loss = mse_loss + js_weight * js_loss
+        rank_loss = torch.tensor(0.0, device=p.device, dtype=p.dtype)
+        if rank_weight > 0.0 and p.numel() >= 4:
+            d = int(p.numel())
+            k = max(1, min(d // 2, int(round(float(rank_topk_frac) * d))))
+            top_idx = torch.topk(q, k=k, largest=True, sorted=False).indices
+            bot_idx = torch.topk(q, k=k, largest=False, sorted=False).indices
+            top_mean = torch.mean(p[top_idx])
+            bot_mean = torch.mean(p[bot_idx])
+            margin_t = torch.tensor(float(rank_margin), device=p.device, dtype=p.dtype)
+            rank_loss = torch.relu(margin_t - (top_mean - bot_mean))
+
+        consistency_loss = mse_loss + js_weight * js_loss + float(rank_weight) * rank_loss
 
         if use_adaptive:
             scale = 1.0 / (1.0 + float(current_main_loss))
@@ -54,6 +68,7 @@ class PrecisionOptimizedSHAPRegularization:
             "consistency_loss": consistency_loss,
             "mse_loss": mse_loss,
             "js_loss": js_loss,
+            "rank_loss": rank_loss,
         }
 
     @staticmethod

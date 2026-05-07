@@ -1,0 +1,40 @@
+{
+  "summary_path": "results/training_summary_20260507_121253_dev_rank_es_fastpso.json",
+  "model_state_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/results/anfis_model_state_20260507_121253_dev_rank_es_fastpso.pt",
+  "config_path": "/home/lebedeffson/Code/bonner-shap-reconstruction/configs/multiseed_gapaware_v2_short/config_integrated_shap_short40_seed42_dev_fastpso.yaml",
+  "masking": "permute",
+  "k_max": 4,
+  "random_trials": 20,
+  "base_mse": 0.07261114734636359,
+  "auc_top": 0.023428243429939898,
+  "auc_random": 0.006349488113185593,
+  "auc_bottom": -0.0005596363524606601,
+  "auc_gap_top_minus_bottom": 0.023987879782400558,
+  "top_random_ratio": 3.6897845950129606,
+  "curve": [
+    {
+      "k": 1,
+      "delta_mse_top": 0.007184384258496268,
+      "delta_mse_random": 0.0006482073235346046,
+      "delta_mse_bottom": -4.469677501708902e-05
+    },
+    {
+      "k": 2,
+      "delta_mse_top": 0.008089109148450638,
+      "delta_mse_random": 0.0017893130636331904,
+      "delta_mse_bottom": -0.0001760519637166169
+    },
+    {
+      "k": 3,
+      "delta_mse_top": 0.0074654112963280644,
+      "delta_mse_random": 0.0024428245275547426,
+      "delta_mse_bottom": -0.00039687805104311746
+    },
+    {
+      "k": 4,
+      "delta_mse_top": 0.008563061711826123,
+      "delta_mse_random": 0.003586493720460714,
+      "delta_mse_bottom": 7.128409961523752e-05
+    }
+  ]
+}

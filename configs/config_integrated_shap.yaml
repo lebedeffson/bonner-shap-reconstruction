@@ -45,6 +45,8 @@ shap_reg:
   epochs: 300 # 300 эпох тонкой настройки с SHAP
   batch_size: 32
   lr: 0.001
+  # Включаем регуляризацию не с 1-й эпохи, чтобы сначала стабилизировать предиктор
+  regularization_start_ratio: 0.15
   
   # SHAP параметры - усиленный режим после абляционного анализа
   gamma: 0.10
@@ -71,6 +73,11 @@ shap_reg:
   gamma_consistency: 0.2
   gamma_faithfulness: 0.05
   gamma_stability: 0.05
+  # Rank-margin в consistency: усиливает top-vs-bottom разделение важности
+  rank_consistency_enabled: true
+  rank_consistency_weight: 0.35
+  rank_consistency_topk_frac: 0.30
+  rank_consistency_margin: 0.02
 
   # Gap-aware checkpoint selection:
   # выбираем лучший чекпоинт по deletion AUC gap при ограничении на R².
@@ -87,6 +94,9 @@ shap_reg:
     beta_alignment: 0.0
     lambda_r2_penalty: 1.0
     r2_penalty_power: 2.0
+    early_stop_patience: 10
+    early_stop_min_epochs: 80
+    early_stop_min_delta: 0.0005
     restore_best: true
     seed: 42
 
