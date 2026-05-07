@@ -2,6 +2,7 @@
 """Обучение ANFIS модели и сохранение результатов"""
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -65,6 +66,20 @@ def _to_serializable(obj):
     if isinstance(obj, (np.int32, np.int64)):
         return int(obj)
     return obj
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _sha256_json(obj) -> str:
+    payload = json.dumps(_to_serializable(obj), ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return _sha256_bytes(payload)
+
+
+def _sha256_array(arr: np.ndarray) -> str:
+    a = np.ascontiguousarray(np.nan_to_num(np.asarray(arr), nan=0.0, posinf=0.0, neginf=0.0))
+    return _sha256_bytes(a.tobytes())
 
 
 def _compute_band_metrics(y_true, y_pred, bands):
@@ -631,10 +646,32 @@ def train_and_save(args):
             'total': int(coeff_np.size)
         }
 
+    config_path_abs = os.path.abspath(config_path)
+    with open(config_path_abs, 'rb') as f:
+        config_file_sha256 = _sha256_bytes(f.read())
+    effective_config_sha256 = _sha256_json(config)
+    split_hash = _sha256_json({
+        'X_train_shape': list(np.asarray(X_real_shap_array).shape),
+        'X_val_shape': list(np.asarray(X_real_val_array).shape),
+        'X_test_shape': list(np.asarray(X_real_test_array).shape),
+        'y_train_shape': list(np.asarray(y_real_shap_array).shape),
+        'y_val_shape': list(np.asarray(y_real_val_array).shape),
+        'y_test_shape': list(np.asarray(y_real_test_array).shape),
+        'X_train_sha256': _sha256_array(X_real_shap_array),
+        'X_val_sha256': _sha256_array(X_real_val_array),
+        'X_test_sha256': _sha256_array(X_real_test_array),
+        'y_train_sha256': _sha256_array(y_real_shap_array),
+        'y_val_sha256': _sha256_array(y_real_val_array),
+        'y_test_sha256': _sha256_array(y_real_test_array),
+    })
+
     summary = {
         'timestamp': timestamp,
         'tag': args.tag,
-        'config_path': os.path.abspath(config_path),
+        'config_path': config_path_abs,
+        'config_sha256': config_file_sha256,
+        'effective_config_sha256': effective_config_sha256,
+        'split_hash': split_hash,
         'model_state': os.path.basename(model_state_path),
         'model_state_path': model_state_path,
         'train_size': int(X_train.shape[0]),  # Синтетические данные для базовой модели
@@ -659,6 +696,8 @@ def train_and_save(args):
             'nonfinite_parameters': _to_serializable(results.get('nonfinite_report', {})),
             'regularization': _summarize_regularization_history(results.get('shap_history'), shap_config),
             'gap_selection': _to_serializable(results.get('shap_history', {}).get('gap_selection')),
+            'shap_spec': _to_serializable(results.get('shap_history', {}).get('shap_spec')),
+            'shap_compute': _to_serializable(results.get('shap_history', {}).get('shap_compute')),
         },
         'dataset_settings': {
             'train_limit': dataset_config.get('train_limit'),

@@ -64,6 +64,13 @@ shap_reg:
   strict_exact_shap: true
   max_exact_features: 12
   mc_permutations: 256
+  # Формализация SHAP utility v(S):
+  # mean_output | sum_output | l2_output
+  shap_value_function: mean_output
+  # Базовая точка для masked-coalition:
+  # feature_mean | median | zero
+  shap_baseline_mode: feature_mean
+  shap_baseline_clip_nonnegative: true
   active_components: [consistency, sparsity, faithfulness, stability]
   
   # Улучшенная регуляризация (Consistency, Sparsity, Faithfulness, Stability)

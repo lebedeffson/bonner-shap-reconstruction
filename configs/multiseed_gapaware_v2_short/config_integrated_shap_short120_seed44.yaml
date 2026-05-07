@@ -83,6 +83,9 @@ shap_reg:
     enabled: true
     lambda: 0.002
     order: 2
+  shap_value_function: mean_output
+  shap_baseline_mode: feature_mean
+  shap_baseline_clip_nonnegative: true
 output:
   results_dir: results
   save_model: true

@@ -50,6 +50,18 @@ class ShapAwareANFISTrainerImproved:
         self.mc_permutations = int(shap_config.get('mc_permutations', 128))
         self.strict_exact_shap = bool(shap_config.get('strict_exact_shap', True))
         self.true_shap_samples_per_batch = int(shap_config.get('true_shap_samples_per_batch', 2))
+        self.shap_baseline_mode = str(shap_config.get('shap_baseline_mode', 'feature_mean')).strip().lower()
+        self.shap_baseline_clip_nonnegative = bool(shap_config.get('shap_baseline_clip_nonnegative', True))
+        self.shap_value_function = self._validate_shap_value_function(
+            shap_config.get('shap_value_function', 'mean_output')
+        )
+        self.shap_compute_stats = {
+            'exact_calls': 0,
+            'exact_total_coalitions': 0,
+            'exact_total_utility_evals': 0,
+            'permutation_calls': 0,
+            'permutation_total_utility_evals': 0,
+        }
         
         # Параметры улучшенной SHAP регуляризации
         self.use_improved_shap = shap_config.get('use_improved_shap', True)
@@ -191,8 +203,7 @@ class ShapAwareANFISTrainerImproved:
         data_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=True)
 
         # Базовые значения для SHAP
-        baseline_values = np.mean(X_train_array, axis=0)
-        baseline_values = np.nan_to_num(baseline_values, nan=0.0, posinf=0.0, neginf=0.0)
+        baseline_values = self._build_shap_baseline(X_train_array)
 
         # Оптимизатор и функция потерь
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
@@ -266,6 +277,8 @@ class ShapAwareANFISTrainerImproved:
             if self.regularization_start_ratio > 0:
                 self.logger.info(f"   Delayed regularization start: {self.regularization_start_ratio:.0%} эпох")
             self.logger.info(f"   SHAP estimator: {self.shap_estimator}")
+            self.logger.info(f"   SHAP baseline mode: {self.shap_baseline_mode}")
+            self.logger.info(f"   SHAP utility scalarization: {self.shap_value_function}")
             if self.use_convergence_smoothing:
                 self.logger.info(f"   Плавная сходимость: включена (patience: {self.convergence_patience})")
             if self.tikhonov_enabled and self.tikhonov_lambda > 0:
@@ -659,6 +672,17 @@ class ShapAwareANFISTrainerImproved:
                         f"🎯 Gap-aware restore: epoch {best_selection_epoch} "
                         f"(score={best_selection_score:.6f})"
                     )
+
+        history['shap_spec'] = {
+            'estimator': self.shap_estimator,
+            'max_exact_features': int(self.max_exact_features),
+            'strict_exact_shap': bool(self.strict_exact_shap),
+            'mc_permutations': int(self.mc_permutations),
+            'baseline_mode': self.shap_baseline_mode,
+            'baseline_clip_nonnegative': bool(self.shap_baseline_clip_nonnegative),
+            'value_function': self.shap_value_function,
+        }
+        history['shap_compute'] = dict(self.shap_compute_stats)
 
         self.training_time = time.time() - start_time
         if self.verbose:
@@ -1179,7 +1203,7 @@ class ShapAwareANFISTrainerImproved:
         if X_sample_array.size == 0:
             return np.empty((0,), dtype=float)
         X_sample_array = np.nan_to_num(X_sample_array, nan=0.0, posinf=0.0, neginf=0.0)
-        baseline_values = np.mean(X_sample_array, axis=0)
+        baseline_values = self._build_shap_baseline(X_sample_array)
         shap_values = self._calculate_shap_approximation(X_sample_array, baseline_values)
         return self._normalize_global_importance(shap_values)
 
@@ -1234,6 +1258,28 @@ class ShapAwareANFISTrainerImproved:
             return np.full(shap_values.shape, 1.0 / shap_values.size, dtype=float)
         return shap_values / total
 
+    @staticmethod
+    def _validate_shap_value_function(value):
+        v = str(value).strip().lower()
+        allowed = {'mean_output', 'sum_output', 'l2_output'}
+        return v if v in allowed else 'mean_output'
+
+    def _build_shap_baseline(self, X_array):
+        X = np.asarray(X_array, dtype=np.float32)
+        X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+        mode = self.shap_baseline_mode
+        if mode == 'zero':
+            baseline = np.zeros(X.shape[1], dtype=np.float32)
+        elif mode == 'median':
+            baseline = np.median(X, axis=0).astype(np.float32)
+        else:
+            # default: feature_mean
+            baseline = np.mean(X, axis=0).astype(np.float32)
+        baseline = np.nan_to_num(baseline, nan=0.0, posinf=0.0, neginf=0.0)
+        if self.shap_baseline_clip_nonnegative:
+            baseline = np.maximum(baseline, 0.0)
+        return baseline
+
     def _calculate_shap_approximation(self, X_batch, baseline):
         """SHAP значения для регуляризации (по умолчанию: полный exact SHAP)."""
         self.model.eval()
@@ -1267,13 +1313,21 @@ class ShapAwareANFISTrainerImproved:
 
             return self._calculate_permutation_mc_shap(X_numpy, baseline, self.mc_permutations)
 
-    def _predict_scalar_batch_mean(self, X_np):
-        """Скалярная utility-функция v(S): средний прогноз по батчу и выходам."""
+    def _predict_scalar_utility(self, X_np):
+        """Скалярная utility-функция v(S), задается параметром shap_value_function."""
         X_tensor = torch.tensor(X_np, dtype=torch.float32, device=self.device)
         pred = self.model(X_tensor).detach().cpu().numpy()
-        if pred.ndim > 1:
-            pred = np.mean(pred, axis=1)
-        return float(np.mean(pred))
+        pred = np.nan_to_num(pred, nan=0.0, posinf=0.0, neginf=0.0)
+        if pred.ndim == 1:
+            sample_scalar = pred
+        else:
+            if self.shap_value_function == 'sum_output':
+                sample_scalar = np.sum(pred, axis=1)
+            elif self.shap_value_function == 'l2_output':
+                sample_scalar = np.linalg.norm(pred, axis=1)
+            else:
+                sample_scalar = np.mean(pred, axis=1)
+        return float(np.mean(sample_scalar))
 
     def _masked_by_subset(self, X_np, baseline, subset_mask):
         """Оставляет только признаки из subset_mask, остальные заменяет baseline."""
@@ -1291,6 +1345,8 @@ class ShapAwareANFISTrainerImproved:
         """Точные SHAP-значения (полный перебор подмножеств)."""
         n_features = X_np.shape[1]
         total_masks = 1 << n_features
+        self.shap_compute_stats['exact_calls'] += 1
+        self.shap_compute_stats['exact_total_coalitions'] += int(total_masks)
         factorial = [math.factorial(i) for i in range(n_features + 1)]
         denom = float(factorial[n_features])
 
@@ -1299,7 +1355,8 @@ class ShapAwareANFISTrainerImproved:
         for mask in range(total_masks):
             popcnt[mask] = int(mask.bit_count())
             X_masked = self._masked_by_subset(X_np, baseline, mask)
-            v_cache[mask] = self._predict_scalar_batch_mean(X_masked)
+            v_cache[mask] = self._predict_scalar_utility(X_masked)
+        self.shap_compute_stats['exact_total_utility_evals'] += int(total_masks)
 
         phi = np.zeros(n_features, dtype=np.float64)
         for i in range(n_features):
@@ -1317,18 +1374,22 @@ class ShapAwareANFISTrainerImproved:
         """Monte-Carlo Шепли по случайным перестановкам (fallback для больших d)."""
         n_features = X_np.shape[1]
         n_perm = max(1, int(n_perm))
+        self.shap_compute_stats['permutation_calls'] += 1
         phi = np.zeros(n_features, dtype=np.float64)
         rng = np.random.default_rng(42)
 
         for _ in range(n_perm):
             perm = rng.permutation(n_features)
             current_mask = 0
-            v_prev = self._predict_scalar_batch_mean(self._masked_by_subset(X_np, baseline, current_mask))
+            v_prev = self._predict_scalar_utility(self._masked_by_subset(X_np, baseline, current_mask))
+            utility_calls = 1
             for feat in perm:
                 current_mask |= (1 << feat)
-                v_curr = self._predict_scalar_batch_mean(self._masked_by_subset(X_np, baseline, current_mask))
+                v_curr = self._predict_scalar_utility(self._masked_by_subset(X_np, baseline, current_mask))
                 phi[feat] += (v_curr - v_prev)
                 v_prev = v_curr
+                utility_calls += 1
+            self.shap_compute_stats['permutation_total_utility_evals'] += int(utility_calls)
 
         phi /= float(n_perm)
         return np.asarray(np.abs(phi), dtype=float)
