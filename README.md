@@ -18,7 +18,8 @@ The current repository state is finalized around a short multi-seed validation c
   - Relative gain vs previous short baseline (`seeds 42/43`): `+63.90%`
 
 Compact release artifacts:
-- `results/release_final_pack_20260507.md`
+- `results/internalfix_ms120_3seed_summary_20260507.md`
+- `results/q1_reviewer_closure_20260507.md`
 - `results/results_manifest.json`
 
 ## Method

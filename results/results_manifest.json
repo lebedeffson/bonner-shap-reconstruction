@@ -46,11 +46,11 @@
     "results/faithfulness_internalfix_ms120_s44_vanilla.json"
   ],
   "summary_packs": [
-    "results/gapaware_ms120_3seed_summary_20260507.md",
-    "results/gapaware_rankes_fastpso_2seed_summary_20260507.md",
+    "results/dataset_protocol_bonner_20260507.md",
+    "results/unfolding_proxies_benchmark_3seed_20260507.md",
+    "results/shap_semantics_sweep_q1_s40_seed42_20260507.md",
     "results/internalfix_ms120_3seed_summary_20260507.md",
-    "results/q1_reviewer_closure_20260507.md",
-    "results/release_final_pack_20260507.md"
+    "results/q1_reviewer_closure_20260507.md"
   ],
   "notes": [
     "Heavy artifacts (.pt/.npy/.png) are intentionally excluded from git.",
