@@ -247,6 +247,8 @@ class ShapAwareANFISTrainerImproved:
         selection_lambda_r2_penalty = float(selection_cfg.get('lambda_r2_penalty', selection_cfg.get('beta_r2_penalty', 1.0)))
         selection_penalty_power = float(selection_cfg.get('r2_penalty_power', 2.0))
         selection_min_r2 = float(selection_cfg.get('min_r2', -1e9))
+        selection_enforce_min_r2 = bool(selection_cfg.get('enforce_min_r2', False))
+        selection_fallback_to_best_r2 = bool(selection_cfg.get('fallback_to_best_r2', True))
         selection_restore_best = bool(selection_cfg.get('restore_best', True))
         selection_importance_key = str(selection_cfg.get('importance_key', 'internal')).strip().lower()
         selection_early_stop_patience = max(0, int(selection_cfg.get('early_stop_patience', 0)))
@@ -259,6 +261,10 @@ class ShapAwareANFISTrainerImproved:
         best_selection_epoch = None
         best_selection_state = None
         best_selection_metrics = {}
+        best_quality_value = -np.inf
+        best_quality_state = None
+        best_quality_epoch = None
+        best_quality_metrics = {}
         stop_training = False
 
         if selection_enabled:
@@ -581,6 +587,8 @@ class ShapAwareANFISTrainerImproved:
                     + selection_beta_alignment * alignment
                     - selection_lambda_r2_penalty * r2_penalty
                 )
+                if selection_enforce_min_r2 and (r2_quality_val < selection_min_r2):
+                    selection_score = float("-inf")
 
                 history['selection_auc_gap'].append(auc_gap)
                 history['selection_top_random_ratio'].append(top_random_ratio)
@@ -615,6 +623,20 @@ class ShapAwareANFISTrainerImproved:
                     selection_early_stop_counter = 0
                 else:
                     selection_early_stop_counter += 1
+
+                if r2_quality_val > best_quality_value:
+                    best_quality_value = float(r2_quality_val)
+                    best_quality_epoch = epoch + 1
+                    best_quality_state = {
+                        key: value.detach().cpu().clone()
+                        for key, value in self.model.state_dict().items()
+                    }
+                    best_quality_metrics = {
+                        'epoch': int(epoch + 1),
+                        'r2_quality': float(r2_quality_val),
+                        'r2_mean': float(r2_mean_val),
+                        'r2_var_weighted': float(r2_var_weighted_val),
+                    }
 
                 if (
                     selection_early_stop_patience > 0
@@ -666,6 +688,8 @@ class ShapAwareANFISTrainerImproved:
                 'importance_key': selection_importance_key,
                 'quality_metric': selection_quality_metric,
                 'min_r2': float(selection_min_r2),
+                'enforce_min_r2': bool(selection_enforce_min_r2),
+                'fallback_to_best_r2': bool(selection_fallback_to_best_r2),
                 'alpha_top_random': float(selection_alpha_top_random),
                 'beta_alignment': float(selection_beta_alignment),
                 'lambda_r2_penalty': float(selection_lambda_r2_penalty),
@@ -675,13 +699,30 @@ class ShapAwareANFISTrainerImproved:
                 'early_stop_min_delta': float(selection_early_stop_min_delta),
                 'stopped_epoch': int(selection_stopped_epoch) if selection_stopped_epoch is not None else None,
                 'best': best_selection_metrics if best_selection_metrics else None,
+                'best_quality': best_quality_metrics if best_quality_metrics else None,
             }
-            if selection_restore_best and best_selection_state is not None:
-                self.model.load_state_dict(best_selection_state, strict=False)
-                if self.verbose and best_selection_epoch is not None:
+            restored_kind = None
+            restored_epoch = None
+            if selection_restore_best:
+                if best_selection_state is not None:
+                    self.model.load_state_dict(best_selection_state, strict=False)
+                    restored_kind = "gap"
+                    restored_epoch = best_selection_epoch
+                elif selection_fallback_to_best_r2 and best_quality_state is not None:
+                    self.model.load_state_dict(best_quality_state, strict=False)
+                    restored_kind = "quality_fallback"
+                    restored_epoch = best_quality_epoch
+
+            if self.verbose and restored_kind is not None and restored_epoch is not None:
+                if restored_kind == "gap":
                     self.logger.info(
-                        f"🎯 Gap-aware restore: epoch {best_selection_epoch} "
+                        f"🎯 Gap-aware restore: epoch {restored_epoch} "
                         f"(score={best_selection_score:.6f})"
+                    )
+                else:
+                    self.logger.info(
+                        f"🎯 Gap-aware restore fallback to best quality: epoch {restored_epoch} "
+                        f"(r2={best_quality_value:.6f})"
                     )
 
             history['shap_spec'] = {

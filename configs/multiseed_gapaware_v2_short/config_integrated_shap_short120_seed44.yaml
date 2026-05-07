@@ -70,6 +70,8 @@ shap_reg:
     importance_key: internal
     quality_metric: r2_var_weighted
     min_r2: 0.83
+    enforce_min_r2: true
+    fallback_to_best_r2: true
     alpha_top_random: 0.0
     beta_alignment: 0.0
     lambda_r2_penalty: 1.0
