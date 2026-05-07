@@ -60,6 +60,14 @@ shap_estimator: exact_shap
 strict_exact_shap: true
 ```
 
+SHAP target semantics are explicit and configurable:
+
+```yaml
+shap_value_function: mean_output     # mean_output | sum_output | l2_output
+shap_baseline_mode: feature_mean     # feature_mean | median | zero
+shap_baseline_clip_nonnegative: true
+```
+
 ## Repository Structure
 
 The repository is organized around training, regularization, evaluation, and practical validation. The `src/` directory contains the core implementation, model definitions, training logic, and SHAP regularization modules. The `configs/` directory stores experiment configurations. The `scripts/` directory contains reporting, readiness, and cleanup utilities. The `tests/` directory is used for validation checks. The `results/` directory is intended for local experiment outputs and should not be used for committing heavy artifacts.
@@ -110,7 +118,7 @@ The repository includes a deletion-based faithfulness report. The evaluation com
 The report is generated with the following command.
 
 ```bash
-PYTHONPATH=. python scripts/report_faithfulness_top_random_bottom.py \
+python scripts/report_faithfulness_top_random_bottom.py \
   --summary results/training_summary_<timestamp>.json \
   --k-max 4 \
   --random-trials 20 \
@@ -124,7 +132,7 @@ The resulting report is used to check whether the attribution ranking is functio
 The alignment report compares exact SHAP targets with internal gradient-based importance. This check is needed to verify that the regularized model forms an internal attribution structure that is consistent with the SHAP target used during training.
 
 ```bash
-PYTHONPATH=. python scripts/report_importance_alignment.py \
+python scripts/report_importance_alignment.py \
   --ref results/feature_importance_shap_<timestamp>.csv \
   --cand results/feature_importance_internal_<timestamp>.csv \
   --label-ref shap_target \
@@ -139,7 +147,7 @@ The reference file is the exact SHAP importance report. The candidate file is th
 The practical readiness gate combines the main validation signals into a single release decision. It checks predictive quality, regularization behavior, deletion faithfulness, and SHAP/internal alignment.
 
 ```bash
-PYTHONPATH=. python scripts/practical_readiness_gate.py \
+python scripts/practical_readiness_gate.py \
   --summary results/training_summary_<timestamp>.json \
   --faithfulness results/faithfulness_<timestamp>.json \
   --alignment results/importance_alignment_<timestamp>.json
@@ -168,7 +176,7 @@ python train.py \
 Once training is complete, the deletion faithfulness report is generated.
 
 ```bash
-PYTHONPATH=. python scripts/report_faithfulness_top_random_bottom.py \
+python scripts/report_faithfulness_top_random_bottom.py \
   --summary results/training_summary_<timestamp>.json \
   --k-max 4 \
   --random-trials 20 \
@@ -178,7 +186,7 @@ PYTHONPATH=. python scripts/report_faithfulness_top_random_bottom.py \
 The next step is to compare the exact SHAP target with the internal importance produced by the model.
 
 ```bash
-PYTHONPATH=. python scripts/report_importance_alignment.py \
+python scripts/report_importance_alignment.py \
   --ref results/feature_importance_shap_<timestamp>.csv \
   --cand results/feature_importance_internal_<timestamp>.csv \
   --label-ref shap_target \
@@ -189,13 +197,50 @@ PYTHONPATH=. python scripts/report_importance_alignment.py \
 The final step is the practical readiness gate.
 
 ```bash
-PYTHONPATH=. python scripts/practical_readiness_gate.py \
+python scripts/practical_readiness_gate.py \
   --summary results/training_summary_<timestamp>.json \
   --faithfulness results/faithfulness_<timestamp>.json \
   --alignment results/importance_alignment_<timestamp>.json
 ```
 
 This sequence gives a complete validation path from baseline training to release readiness.
+
+## Reviewer-Oriented Benchmarks
+
+Classical/modern ML baselines on the same split:
+
+```bash
+python scripts/benchmark_ml_baselines.py \
+  --config configs/config_integrated_shap.yaml \
+  --seeds 42,43,44 \
+  --output-json results/ml_baselines_benchmark_3seed_20260507.json \
+  --output-md results/ml_baselines_benchmark_3seed_20260507.md
+```
+
+Unfolding-style proxy baselines (Tikhonov/NNLS):
+
+```bash
+python scripts/benchmark_unfolding_proxies.py \
+  --config configs/config_integrated_shap.yaml \
+  --seeds 42,43,44 \
+  --lambdas 1e-5,1e-4,1e-3,1e-2,1e-1
+```
+
+SHAP semantics sweep:
+
+```bash
+python scripts/sweep_shap_semantics.py \
+  --base-config configs/config_integrated_shap.yaml \
+  --baseline-modes feature_mean,median,zero \
+  --value-functions mean_output,sum_output,l2_output
+```
+
+`training_summary_*.json` now stores reproducibility metadata:
+- `config_sha256`
+- `effective_config_sha256`
+- `split_hash`
+- `diagnostics.shap_spec`
+- `diagnostics.shap_compute`
 
 ## Artifact Policy
 

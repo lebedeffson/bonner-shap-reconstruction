@@ -7,7 +7,9 @@ Outputs compact JSON + Markdown report with R2_weighted / R2_mean / RMSE / MAE.
 import argparse
 import json
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor, HistGradientBoostingRegressor
@@ -15,6 +17,11 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.neural_network import MLPRegressor
+
+# Allow direct execution: python scripts/...
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.utils.config_loader import load_config
 from src.utils.data_loader import load_validation_data

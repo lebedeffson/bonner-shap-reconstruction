@@ -6,12 +6,19 @@ Faithfulness report (top/random/bottom deletion) for ANFIS checkpoints.
 import argparse
 import json
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
+
+# Allow direct execution: python scripts/...
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.models.anfis_manager import ANFISManager
 from src.utils.config_loader import load_config
