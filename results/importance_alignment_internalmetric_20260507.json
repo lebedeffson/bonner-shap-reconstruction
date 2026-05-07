@@ -1,0 +1,21 @@
+{
+  "ref": "results/feature_importance_shap_20260507_094018_alignment_push_internalmetric_20260507.csv",
+  "cand": "results/feature_importance_internal_20260507_094018_alignment_push_internalmetric_20260507.csv",
+  "label_ref": "shap_target",
+  "label_cand": "internal_grad_loss_consistent",
+  "n_features_common": 10,
+  "pearson": 0.39875334525958545,
+  "spearman": 0.6242424242424243,
+  "cosine_similarity": 0.6545596796650326,
+  "js_divergence": 0.1407133077774485,
+  "topk": {
+    "3": {
+      "intersection": 1,
+      "jaccard": 0.2
+    },
+    "5": {
+      "intersection": 3,
+      "jaccard": 0.42857142857142855
+    }
+  }
+}

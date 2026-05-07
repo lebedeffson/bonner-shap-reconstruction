@@ -1,0 +1,44 @@
+{
+  "summary": "results/training_summary_20260507_094018_alignment_push_internalmetric_20260507.json",
+  "faithfulness": "results/faithfulness_alignment_push_internalmetric_20260507.json",
+  "alignment": "results/importance_alignment_internalmetric_20260507.json",
+  "overall_pass": true,
+  "checks": [
+    {
+      "name": "r2_weighted",
+      "value": 0.8388403197573774,
+      "rule": ">= 0.8",
+      "pass": true
+    },
+    {
+      "name": "regularization_share_mean",
+      "value": 0.08976739442455133,
+      "rule": ">= 0.05",
+      "pass": true
+    },
+    {
+      "name": "shap_contribution_mean",
+      "value": 0.0005664350787161051,
+      "rule": ">= 0.0001",
+      "pass": true
+    },
+    {
+      "name": "faithfulness_auc_gap",
+      "value": 0.016084364221000944,
+      "rule": ">= 0.0",
+      "pass": true
+    },
+    {
+      "name": "faithfulness_top_random_ratio",
+      "value": 1.934409214411245,
+      "rule": ">= 1.0",
+      "pass": true
+    },
+    {
+      "name": "alignment_cosine",
+      "value": 0.6545596796650326,
+      "rule": ">= 0.65",
+      "pass": true
+    }
+  ]
+}

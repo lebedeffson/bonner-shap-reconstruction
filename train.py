@@ -428,11 +428,17 @@ def train_and_save(args):
     shap_importance_data = X_real_shap_array
     
     shap_importance = shap_trainer.get_global_shap_importance(shap_importance_data)
+    internal_importance = shap_trainer.get_internal_gradient_importance(shap_importance_data)
     
     # Проверка на NaN/Inf
     metrics_array = np.array(list(shap_metrics.values()), dtype=float)
     importance_array = np.array(shap_importance, dtype=float)
-    if not np.isfinite(metrics_array).all() or not np.isfinite(importance_array).all():
+    internal_array = np.array(internal_importance, dtype=float)
+    if (
+        (not np.isfinite(metrics_array).all())
+        or (not np.isfinite(importance_array).all())
+        or (not np.isfinite(internal_array).all())
+    ):
         print("⚠️  SHAP-регуляризация дала некорректные значения (NaN/Inf).")
         raise ValueError("SHAP обучение завершилось с ошибкой: NaN/Inf в метриках")
     
@@ -440,6 +446,7 @@ def train_and_save(args):
     results['predictions'] = shap_predictions
     results['metrics'] = shap_metrics
     results['feature_importance_shap'] = np.asarray(shap_importance, dtype=float)
+    results['feature_importance_internal'] = np.asarray(internal_importance, dtype=float)
     results['shap_history'] = shap_history
     results['training_time_shap'] = shap_trainer.training_time
     results['training_time'] += shap_trainer.training_time
@@ -588,6 +595,13 @@ def train_and_save(args):
     shap_fi_path = os.path.join(results_dir, f"feature_importance_shap_{timestamp}.csv")
     shap_fi.to_csv(shap_fi_path, header=['importance'])
     shap_files['feature_importance_shap'] = os.path.basename(shap_fi_path)
+
+    if 'feature_importance_internal' in results:
+        internal_fi = _prepare_feature_importance(results['feature_importance_internal'], feature_names, normalize=True)
+        results['feature_importance_internal'] = internal_fi.to_numpy(dtype=float)
+        internal_fi_path = os.path.join(results_dir, f"feature_importance_internal_{timestamp}.csv")
+        internal_fi.to_csv(internal_fi_path, header=['importance'])
+        shap_files['feature_importance_internal'] = os.path.basename(internal_fi_path)
 
     shap_history_path = os.path.join(results_dir, f"shap_history_{timestamp}.json")
     with open(shap_history_path, 'w', encoding='utf-8') as f:

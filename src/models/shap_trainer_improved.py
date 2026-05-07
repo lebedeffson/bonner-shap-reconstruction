@@ -846,6 +846,45 @@ class ShapAwareANFISTrainerImproved:
         shap_values = self._calculate_shap_approximation(X_sample_array, baseline_values)
         return self._normalize_global_importance(shap_values)
 
+    def get_internal_gradient_importance(self, X_sample, batch_size=128):
+        """Внутренняя важность из того же градиентного механизма, что в consistency-loss."""
+        X_sample_array = np.array(X_sample) if not isinstance(X_sample, np.ndarray) else X_sample
+        X_sample_array = np.asarray(X_sample_array, dtype=np.float32)
+        if X_sample_array.ndim == 1:
+            X_sample_array = X_sample_array.reshape(1, -1)
+        if X_sample_array.size == 0:
+            return np.empty((0,), dtype=float)
+        X_sample_array = np.nan_to_num(X_sample_array, nan=0.0, posinf=0.0, neginf=0.0)
+
+        self.model.eval()
+        n = X_sample_array.shape[0]
+        d = X_sample_array.shape[1]
+        acc = np.zeros(d, dtype=np.float64)
+        total = 0
+
+        for start in range(0, n, max(1, int(batch_size))):
+            end = min(n, start + max(1, int(batch_size)))
+            xb = torch.tensor(X_sample_array[start:end], dtype=torch.float32, device=self.device, requires_grad=True)
+            pred = self.model(xb)
+            output_dim = pred.shape[1] if pred.ndim > 1 else 1
+            grad_outputs = torch.ones_like(pred) / output_dim
+            grad_input = torch.autograd.grad(
+                outputs=pred,
+                inputs=xb,
+                grad_outputs=grad_outputs,
+                create_graph=False,
+                retain_graph=False,
+                only_inputs=True,
+            )[0]
+            imp = (torch.abs(grad_input) * torch.abs(xb)).detach().cpu().numpy()
+            imp = np.nan_to_num(imp, nan=0.0, posinf=0.0, neginf=0.0)
+            acc += np.sum(imp, axis=0)
+            total += (end - start)
+
+        if total > 0:
+            acc = acc / float(total)
+        return self._normalize_global_importance(acc)
+
     @staticmethod
     def _normalize_global_importance(shap_values):
         shap_values = np.asarray(shap_values, dtype=float).reshape(-1)
