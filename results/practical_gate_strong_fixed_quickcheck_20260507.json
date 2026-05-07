@@ -1,0 +1,44 @@
+{
+  "summary": "results/training_summary_20260507_001106_strong_fixed_quickcheck_20260507.json",
+  "faithfulness": "results/faithfulness_strong_fixed_quickcheck_20260507.json",
+  "alignment": "results/importance_alignment_strong_fixed_quickcheck_20260507.json",
+  "overall_pass": false,
+  "checks": [
+    {
+      "name": "r2_weighted",
+      "value": 0.8386226142895192,
+      "rule": ">= 0.8",
+      "pass": true
+    },
+    {
+      "name": "regularization_share_mean",
+      "value": 0.25794745148827203,
+      "rule": ">= 0.05",
+      "pass": true
+    },
+    {
+      "name": "shap_contribution_mean",
+      "value": 0.002598539538199215,
+      "rule": ">= 0.0001",
+      "pass": true
+    },
+    {
+      "name": "faithfulness_auc_gap",
+      "value": 0.007989890206814156,
+      "rule": ">= 0.0",
+      "pass": true
+    },
+    {
+      "name": "faithfulness_top_random_ratio",
+      "value": 1.177920108125864,
+      "rule": ">= 1.0",
+      "pass": true
+    },
+    {
+      "name": "alignment_cosine",
+      "value": 0.5983578108549918,
+      "rule": ">= 0.65",
+      "pass": false
+    }
+  ]
+}

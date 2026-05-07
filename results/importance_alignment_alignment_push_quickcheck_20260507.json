@@ -1,0 +1,21 @@
+{
+  "ref": "results/feature_importance_shap_20260507_092801_alignment_push_quickcheck_20260507.csv",
+  "cand": "results/feature_importance_20260507_092801_alignment_push_quickcheck_20260507.csv",
+  "label_ref": "shap_target",
+  "label_cand": "internal_grad",
+  "n_features_common": 10,
+  "pearson": -0.1041109077719428,
+  "spearman": 0.3090909090909091,
+  "cosine_similarity": 0.6054722792864597,
+  "js_divergence": 0.19734161781065906,
+  "topk": {
+    "3": {
+      "intersection": 1,
+      "jaccard": 0.2
+    },
+    "5": {
+      "intersection": 3,
+      "jaccard": 0.42857142857142855
+    }
+  }
+}
